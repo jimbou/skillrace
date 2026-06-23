@@ -1,0 +1,16 @@
+On branch main
+nothing to commit, working tree clean
+All working as expected. Here's a summary:
+
+**`/workspace/cli.py`** — argparse-based CLI tool with two subcommands:
+
+| Subcommand | Usage | Description |
+|------------|-------|-------------|
+| `stats` | `python cli.py stats --file sample.txt` | Prints line count, word count, and character count |
+| `grep` | `python cli.py grep "fox|dog" --file sample.txt` | Prints lines matching a regex pattern |
+
+**Test results against `/workspace/sample.txt`:**
+
+- **stats** → Lines: 8, Words: 62, Characters: 378
+- **grep `"fox\|dog"`** → Returned the two lines containing either word
+- **grep `"^Python"`** → Returned the one line starting with "Python"

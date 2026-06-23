@@ -1,0 +1,36 @@
+On branch main
+nothing to commit, working tree clean
+Everything works. Here's a summary:
+
+### Files created
+| File | Purpose |
+|---|---|
+| `/workspace/cli.py` | CLI tool with `stats` and `grep` subcommands |
+| `/workspace/sample.txt` | 7-line test document (277 chars) |
+
+### Test results
+
+**`stats` subcommand:**
+```
+Lines:   7
+Words:   50
+Chars:   277
+```
+✅ All counts are correct.
+
+**`grep "line"` subcommand:**
+```
+It contains several lines of text.
+This line has some numbers like 42 and 100.
+Another line with lowercase words here.
+Final line of the sample document.
+```
+✅ Only matching lines printed.
+
+**Regex via `(?i)pattern` and `[0-9]+`:**
+- Case-insensitive search (`(?i)python`) matched `"Python is great..."` ✅
+- Numeric pattern (`[0-9]+`) matched the line containing `42` and `100` ✅
+
+**Error handling:**
+- Missing file prints a stderr error and exits non-zero ✅
+- No-match grep exits cleanly (code 0) ✅

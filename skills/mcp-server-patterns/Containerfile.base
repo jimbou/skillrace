@@ -1,0 +1,20 @@
+# Level-2 per-skill base: mcp-server-patterns (Node/TypeScript). Built ONCE per skill,
+# on top of the shared pi-base (environments.md, D-ENV-3).
+FROM skillrace/pi-base:0.62.0
+
+# The skill guidance, placed where pi discovers exactly this one skill.
+COPY SKILL.md /skills/mcp-server-patterns/SKILL.md
+
+# Finalize the base environment: an EMPTY, git-initialized /workspace project.
+# An MCP-server task's genuine unsolved start is "nothing built yet"; the per-test
+# generator tail adds the brief/partial state, and the agent builds the server from
+# there (it npm-installs the SDK at run time — the runner uses host networking).
+# Node 20 + npm come from pi-base.
+RUN set -eux; \
+    git config --global user.email "base@skillrace.local"; \
+    git config --global user.name "skillrace"; \
+    cd /workspace; \
+    printf 'node_modules/\ndist/\n*.log\n' > .gitignore; \
+    git init -q -b main; \
+    git add -A; \
+    git commit -q -m "base: empty mcp-server project"

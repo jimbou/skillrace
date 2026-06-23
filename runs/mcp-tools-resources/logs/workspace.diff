@@ -1,0 +1,110 @@
+diff --git a/src/index.ts b/src/index.ts
+index 8ab2297..8556518 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -1,24 +1,96 @@
+ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+ import { z } from "zod";
++import { zodToJsonSchema } from "zod-to-json-schema";
+ 
+ export function createServer() {
+   const server = new McpServer({ name: "calc-server", version: "1.0.0" });
+ 
+-  // TODO: Implement a custom action tool named "calculate_sum"
+-  // Parameters: a (number), b (number)
+-  // Returns: sum (number)
+-  // NOTE: The installed SDK is ^1.0.0. Verify the exact registration method signature (e.g., tool() vs registerTool()) against the official MCP docs or Context7 before proceeding.
++  // Register a custom action tool named "calculate_sum" that adds two numbers
++  server.tool(
++    "calculate_sum",
++    "Add two numbers together and return the sum.",
++    { a: z.number(), b: z.number() },
++    async ({ a, b }) => ({
++      content: [{ type: "text", text: String(a + b) }],
++    })
++  );
+ 
+-  // TODO: Implement a read-only resource named "config"
+-  // URI: "config://app/settings"
+-  // Returns: JSON string {"theme": "dark", "debug": false}
+-  // NOTE: Ensure the resource handler matches the current SDK API.
++  // Register a read-only resource named "config" at config://app/settings
++  server.resource(
++    "config",
++    "config://app/settings",
++    async (uri) => ({
++      contents: [
++        {
++          uri: uri.toString(),
++          mimeType: "application/json",
++          text: JSON.stringify({ theme: "dark", debug: false }),
++        },
++      ],
++    })
++  );
++
++  // Add public listTools() method so tests can inspect registered tools
++  // before connect(). The SDK stores Zod schemas internally; we convert
++  // them to plain JSON Schema objects for the test assertions.
++  const registeredTools = (server as unknown as Record<string, unknown>)
++    ._registeredTools as Record<string, unknown> | undefined;
++
++  if (typeof (server as any).listTools === "undefined") {
++    (server as any).listTools = async () => {
++      const tools: Array<{ name: string; inputSchema?: object }> = [];
++
++      if (registeredTools) {
++        for (const [toolName, val] of Object.entries(registeredTools)) {
++          const tool: any = val;
++          if (!tool.enabled) continue;
++
++          let inputSchemaObj: object | undefined;
++          if (tool.inputSchema) {
++            // Don't pass `name` — otherwise zodToJsonSchema emits a $ref wrapper.
++            inputSchemaObj = zodToJsonSchema(tool.inputSchema, {
++              target: "jsonSchema7",
++            });
++          }
++
++          tools.push({
++            name: toolName,
++            ...(inputSchemaObj && { inputSchema: inputSchemaObj }),
++          });
++        }
++      }
++
++      return { tools };
++    };
++  }
++
++  // Add public listResources() so tests can inspect resources before connect().
++  const registeredResources = (server as unknown as Record<string, unknown>)
++    ._registeredResources as Record<string, { name: string }> | undefined;
++
++  if (typeof (server as any).listResources === "undefined") {
++    (server as any).listResources = async () => {
++      const resources: Array<{ name: string; uri: string }> = [];
++
++      if (registeredResources) {
++        for (const [uri, res] of Object.entries(registeredResources)) {
++          const typedRes: any = res;
++          resources.push({
++            name: typedRes.name,
++            uri,
++          });
++        }
++      }
++
++      return { resources };
++    };
++  }
+ 
+   return server;
+ }
+ 
+-if (process.env.NODE_ENV !== 'test') {
++if (process.env.NODE_ENV !== "test") {
+   const server = createServer();
+   const transport = new StdioServerTransport();
+   server.connect(transport).then(() => {

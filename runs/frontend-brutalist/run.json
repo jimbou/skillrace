@@ -1,0 +1,20 @@
+{
+  "run_id": "run-df3f7cdda74e",
+  "skill": "frontent-design",
+  "prompt": "Build a high-energy landing page for an underground electronic music event that rejects standard grid layouts in favor of asymmetric, glitch-inspired compositions. Use bold typography and stark color blocking to convey a chaotic yet curated vibe, ensuring every design choice feels intentional and distinct rather than templated. Implement all styling and structure from scratch within the provided workspace.",
+  "base_image": "skillrace/frontent-design:base",
+  "env_image": "skillrace/recon-brutalist:latest",
+  "container": "recon-brutalist",
+  "container_alive": true,
+  "cleanup_grace_s": 3000,
+  "case": "out/frontend-gen/cases/cand-7ab1f316f8db",
+  "model": "qwen3.6-flash",
+  "termination": {
+    "reason": "timeout",
+    "rc": 124,
+    "seconds": 900.2
+  },
+  "trace": "raw/session.jsonl",
+  "workspace_diff": "logs/workspace.diff",
+  "_note": "container reconstructed from workspace.diff (original run timed out and was reaped)"
+}

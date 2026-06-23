@@ -1,0 +1,19 @@
+All tests pass. Here's a summary of what was implemented and verified:
+
+### `/workspace/cli.py` — Disk Usage CLI Tool
+
+| Feature | Details |
+|---|---|
+| **Positional `path`** | Defaults to current directory; can also be passed as `--path <dir>` |
+| **`--format`** | Choices: `human` (e.g. "5 GB") or `bytes` (raw integer). Default: `human` |
+| **`--min-space BYTES`** | Checks available free space via `shutil.disk_usage()`; warns on stderr and exits with code 1 if below threshold |
+
+### Test results
+
+| Test | Command | Outcome |
+|---|---|---|
+| Human-readable | `python3 cli.py sample_dir` | ✅ `Size: 5 GB`, exit 0 |
+| Bytes format | `python3 cli.py --format bytes sample_dir` | ✅ `Size: 5242880 bytes`, exit 0 |
+| Positional path | `python3 cli.py /workspace/sample_dir` | ✅ Same report, exit 0 |
+| **Min-space exceeded** | `--min-space 999999999999` (931 TB) | ⚠️ Warning + exit 1 |
+| Min-space OK | `--min-space 1073741824` (1 GB) | ✅ Report printed, exit 0 |

@@ -1,0 +1,18 @@
+{
+  "candidate_id": "cand-8650c1caa786",
+  "skill": "fix-failing-test",
+  "prompt": "Run the test suite (`python3 -m pytest -q`) to identify the failing tests. Read `test_cart.py` to understand the expected checkout behavior, then locate and fix the bug in `cart.py` where the coupon discount is ignored during total calculation. Re-run the tests to confirm all pass, and report what the bug was and how you fixed it.",
+  "base_image": "skillrace/fix-failing-test:base",
+  "containerfile": "FROM skillrace/fix-failing-test:base\n# >>> SKILLRACE TAIL >>>\nRUN cat > /workspace/cart.py <<'EOF'\nclass ShoppingCart:\n    def __init__(self):\n        self.items = []\n        self.coupon_discount = 0.0\n\n    def add_item(self, name, price):\n        self.items.append({\"name\": name, \"price\": price})\n\n    def apply_coupon(self, discount_amount):\n        self.coupon_discount = discount_amount\n\n    def calculate_total(self):\n        total = sum(item[\"price\"] for item in self.items)\n        return total\nEOF\n\nRUN cat > /workspace/test_cart.py <<'EOF'\nfrom cart import ShoppingCart\n\ndef test_empty_cart():\n    cart = ShoppingCart()\n    assert cart.calculate_total() == 0.0\n\ndef test_single_item_no_coupon():\n    cart = ShoppingCart()\n    cart.add_item(\"Widget\", 10.0)\n    assert cart.calculate_total() == 10.0\n\ndef test_multiple_items_with_coupon():\n    cart = ShoppingCart()\n    cart.add_item(\"Gadget\", 50.0)\n    cart.add_item(\"Doohickey\", 30.0)\n    cart.apply_coupon(15.0)\n    assert cart.calculate_total() == 65.0\n\ndef test_coupon_exceeds_total():\n    cart = ShoppingCart()\n    cart.add_item(\"Cheap Item\", 5.0)\n    cart.apply_coupon(10.0)\n    assert cart.calculate_total() == 0.0\nEOF\nRUN cd /workspace && git add -A && git commit -q -m \"skillrace: test setup\" || true\n# <<< SKILLRACE TAIL <<<\n",
+  "built_image": "skillrace/cand-8650c1caa786:built",
+  "provenance": {
+    "source": "random",
+    "parent_run_id": null,
+    "branch_id": null,
+    "mutation": null,
+    "summary": "Resolve inventory stock count discrepancy",
+    "task_nl": "Debug and fix the shopping cart total calculation so it accurately accounts for item prices and applied discounts.",
+    "env_nl": "A standalone e-commerce transaction handler using plain Python data structures. Tests simulate checkout flows and verify final totals. The summation routine neglects to apply coupon deductions before calculating the final sum.",
+    "build_attempts": 1
+  }
+}

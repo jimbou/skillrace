@@ -1,0 +1,16 @@
+Done. Here's a summary:
+
+**`/workspace/cli.py`** — CSV → JSON converter using only `csv`, `json`, `argparse`.
+
+| Feature | Details |
+|---|---|
+| **Input** | Positional arg or `--input` / `-i` |
+| **Output** | `--output` / `-o` (required) |
+| **Separator** | `--sep` (default `,`) |
+| **Column filter** | `--columns` / `-c` (comma-separated list) |
+| **Type inference** | Converts `true/false` → `bool`, plain digits → `int`, decimals → `float`, everything else → `str` |
+
+**Test results:**
+
+1. **Default (all columns)** — 5 records written to `output.json` with correct type inference (`age`→int, `salary`→float, `is_active`→bool).
+2. **Subset `--columns name,salary`** — 5 records with only those two fields in `output_subset.json`.

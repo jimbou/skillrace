@@ -1,0 +1,103 @@
+diff --git a/cli.py b/cli.py
+new file mode 100644
+index 0000000..099b50b
+--- /dev/null
++++ b/cli.py
+@@ -0,0 +1,84 @@
++#!/usr/bin/env python3
++"""A small CLI tool for analyzing text files — stats and grep subcommands."""
++
++import argparse
++import re
++import sys
++
++
++def cmd_stats(args):
++    """Print line, word, and character counts for the given file."""
++    try:
++        with open(args.file, "r", encoding="utf-8") as f:
++            content = f.read()
++    except FileNotFoundError:
++        print(f"Error: File '{args.file}' not found.", file=sys.stderr)
++        sys.exit(1)
++    except OSError as e:
++        print(f"Error reading '{args.file}': {e}", file=sys.stderr)
++        sys.exit(1)
++
++    num_lines = len(content.splitlines())
++    # Handle empty / whitespace-only file edge case
++    num_words = len(content.split()) if content.strip() else 0
++    num_chars = len(content)
++
++    print(f"Lines:    {num_lines}")
++    print(f"Words:    {num_words}")
++    print(f"Characters: {num_chars}")
++
++
++def cmd_grep(args):
++    """Print lines from the file matching the given regex pattern."""
++    try:
++        compiled = re.compile(args.pattern)
++    except re.error as e:
++        print(f"Error: Invalid regex pattern '{args.pattern}': {e}", file=sys.stderr)
++        sys.exit(1)
++
++    try:
++        with open(args.file, "r", encoding="utf-8") as f:
++            for i, raw_line in enumerate(f, start=1):
++                line = raw_line.rstrip("\n").rstrip("\r")
++                if compiled.search(line):
++                    print(f"{i}:{line}")
++    except FileNotFoundError:
++        print(f"Error: File '{args.file}' not found.", file=sys.stderr)
++        sys.exit(1)
++    except OSError as e:
++        print(f"Error reading '{args.file}': {e}", file=sys.stderr)
++        sys.exit(1)
++
++
++def main():
++    parser = argparse.ArgumentParser(
++        description="Analyze text files — stats and grep utilities."
++    )
++    subparsers = parser.add_subparsers(dest="command", help="Available commands")
++
++    # ---- stats ----
++    stats_p = subparsers.add_parser("stats", help="Show line/word/character count")
++    stats_p.add_argument(
++        "--file", "-f", required=True, help="Path to the input text file"
++    )
++    stats_p.set_defaults(func=cmd_stats)
++
++    # ---- grep ----
++    grep_p = subparsers.add_parser("grep", help="Search lines with a basic regex")
++    grep_p.add_argument("pattern", help="Regex pattern to search for")
++    grep_p.add_argument(
++        "--file", "-f", required=True, help="Path to the input text file"
++    )
++    grep_p.set_defaults(func=cmd_grep)
++
++    args = parser.parse_args()
++
++    if not args.command:
++        parser.print_help()
++        sys.exit(1)
++
++    args.func(args)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/sample.txt b/sample.txt
+new file mode 100644
+index 0000000..957ad58
+--- /dev/null
++++ b/sample.txt
+@@ -0,0 +1,7 @@
++Hello, world! This is a sample text file.
++It has multiple lines with varying content.
++The quick brown fox jumps over the lazy dog.
++Python CLI tools are fun to build.
++Another line with some more text here.
++regex patterns can match numbers like 42 or words like "hello".
++End of file — thanks for reading!

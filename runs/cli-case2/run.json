@@ -1,0 +1,17 @@
+{
+  "run_id": "run-cea41b5b3a4d",
+  "skill": "build-python-cli",
+  "prompt": "Implement a Python CLI script saved as `/workspace/cli.py` that reports disk usage for a specified directory. The script must support:\n\n- A positional or --path argument for the target directory (default: current directory).\n- A `--format` flag with choices like `human` (e.g. '1.5 GB') and `bytes` (raw byte counts). Default is `human`.\n- A `--min-space` option (in bytes) that checks available free space on the filesystem; if available space falls below this threshold, print a warning message and exit with code 1.\n\nUse standard-library modules only (no external dependencies). Test the script by running it against the existing `/workspace/sample_dir` directory to demonstrate a successful report, and also test the failure path by using --min-space with a value higher than the actual free space to trigger exit code 1.",
+  "base_image": "skillrace/build-python-cli:base",
+  "env_image": "skillrace/runenv-run-cea41b5b3a4d",
+  "final_image": "skillrace/runstate-run-cea41b5b3a4d",
+  "case": "out/cli-gen/cases/case2",
+  "model": "qwen3.6-flash",
+  "termination": {
+    "reason": "completed",
+    "rc": 0,
+    "seconds": 23.2
+  },
+  "trace": "raw/session.jsonl",
+  "workspace_diff": "logs/workspace.diff"
+}

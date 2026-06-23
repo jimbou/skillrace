@@ -1,0 +1,19 @@
+{
+  "run_id": "run-41682b88a9a6",
+  "skill": "mcp-server-patterns",
+  "prompt": "Implement a custom action tool named \"calculate_sum\" and a read-only resource named \"config\" in src/index.ts, ensuring your registration calls match the current MCP SDK API. Before writing any handlers, consult the official MCP documentation or Context7 to verify the exact method signatures for tool() and resource() in the installed SDK version, then update the stubs accordingly and pass all tests in tests/index.test.ts.",
+  "base_image": "skillrace/mcp-server-patterns:base",
+  "env_image": "skillrace/runenv-run-41682b88a9a6",
+  "container": "run-41682b88a9a6",
+  "container_alive": true,
+  "cleanup_grace_s": 1800,
+  "case": "out/mcp-gen/cases/cand-2ad8d3c60be3",
+  "model": "qwen3.6-flash",
+  "termination": {
+    "reason": "completed",
+    "rc": 0,
+    "seconds": 406.6
+  },
+  "trace": "raw/session.jsonl",
+  "workspace_diff": "logs/workspace.diff"
+}

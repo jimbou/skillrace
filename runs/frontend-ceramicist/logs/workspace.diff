@@ -1,0 +1,731 @@
+diff --git a/pottery-showcase/src/App.vue b/pottery-showcase/src/App.vue
+index 6b2675c..ff8cedb 100644
+--- a/pottery-showcase/src/App.vue
++++ b/pottery-showcase/src/App.vue
+@@ -1,15 +1,132 @@
++<script setup>
++import { ref, onMounted, onUnmounted } from 'vue'
++import ProductCard from './components/ProductCard.vue'
++import { products } from './data/products.js'
++
++const isLoaded = ref(false)
++
++onMounted(() => {
++  requestAnimationFrame(() => {
++    isLoaded.value = true
++  })
++})
++</script>
++
+ <template>
+-  <div class="min-h-screen bg-white text-gray-900 p-4">
+-    <header class="mb-8">
+-      <h1 class="text-2xl font-bold">Pottery Studio</h1>
+-      <p class="text-sm text-gray-500">Curated handmade ceramics</p>
++  <div class="min-h-screen bg-bone-50 text-soot-800 relative">
++    <!-- Subtle film grain -->
++    <div class="grain-overlay" aria-hidden="true"></div>
++
++    <!-- Cursor glow -->
++    <div class="cursor-glow hidden lg:block" aria-hidden="true"></div>
++
++    <!-- ─── Header / Masthead ─── -->
++    <header
++      class="pt-section pb-12 sm:pt-section sm:pb-16 px-gutter-wide"
++      :class="{ 'opacity-0': !isLoaded }"
++      :style="{ transition: `opacity 1s cubic-bezier(0.22, 1, 0.36, 1) 0.3s` }"
++    >
++      <div class="max-w-screen-2xl mx-auto">
++        <nav class="flex items-center justify-between mb-24">
++          <a href="#" class="font-display text-body-sm tracking-[0.08em] text-soot-500 hover:text-clay-700 transition-colors duration-500 nav-link">
++            Studio Index
++          </a>
++          <div class="hidden md:flex items-center gap-10">
++            <a href="#collection" class="font-label text-soot-400 hover:text-clay-600 transition-colors duration-400 nav-link">Collection</a>
++            <a href="#about" class="font-label text-soot-400 hover:text-clay-600 transition-colors duration-400 nav-link">Process</a>
++            <a href="#contact" class="font-label text-soot-400 hover:text-clay-600 transition-colors duration-400 nav-link">Inquire</a>
++          </div>
++        </nav>
++
++        <!-- Hero: Display typographic statement -->
++        <div class="max-w-4xl">
++          <p class="display-intro opacity-0" :class="{ '!opacity-100 animate-fade-up stagger-1': isLoaded }">
++            Each piece begins as a thought held in both hands
++          </p>
++          <h1
++            class="font-display font-normal text-display-md text-soot-900 mt-6 sm:mt-8 leading-none opacity-0"
++            :class="{ '!opacity-100 animate-scale-in stagger-3': isLoaded }"
++          >
++            Handmade<br/>
++            <span class="text-clay-600 italic">&amp;</span><br/>
++            Unhurried
++          </h1>
++          <hr class="ink-line mt-12 opacity-0" :class="{ 'animate-draw-line stagger-5': isLoaded }" />
++        </div>
++      </div>
+     </header>
+-    <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+-      <ProductCard v-for="p in products" :key="p.id" :product="p" />
+-    </main>
++
++    <!-- ─── Editorial Statement Section ─── -->
++    <section class="px-gutter-wide" :class="{ 'opacity-0': !isLoaded }"
++      :style="{ transition: `opacity 1s ease 0.8s` }">
++      <div class="max-w-screen-2xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0">
++        <div class="lg:col-span-4 lg:pr-12">
++          <span class="font-label text-clay-600">The Process</span>
++        </div>
++        <div class="lg:col-span-7 lg:col-start-5 lg:self-center">
++          <p class="font-body text-body-lg text-soot-500 leading-relaxed max-w-xl">
++            We work slowly because clay refuses to be rushed. Every bowl, every plate, every vessel carries the memory of its making — the pressure of fingers, the spin of the wheel, the breath held during glazing. These are not objects made to fill shelf space; they are invitations to pause.
++          </p>
++          <div class="mt-8 flex items-center gap-3">
++            <span class="block h-px w-12 bg-clay-300"></span>
++            <span class="font-body-xs text-clay-500">Est. 2019 · Portland, OR</span>
++          </div>
++        </div>
++      </div>
++    </section>
++
++    <!-- ─── Collection Grid ─── -->
++    <section id="collection" class="mt-section sm:mt-section px-gutter-wide">
++      <div class="max-w-screen-2xl mx-auto">
++        <!-- Section header with offset anchor -->
++        <div class="flex items-baseline gap-6 mb-16 sm:mb-20">
++          <span class="font-label text-clay-600 shrink-0">Selected Works</span>
++          <span class="font-display text-body-xs text-soot-300">(01 — 06)</span>
++          <hr class="ink-line--accent ml-4 flex-grow" />
++        </div>
++
++        <!-- Asymmetric grid: alternating left/right alignment creates rhythm -->
++        <div class="grid grid-cols-1 lg:grid-cols-12 gap-x-8 gap-y-20 sm:gap-y-28">
++          <ProductCard
++            v-for="(product, index) in products"
++            :key="product.id"
++            :product="product"
++            :index="index"
++            :cols="index % 2 === 0 ? 'lg:col-start-1 lg:col-span-6' : 'lg:col-start-7 lg:col-span-6'"
++            :row="index % 2 === 0 ? '' : 'lg:-mt-10'"
++          />
++        </div>
++      </div>
++    </section>
++
++    <!-- ─── Closing Editorial Block ─── -->
++    <section id="about" class="mt-section sm:mt-section px-gutter-wide">
++      <div class="max-w-screen-2xl mx-auto">
++        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end">
++          <div class="lg:col-span-4">
++            <span class="font-label text-clay-600">On Making</span>
++          </div>
++          <div class="lg:col-span-6 lg:col-start-6">
++            <blockquote class="font-display text-display-xs sm:text-display-sm text-soot-700 leading-tight not-italic">
++              "The pot remembers every touch that shaped it."
++            </blockquote>
++          </div>
++        </div>
++        <hr class="ink-line mt-16" />
++        <footer id="contact" class="py-16 sm:py-20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
++          <div>
++            <a href="mailto:hello@slowhandstudio.com"
++               class="font-display text-body-lg text-clay-700 hover:text-terracotta transition-colors duration-400 nav-link">
++              hello@slowhandstudio.com
++            </a>
++          </div>
++          <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
++            <span class="font-body-xs text-soot-300">© 2025 Slow Hand Studio</span>
++            <span class="font-body-xs text-soot-300 hidden sm:inline">·</span>
++            <span class="font-body-xs text-soot-300 hidden sm:inline">All pieces individually crafted</span>
++          </div>
++        </footer>
++      </div>
++    </section>
+   </div>
+ </template>
+-<script setup>
+-import { products } from './data/products.js'
+-import ProductCard from './components/ProductCard.vue'
+-</script>
+diff --git a/pottery-showcase/src/components/ProductCard.vue b/pottery-showcase/src/components/ProductCard.vue
+index 21a0326..3e48920 100644
+--- a/pottery-showcase/src/components/ProductCard.vue
++++ b/pottery-showcase/src/components/ProductCard.vue
+@@ -1,11 +1,91 @@
+-<template>
+-  <div class="border border-gray-200 p-4 rounded-lg">
+-    <div class="h-48 bg-gray-100 mb-4 flex items-center justify-center text-gray-400 text-xs">[Image Placeholder]</div>
+-    <h2 class="text-lg font-medium">{{ product.name }}</h2>
+-    <p class="text-sm text-gray-600 mt-1">{{ product.desc }}</p>
+-    <span class="block mt-2 font-semibold">{{ product.price }}</span>
+-  </div>
+-</template>
+ <script setup>
+-defineProps(['product'])
++defineProps({
++  product: { type: Object, required: true },
++  index: { type: Number, default: 0 },
++  cols: { type: String, default: '' },
++  row: { type: String, default: '' },
++})
+ </script>
++
++<template>
++  <article
++    class="group cursor-default"
++    :class="[cols, row]"
++  >
++    <!-- Abstract clay form visualization (CSS only) -->
++    <div
++      class="tactile-hover relative w-full aspect-[4/3] sm:aspect-[5/4] overflow-hidden rounded-sm opacity-0 animate-fade-in stagger-2"
++      :style="{ transitionDelay: `${index * 0.1 + 0.5}s` }"
++    >
++      <!-- Background gradient forming the vessel shape -->
++      <div
++        class="absolute inset-0"
++        :style="`background: ${product.gradient};`"
++      ></div>
++
++      <!-- Texture overlay (subtle noise) -->
++      <div class="clay-texture"></div>
++
++      <!-- Specular highlight for depth -->
++      <div class="specular-highlight"></div>
++
++      <!-- Glaze shimmer layer -->
++      <div class="glaze-shimmer" :style="`background-position: ${product.shimmerPos};`"></div>
++
++      <!-- Form variation class -->
++      <div
++        class="absolute inset-[8%]"
++        :class="product.form"
++        :style="`box-shadow: inset 0 -12px 30px rgba(0,0,0,0.15), inset 0 4px 20px rgba(255,255,255,0.06);`"
++      >
++        <!-- Subtle inner shadow suggesting volume -->
++        <div
++          class="absolute inset-0 rounded-full"
++          style="background: radial-gradient(ellipse at 65% 70%, rgba(0,0,0,0.12) 0%, transparent 60%);"
++        ></div>
++      </div>
++
++      <!-- Year badge — top right of form area -->
++      <div class="absolute top-4 right-4">
++        <span class="label-badge bg-bone-100 text-clay-700 border-clay-200"
++              :style="{ fontSize: '0.5rem', padding: '0.25em 0.7em' }">
++          {{ product.year }}
++        </span>
++      </div>
++    </div>
++
++    <!-- Typographic information block -->
++    <div class="mt-6 sm:mt-8 flex flex-col">
++      <!-- Material label -->
++      <div class="flex items-center gap-2 mb-2">
++        <span class="font-body-xs text-soot-400">{{ product.material }}</span>
++        <span class="block h-px flex-grow bg-soot-200 max-w-[40px]"></span>
++      </div>
++
++      <!-- Primary display title -->
++      <h2 class="font-display font-normal text-display-xs sm:text-display-sm leading-tight text-soot-900 group-hover:text-clay-700 transition-colors duration-600 ease-clay">
++        {{ product.name }}
++      </h2>
++
++      <!-- Subtitle in italic display weight -->
++      <p class="font-display text-body-xs text-clay-500 mt-1 italic">
++        "{{ product.subtitle }}"
++      </p>
++
++      <!-- Description -->
++      <p class="font-body text-body-sm text-soot-400 mt-4 max-w-md leading-relaxed">
++        {{ product.desc }}
++      </p>
++
++      <!-- Price & CTA row -->
++      <div class="flex items-end justify-between mt-6 pt-6 border-t border-soot-100">
++        <span class="price-tag">{{ product.price }}</span>
++        <button
++          class="font-label text-clay-500 hover:text-clay-700 transition-colors duration-400 nav-link"
++        >
++          View details
++        </button>
++      </div>
++    </div>
++  </article>
++</template>
+diff --git a/pottery-showcase/src/data/products.js b/pottery-showcase/src/data/products.js
+index c362121..e33ce14 100644
+--- a/pottery-showcase/src/data/products.js
++++ b/pottery-showcase/src/data/products.js
+@@ -1,5 +1,80 @@
+ export const products = [
+-  { id: 1, name: "Raku Glaze Mug", price: "$45", desc: "Hand-thrown stoneware with organic ash glaze.", material: "Stoneware" },
+-  { id: 2, name: "Celadon Bowl", price: "$60", desc: "Crackled surface finished with food-safe wax.", material: "Porcelain" },
+-  { id: 3, name: "Wood-Fired Plate", price: "$35", desc: "Natural flame marks and textured rim.", material: "Earthenware" }
++  {
++    id: 1,
++    name: 'Raku Glaze Mug',
++    subtitle: 'Ash & Ember',
++    desc: 'Hand-thrown stoneware quenched in burning sawdust, yielding unpredictable carbon-trapped surfaces.',
++    material: 'Stoneware',
++    price: '$45',
++    year: '2024',
++    color: '#c4734f',
++    gradient: 'linear-gradient(160deg, #c4734f 0%, #8a553a 40%, #4e3025 100%)',
++    form: 'clay-orb',
++    shimmerPos: '30% 25%',
++  },
++  {
++    id: 2,
++    name: 'Celadon Bowl',
++    subtitle: 'Jade Whisper',
++    desc: 'Crackled celadon glaze over porcelain body, finished with hand-rubbed food-safe walnut oil.',
++    material: 'Porcelain',
++    price: '$60',
++    year: '2024',
++    color: '#7a9b8a',
++    gradient: 'linear-gradient(160deg, #a8c5b6 0%, #7a9b8a 40%, #4a6b5a 100%)',
++    form: 'form-bowl',
++    shimmerPos: '35% 30%',
++  },
++  {
++    id: 3,
++    name: 'Wood-Fired Plate',
++    subtitle: 'Flame Kneaded',
++    desc: 'Earthenware rimmed by natural flame ash deposits — each mark tells a different fire story.',
++    material: 'Earthenware',
++    price: '$35',
++    year: '2025',
++    color: '#bfa88a',
++    gradient: 'linear-gradient(160deg, #d4bfa6 0%, #bfa88a 40%, #8a7660 100%)',
++    form: 'form-plate',
++    shimmerPos: '40% 35%',
++  },
++  {
++    id: 4,
++    name: 'Tenmoku Vase',
++    subtitle: 'Midnight Pour',
++    desc: 'Iron-rich glaze flows to form cascading ripple patterns reminiscent of dark river currents.',
++    material: 'Stoneware',
++    price: '$95',
++    year: '2025',
++    color: '#3d2b1f',
++    gradient: 'linear-gradient(160deg, #5c3d2e 0%, #3d2b1f 40%, #1a0f08 100%)',
++    form: 'form-vase',
++    shimmerPos: '32% 28%',
++  },
++  {
++    id: 5,
++    name: 'Shino Serving Dish',
++    subtitle: 'Snow Carried',
++    desc: "Thick white shino glaze broken at the edges to reveal warm clay beneath, winters breath on earth.",
++    material: 'Stoneware',
++    price: '$78',
++    year: '2024',
++    color: '#c8bfb4',
++    gradient: 'linear-gradient(160deg, #e4dac7 0%, #c8bfb4 40%, #a39888 100%)',
++    form: 'form-bowl',
++    shimmerPos: '38% 32%',
++  },
++  {
++    id: 6,
++    name: 'Urasenke Teapot',
++    subtitle: 'Gentle Hand',
++    desc: 'Minimalist cast handle meets rounded body. Balanced for one or two, built for unhurried mornings.',
++    material: 'Cast Iron',
++    price: '$120',
++    year: '2025',
++    color: '#6b5e52',
++    gradient: 'linear-gradient(160deg, #8a7e70 0%, #6b5e52 40%, #4a4036 100%)',
++    form: 'clay-orb',
++    shimmerPos: '34% 26%',
++  },
+ ]
+diff --git a/pottery-showcase/src/index.css b/pottery-showcase/src/index.css
+index b5c61c9..f1f1895 100644
+--- a/pottery-showcase/src/index.css
++++ b/pottery-showcase/src/index.css
+@@ -1,3 +1,274 @@
++@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap');
++
+ @tailwind base;
+ @tailwind components;
+ @tailwind utilities;
++
++/* ─── Reset & Base ─── */
++*, *::before, *::after {
++  box-sizing: border-box;
++}
++
++html {
++  scroll-behavior: smooth;
++  -webkit-font-smoothing: antialiased;
++  -moz-osx-font-smoothing: grayscale;
++}
++
++body {
++  margin: 0;
++  background-color: #fdfcfb;
++  color: #1a1a1a;
++  font-family: 'DM Sans', system-ui, sans-serif;
++  overflow-x: hidden;
++}
++
++/* ─── Display Typography ─── */
++.font-display {
++  font-family: 'Cormorant Garamond', Georgia, serif;
++  font-weight: 400;
++}
++
++.display-intro {
++  font-size: clamp(1rem, 1.5vw, 1.375rem);
++  line-height: 1.15;
++  letter-spacing: -0.02em;
++  font-style: italic;
++  color: #8a553a;
++}
++
++/* ─── Micro-interaction Foundations ─── */
++.tactile-hover {
++  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
++              opacity 0.4s ease;
++}
++
++.tactile-hover:hover {
++  transform: translateY(-4px);
++}
++
++.tactile-hover:active {
++  transition-duration: 0.1s;
++  transform: translateY(-1px);
++}
++
++/* ─── Ink-line divider ─── */
++.ink-line {
++  height: 1px;
++  background: linear-gradient(90deg, transparent, #d4d4d4 20%, #d4d4d4 80%, transparent);
++  border: none;
++}
++
++.ink-line--accent {
++  background: linear-gradient(90deg, transparent, #c4734f 30%, #c4734f 70%, transparent);
++  opacity: 0.4;
++}
++
++/* ─── Clay orb — abstract pottery visualization ─── */
++.clay-orb {
++  position: relative;
++  width: 100%;
++  padding-top: 110%;
++  border-radius: 50% 50% 48% 52% / 52% 48% 52% 48%;
++  overflow: hidden;
++  transition: border-radius 0.8s cubic-bezier(0.22, 1, 0.36, 1);
++}
++
++.clay-orb::before {
++  content: '';
++  position: absolute;
++  inset: 0;
++  border-radius: inherit;
++  transition: border-radius 0.8s cubic-bezier(0.22, 1, 0.36, 1);
++}
++
++.tactile-hover:hover .clay-orb {
++  border-radius: 48% 52% 52% 48% / 48% 52% 48% 52%;
++}
++
++.tactile-hover:hover .clay-orb::before {
++  border-radius: inherit;
++}
++
++/* ─── Form variation: bowl ─── */
++.form-bowl {
++  border-radius: 45% 55% 50% 50% / 60% 60% 40% 40%;
++}
++
++/* ─── Form variation: plate ─── */
++.form-plate {
++  border-radius: 50% / 52% 48% 52% 48%;
++}
++
++/* ─── Form variation: vase ─── */
++.form-vase {
++  border-radius: 40% 60% 55% 45% / 48% 48% 52% 52%;
++}
++
++/* ─── Glaze shimmer effect ─── */
++.glaze-shimmer {
++  position: absolute;
++  top: -50%;
++  left: -50%;
++  width: 200%;
++  height: 200%;
++  background: radial-gradient(ellipse at 35% 30%, rgba(255,255,255,0.18) 0%, transparent 55%);
++  pointer-events: none;
++  transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
++  mix-blend-mode: soft-light;
++}
++
++.tactile-hover:hover .glaze-shimmer {
++  top: -40%;
++  left: -35%;
++  opacity: 0.7;
++}
++
++/* ─── Texture noise overlay for clay forms ─── */
++.clay-texture {
++  position: absolute;
++  inset: 0;
++  opacity: 0.06;
++  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
++  background-size: 128px 128px;
++  pointer-events: none;
++}
++
++/* ─── Specular highlight (subtle rim light on form) ─── */
++.specular-highlight {
++  position: absolute;
++  top: 8%;
++  right: 12%;
++  width: 35%;
++  height: 25%;
++  border-radius: 50%;
++  background: radial-gradient(ellipse, rgba(255,255,255,0.22) 0%, transparent 70%);
++  pointer-events: none;
++  transform: rotate(-15deg);
++}
++
++/* ─── Stagger animation delays ─── */
++.stagger-1 { animation-delay: 0.1s; }
++.stagger-2 { animation-delay: 0.2s; }
++.stagger-3 { animation-delay: 0.3s; }
++.stagger-4 { animation-delay: 0.4s; }
++.stagger-5 { animation-delay: 0.5s; }
++.stagger-6 { animation-delay: 0.6s; }
++
++/* ─── Scroll-triggered visibility ─── */
++.reveal {
++  opacity: 0;
++  transform: translateY(24px);
++  transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
++              transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
++}
++
++.reveal.visible {
++  opacity: 1;
++  transform: translateY(0);
++}
++
++/* ─── Navigation link underline animation ─── */
++.nav-link {
++  position: relative;
++}
++
++.nav-link::after {
++  content: '';
++  position: absolute;
++  bottom: -2px;
++  left: 0;
++  width: 0;
++  height: 1px;
++  background-color: #c4734f;
++  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
++}
++
++.nav-link:hover::after {
++  width: 100%;
++}
++
++/* ─── Label badge ─── */
++.label-badge {
++  display: inline-block;
++  font-family: 'DM Sans', system-ui, sans-serif;
++  font-size: 0.5625rem;
++  font-weight: 500;
++  letter-spacing: 0.18em;
++  text-transform: uppercase;
++  color: #a66e4a;
++  border: 1px solid #e6d8c9;
++  padding: 0.3em 0.9em;
++  border-radius: 100px;
++  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
++}
++
++.tactile-hover:hover .label-badge {
++  background-color: #a66e4a;
++  color: #faf7f4;
++  border-color: #a66e4a;
++}
++
++/* ─── Price display ─── */
++.price-tag {
++  font-family: 'Cormorant Garamond', Georgia, serif;
++  font-size: 1.5rem;
++  font-weight: 400;
++  letter-spacing: -0.01em;
++  color: #404040;
++  transition: color 0.4s ease;
++}
++
++.tactile-hover:hover .price-tag {
++  color: #c4734f;
++}
++
++/* ─── Grain overlay for warmth ─── */
++.grain-overlay {
++  position: fixed;
++  top: -50%;
++  left: -50%;
++  width: 200%;
++  height: 200%;
++  pointer-events: none;
++  z-index: 9999;
++  opacity: 0.025;
++  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
++}
++
++/* ─── Cursor follow glow (decorative accent) ─── */
++.cursor-glow {
++  position: fixed;
++  width: 320px;
++  height: 320px;
++  border-radius: 50%;
++  background: radial-gradient(circle, rgba(196,115,79,0.06) 0%, transparent 70%);
++  pointer-events: none;
++  z-index: 0;
++  transition: transform 0.15s ease-out;
++  will-change: transform;
++}
++
++/* ─── Selection color ─── */
++::selection {
++  background-color: #e6d8c9;
++  color: #4e3025;
++}
++
++/* ─── Smooth scrollbar ─── */
++::-webkit-scrollbar {
++  width: 6px;
++}
++
++::-webkit-scrollbar-track {
++  background: #f2ebe3;
++}
++
++::-webkit-scrollbar-thumb {
++  background: #d4bfa6;
++  border-radius: 3px;
++}
++
++::-webkit-scrollbar-thumb:hover {
++  background: #b78762;
++}
+diff --git a/pottery-showcase/tailwind.config.js b/pottery-showcase/tailwind.config.js
+index a907c93..0c6d34c 100644
+--- a/pottery-showcase/tailwind.config.js
++++ b/pottery-showcase/tailwind.config.js
+@@ -1,2 +1,105 @@
+ /** @type {import('tailwindcss').Config} */
+-export default { content: ["./index.html", "./src/**/*.{vue,js,ts,jsx,tsx}"], theme: { extend: {} }, plugins: [] }
++export default {
++  content: ["./index.html", "./src/**/*.{vue,js,ts,jsx,tsx}"],
++  theme: {
++    extend: {
++      fontFamily: {
++        display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
++        body: ['"DM Sans"', 'system-ui', 'sans-serif'],
++      },
++      fontSize: {
++        'display-xs': ['3rem', { lineHeight: '1.05', letterSpacing: '-0.02em', fontWeight: '400' }],
++        'display-sm': ['3.75rem', { lineHeight: '1.0', letterSpacing: '-0.025em', fontWeight: '400' }],
++        'display-md': ['5.5rem', { lineHeight: '0.95', letterSpacing: '-0.03em', fontWeight: '400' }],
++        'display-lg': ['7rem', { lineHeight: '0.9', letterSpacing: '-0.035em', fontWeight: '400' }],
++        'body-xs': ['0.6875rem', { lineHeight: '1.6', letterSpacing: '0.12em', fontWeight: '400', textTransform: 'uppercase' }],
++        'body-sm': ['0.8125rem', { lineHeight: '1.7', letterSpacing: '0.04em', fontWeight: '400' }],
++        'body-md': ['1rem', { lineHeight: '1.65', letterSpacing: '0.01em', fontWeight: '400' }],
++        'body-lg': ['1.25rem', { lineHeight: '1.6', letterSpacing: '-0.01em', fontWeight: '300' }],
++        'label': ['0.625rem', { lineHeight: '1.8', letterSpacing: '0.2em', fontWeight: '500', textTransform: 'uppercase' }],
++      },
++      colors: {
++        clay: {
++          50: '#faf7f4',
++          100: '#f2ebe3',
++          200: '#e6d8c9',
++          300: '#d4bfa6',
++          400: '#c4a07e',
++          500: '#b78762',
++          600: '#a66e4a',
++          700: '#8a553a',
++          800: '#6d4231',
++          900: '#4e3025',
++        },
++        bone: {
++          50: '#fdfcfb',
++          100: '#f9f6f1',
++          200: '#f0eadf',
++          300: '#e4dac7',
++        },
++        soot: {
++          50: '#f7f7f7',
++          100: '#eaeaea',
++          200: '#d4d4d4',
++          300: '#a3a3a3',
++          400: '#737373',
++          500: '#525252',
++          600: '#404040',
++          700: '#2b2b2b',
++          800: '#1a1a1a',
++          900: '#0f0f0f',
++        },
++        ash: '#c8bfb4',
++        terracotta: '#c4734f',
++      },
++      spacing: {
++        'section': '8rem',
++        'gutter': 'clamp(1.5rem, 4vw, 4rem)',
++        'gutter-wide': 'clamp(2rem, 6vw, 7rem)',
++      },
++      animation: {
++        'fade-up': 'fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards',
++        'fade-in': 'fadeIn 1s ease forwards',
++        'scale-in': 'scaleIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards',
++        'draw-line': 'drawLine 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards',
++        'hover-lift': 'hoverLift 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards',
++        'breath': 'breath 4s ease-in-out infinite',
++      },
++      keyframes: {
++        fadeUp: {
++          '0%': { opacity: '0', transform: 'translateY(24px)' },
++          '100%': { opacity: '1', transform: 'translateY(0)' },
++        },
++        fadeIn: {
++          '0%': { opacity: '0' },
++          '100%': { opacity: '1' },
++        },
++        scaleIn: {
++          '0%': { opacity: '0', transform: 'scale(0.92)' },
++          '100%': { opacity: '1', transform: 'scale(1)' },
++        },
++        drawLine: {
++          '0%': { width: '0%' },
++          '100%': { width: '100%' },
++        },
++        hoverLift: {
++          '0%': { transform: 'translateY(0)' },
++          '100%': { transform: 'translateY(-6px)' },
++        },
++        breath: {
++          '0%, 100%': { opacity: '0.4' },
++          '50%': { opacity: '1' },
++        },
++      },
++      transitionDuration: {
++        'slow': '600ms',
++        'slower': '1000ms',
++      },
++      transitionTimingFunction: {
++        'clay': 'cubic-bezier(0.22, 1, 0.36, 1)',
++        'warm': 'cubic-bezier(0.4, 0, 0.2, 1)',
++      },
++    },
++  },
++  plugins: [],
++}

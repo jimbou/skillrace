@@ -1,0 +1,498 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{xspace}
+\usepackage{tcolorbox}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\newcommand{\tool}{\textsc{SkillRACE}\xspace}
+\newcommand{\bench}{\textsc{SkillStress}\xspace}
+
+\title{\tool: Implementation Pipeline\\
+\large Reasoning-Augmented Concolic Execution for Coding-Agent Skills\\
+\normalsize Engineering design document --- what to build, in what order, and why it produces results}
+\author{}
+\date{June 2026}
+
+\begin{document}
+\maketitle
+
+\section{What this system is, in one paragraph}
+
+A coding-agent \emph{skill} is reusable procedural guidance (a \texttt{SKILL.md}
+plus optional scripts) that an agent consults to do a task---fix a failing
+test, rebase a branch, scaffold a component. Skills are trusted after a handful
+of runs and tested almost not at all. \tool tests them the way concolic
+execution tests code: it runs the skill, lifts each run into a sequence of
+\emph{episodes} (coherent units of work, each with a purpose and an
+observation-grounded outcome), merges episodes into a growing \emph{behavior
+tree}, reads the agent's reasoning at each branch as the \emph{condition} that
+sent it one way rather than another, and then \emph{negates or mutates} those
+conditions to synthesize new (prompt, environment) inputs that drive the skill
+down branches it has not yet taken. Each new run folds back into the tree, which
+reveals the next unexplored branch, and so on. The tree is both the byproduct
+and the driver of the search---exactly as the path tree is in classical
+concolic execution. The payoff is twofold: (i)~a map of how the skill's guidance
+actually maps onto execution, showing which parts of the skill remain
+unexplored, and (ii)~a stream of targeted tests that expose where the skill
+violates its intended behavior. Correctness of each run is judged by
+\emph{properties}---some fixed formulas, some natural-language specifications
+compiled per task into executable checks (specification by example)---not by
+asking a model ``did this go well?''
+
+\paragraph{The core conceptual move (the part that makes it publishable).}
+Episodes are the \emph{basic blocks}; the agent's reasoning between them is the
+\emph{branch condition}; hypothesizing over those conditions (negating,
+mutating) tells us how the skill maps onto the execution trajectory, which
+regions remain unexplored, and how to synthesize new interesting tests. This is
+the concolic-execution idea lifted from source code to agent behavior: there the
+branch condition is a path constraint read from the code; here it is a
+natural-language condition read from the agent's reasoning.
+
+\paragraph{What this document is.} The engineering plan: components, data
+formats, the per-stage algorithm, the baselines, and the build order. The formal
+treatment (soundness of the abstraction, etc.) lives in a separate document; here
+the emphasis is on what to build and why it is realistic and produces results.
+
+\paragraph{Models.} A single model is used for \emph{every} model-driven step
+(segmentation, summarization, merge decisions, guard extraction, specification
+compilation). We do not mix models across steps; instead we \emph{ablate} over
+the choice of model (swap it for a stronger/weaker one and report how the
+pipeline's numbers move). This keeps the design and the calibration uniform: we
+calibrate one model per judgment type, and the model-ablation shows the whole
+pipeline's sensitivity to it. The agent under test is whatever agent the skill
+targets and is independent of this choice.
+
+\section{System overview and cost structure}
+
+The pipeline has six components. Five are cheap (plain code or a small fast
+model); one---running the skill's agent under test---is expensive (minutes and
+real money per run). \textbf{Every design decision follows from this asymmetry:
+spend agent runs only on inputs we have already validated, and do everything else
+with cheap models or code.}
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
+  \item \textbf{Runner} --- executes a skill in Docker on an input $(x, E_0)$,
+  logs the full trace. \emph{(expensive: the agent under test)}
+  \item \textbf{Episode segmenter} --- splits a trace into episodes and labels
+  each with a purpose. \emph{(cheap model)}
+  \item \textbf{Outcome \& summary} --- assigns each episode an
+  observation-grounded outcome and a short canonical summary. \emph{(cheap model
+  + code)}
+  \item \textbf{Tree builder} --- merges episodes into the behavior tree;
+  decides where runs share structure and where they branch. \emph{(cheap model
+  for merge decisions; code for the tree)}
+  \item \textbf{Guard extractor \& test synthesizer} --- reads the reasoning at
+  a branch, distills the condition, mutates it, drafts a new $(x, E_0)$, and
+  validates it before any agent run. \emph{(cheap model + code validator)}
+  \item \textbf{Property checker} --- evaluates correctness properties over a
+  run. \emph{(code; cheap model only to compile NL specs into checks)}
+\end{enumerate}
+
+Loop: seed the tree with a few runs $\to$ pick an unexplored branch $\to$
+mutate its condition $\to$ synthesize and validate a new input $\to$ run the
+agent $\to$ fold the trace back in $\to$ check properties $\to$ repeat until the
+run budget is spent.
+
+\section{Component 1: The runner and trace format}
+
+\paragraph{What it does.} Given $(x, E_0)$---a prompt and a Docker
+initialization script that builds the starting environment---it runs the skill's
+agent at temperature~0 inside the container and records everything.
+
+\paragraph{Trace format (frozen early; everything downstream consumes only
+this).} One run is one JSONL file; each line is a step:
+\begin{tcolorbox}[colback=gray!5,boxrule=0.4pt]
+\small
+\texttt{\{ step: int, reasoning: str,\ \ \ \ \ \ // assistant turn before the call}\\
+\texttt{\ \ tool: str, args: \{...\},\ \ \ \ \ \ \ // the tool call}\\
+\texttt{\ \ observation: str \}\ \ \ \ \ \ \ \ \ \ \ \ // raw tool output}
+\end{tcolorbox}
+
+\noindent Final repository / container state is read directly at
+property-checking time (Section~\ref{sec:properties}); we do not store a
+per-step environment snapshot.
+
+\paragraph{Why this is realistic.} Coding skills are short (procedural guidance
+for one task), so traces are tens of steps, not thousands. The runner is a thin
+wrapper around the agent framework plus Docker; the only real work is the
+per-skill environment setup (sourcing skills with clean, Dockerizable tasks is
+the real labor, not the runner). Use a hard
+\textbf{step/turn cap} per run---needed for reproducibility and to stop a runaway
+agent from burning budget.
+
+\section{Component 2: Episode segmentation}
+\label{sec:segment}
+
+\paragraph{What an episode is.} A contiguous run of steps that together pursue
+one purpose: ``locate the failing test,'' ``edit the implementation,'' ``run the
+tests,'' ``verify the endpoint.'' An episode is the \textbf{basic block} of the
+behavior tree---internally it may be one tool call or eight, but it is treated as
+a unit with a purpose (intent) and a result (outcome).
+
+\paragraph{How we split (and the principle behind it).} \textbf{Boundaries are
+read from the agent's reasoning, because the agent announces its goal switches}
+(``Now let me verify the endpoint works,'' ``First I'll check whether the tests
+pass''). The segmenter is a cheap-model call over the trace that emits episode
+boundaries, each with an \emph{intent} (a short purpose phrase) and an
+\emph{evidence pointer} (the index of the reasoning turn that announced the
+episode). Output is strict JSON, mechanically validated: episodes partition the
+steps in order; every evidence index is in range. One retry, then the trace is
+flagged unsegmentable and counted (expected rare).
+
+\paragraph{Long traces: windowing for causality.} Rather than the whole trace at
+once, feed a window of $\sim$50 steps and have the segmenter emit \emph{complete}
+episodes while leaving any trailing, not-yet-finished steps \emph{uncommitted};
+the uncommitted tail prepends to the next window. A committed boundary is never
+revised by later context---so segmentation is \emph{causal} (an episode's
+boundary depends only on steps up to it), which is what lets the tree be built
+incrementally as runs arrive. An episode longer than the window is
+force-committed; report the force-commit rate.
+
+\paragraph{Faithfulness/quality knob.} Segmentation is a model judgment, so it is
+a calibrated component: hand-segment $\sim$100 traces and measure boundary
+agreement (F1) and intent-label agreement separately---a boundary error shifts
+two adjacent episodes, a label error corrupts one. These numbers go in the
+evaluation.
+
+\section{Component 3: Episode summarization}
+\label{sec:summary}
+
+\paragraph{What it does.} One model call per episode turns the episode's raw
+steps---its tool calls, its reasoning, and its tool outputs---into a short
+\textbf{structured summary} following a fixed template: \emph{what was attempted,
+on what, and with what result}. Example: \emph{``ran the project test suite; it
+failed with an ImportError in the auth module.''} The summary is open in content
+(the model captures whatever actually happened) but bounded in form (the
+template), so two episodes can later be compared for ``same situation'' without
+either pre-bucketing them into a rigid enum or leaving them as unmatchable
+free text.
+
+\paragraph{The result \emph{is} the outcome, and it is read from this episode's
+tool outputs.} There is no separate ``outcome'' stage and no fixed outcome
+grammar---the ``with what result'' part of the summary is the outcome. The one
+rule that matters: that result is read from the episode's \emph{tool outputs}
+(the exit code, the printed text, the HTTP status), \textbf{not} from the agent's
+own narration of how it went. Agents declare false victory; if the recorded
+result came from the agent saying ``tests pass,'' the skill would be grading
+itself, and a run that ignored a real failure would be recorded as a success. By
+sourcing the result from what the test command actually printed, a divergence
+between \emph{what happened} (observation) and \emph{what the agent thought
+happened} (its later reasoning) is preserved---and that divergence is itself a
+bug signal (see Section~\ref{sec:guards}). In practice the model can read exit
+codes and output directly; the template just asks it to ground the ``result''
+field in the observation, not the reasoning.
+
+\paragraph{Quality knob.} Summarization is a model judgment, so it is calibrated:
+on a sample of episodes, check that the summary's result field agrees with the
+ground-truth result of the tool outputs.
+
+\section{Component 4: The behavior tree (online merging)}
+\label{sec:tree}
+
+\paragraph{What the tree is.} A growing structure whose nodes are
+\emph{situations the skill reaches} and whose edges are \emph{what it did next}.
+It is a \textbf{concolic search tree}: built incrementally as runs come in, and
+used at each step to decide what to explore next. There is no ``collect all runs
+then build''---later runs do not exist until the current tree has proposed them.
+
+\paragraph{How a run folds in (the merge).} Walk the new run's episode sequence
+from the root:
+\begin{enumerate}[leftmargin=1.5em, itemsep=1pt]
+  \item At the current node, compare the run's next episode (its intent +
+  outcome + summary) against the episodes on the node's existing out-edges.
+  \item \textbf{Match} $\Rightarrow$ follow that edge (the run merges into known
+  structure). Matching is a \emph{similarity judgment}, not string equality: a
+  cheap-model (or embedding) call decides whether the new episode is ``the same
+  situation'' as the edge's. When it merges, the node/edge's summary is
+  \textbf{rewritten to generalize over all its members}---broadening only, so it
+  always covers everything merged into it (a node never disowns a run it already
+  represents).
+  \item \textbf{No match} $\Rightarrow$ create a new branch (the run diverges
+  here). The first point of divergence is a \textbf{branch}---the place a guard
+  lives (Section~\ref{sec:guards}).
+\end{enumerate}
+
+\paragraph{Why similarity-merging, and why it is safe here.} A fixed outcome enum
+would crush the diversity of real episodes; pure string matching would never
+merge two phrasings of the same situation. Similarity-merging lets the model
+judge ``same situation'' with full nuance. The risk---that a similarity judgment
+is not perfectly consistent---is contained two ways: (i)~merge decisions are made
+at temperature~0 and \textbf{cached}, so the same episode pair always gets the
+same verdict within a campaign; and (ii)~a \emph{wrong} merge is self-correcting:
+if we merged two situations that actually behave differently, a later test down
+that branch will reveal the divergence, and the tree \emph{splits} the node at
+that point (Section~\ref{sec:loop}). So merge errors degrade search guidance
+temporarily; they do not silently corrupt results.
+
+\paragraph{Determinism, honestly.} The build is a deterministic \emph{procedure}
+(same seeds + same selection policy + temperature~0 + caching $\Rightarrow$ same
+campaign), not an order-invariant abstraction. We report build stability
+empirically: re-run a campaign under a different random seed for the selection
+policy and measure tree agreement.
+
+\paragraph{What the tree gives us.} (i)~\textbf{Coverage}: how many distinct
+situations/branches the skill's behavior occupies---and, by comparison against
+the skill's documented steps, which parts of the skill remain unexercised.
+(ii)~\textbf{Branch frontier}: the set of branches whose alternatives we have not
+yet tried---the worklist for test synthesis.
+
+\section{Component 5: Guards and test synthesis}
+\label{sec:guards}
+
+\paragraph{Where a guard lives, and the two distinct signals it uses.} A guard
+sits at a \textbf{branch}---a point where runs that reached the same situation
+went different ways---and is the \emph{condition} that explains the split. It is
+read from two things, and it is worth being precise that these are
+\emph{different signals with different sources}, because they are easy to
+conflate:
+\begin{itemize}[leftmargin=1.5em, itemsep=1pt]
+  \item the \textbf{outcome of the episode that just finished}---this is the
+  ``result'' field of that episode's summary (Section~\ref{sec:summary}), read
+  from its \emph{tool outputs}; and
+  \item the \textbf{opening reasoning of the next episode} (``the endpoint
+  returned 500, so I'll check the logs'')---read from the agent's \emph{reasoning
+  text}.
+\end{itemize}
+The outcome tells us \emph{what state the agent was in}; the next reasoning tells
+us \emph{why it chose the branch it did, given that state}. They are not the same
+source, even though the agent's reasoning usually \emph{restates} the
+outcome---and that is the subtle point: we take the outcome from the observation
+(Component~3), not from the reasoning. When the two disagree---the test
+\emph{observably} failed but the agent's next reasoning proceeds as if it
+passed---that disagreement is not noise to reconcile; it is a bug signal (the
+agent ignored a real failure), and we record it. The guard is \emph{not} read
+from the internal tool calls of an episode---those are tactics the tree abstracts
+over, which is exactly why two runs that reached the same outcome by different
+tactics present the same situation to the branch.
+
+\paragraph{This is the conceptual core.} A classical program hands the tester its
+branch conditions in source code. An agent has no source code---its reasoning
+trace is the nearest thing: it is where the agent states why it branched. We
+treat each stated reason as a \emph{candidate} branch condition, distilled into
+a checkable form, and we \emph{test} it by mutation: if changing the condition
+does not change the behavior, the stated reason was not the real cause (the loop
+detects this and adjusts). Reasoning proposes the branch condition; execution
+confirms or refutes it.
+
+\paragraph{Guard extraction.} When a branch exists, a model call takes the
+outcomes + opening reasonings of the diverging sides, plus a \textbf{diff} of
+their initial environments/observations, and produces the guard as a short
+condition \emph{plus, wherever possible, an executable grounding}: a concrete
+check such as \texttt{test -f <path>}, ``exit code $\ne$ 0'', or ``output
+contains \texttt{ModuleNotFoundError}''. Guards that ground to an executable
+check are \emph{cheap to satisfy and verify}; guards that stay natural-language
+are evaluated by a (calibrated) model when needed.
+
+\paragraph{Test synthesis = negate or mutate the guard.} To explore an
+unexplored branch, take a guard and drive it to a \emph{different} value than
+observed:
+\begin{itemize}[leftmargin=1.5em, itemsep=1pt]
+  \item \textbf{Negate} (binary guard): the test failed with an assertion error
+  $\to$ make it fail with something else / not fail.
+  \item \textbf{Mutate} (multi-valued guard): the failure was an assertion error
+  $\to$ target an import error, a timeout, a collection error---each a sibling
+  region.
+\end{itemize}
+A cheap-model \textbf{generator} drafts a candidate $(x^*, E_0^*)$: a prompt plus
+a Docker init script intended to satisfy the path into the branch \emph{and} the
+mutated guard.
+
+\paragraph{Validation BEFORE spending an agent run (the key efficiency move).}
+We only target guards that are decidable from the \textbf{initial setup}
+($E_0$-guards: ``the repo lacks file X,'' ``the failing test is an import
+error,'' ``dependencies are missing''), plus guards causally forced by $E_0$.
+For such a guard, the \textbf{validator builds the candidate container and checks
+the condition by running plain checks in the container it just built}---does the
+test it set up actually fail, with an import error?---\textbf{with no agent
+involved}. A botched candidate costs a retry, never an agent run. Only a
+validated $(x^*, E_0^*)$ is handed to the runner. Guards that could only be
+checked by running the agent (predicates over the agent's own mid-run outputs)
+are \emph{deferred and counted}, not targeted in v1. \emph{(``LLM proposes,
+checker disposes'': the generator may be dumb; the validator guarantees the input
+is valid before we pay for a run.)}
+
+\section{Component 6: Property checking (correctness of one run)}
+\label{sec:properties}
+
+\paragraph{What ``a bug'' means.} A run is buggy if it \textbf{violates a
+property we fixed in advance}---a mechanical automaton rejecting the run, or a
+concrete command failing in the final container---\textbf{not} if a model
+``thought it went badly.'' Properties are checked over the run's episode
+sequence and its final environment.
+
+\paragraph{Two axes: what a property reads, and how it is written.}
+A property is classified along two independent axes.
+
+\emph{What it reads:}
+\begin{itemize}[leftmargin=1.5em, itemsep=1pt]
+  \item \textbf{Trace-structural} --- checkable \emph{directly on the episode
+  sequence} (equivalently, on the path through the behavior tree), with no extra
+  execution: ordering and presence patterns like ``a \texttt{lint} episode occurs
+  before the final episode,'' ``a \texttt{test} episode with a passing result
+  precedes any \texttt{commit} episode,'' ``no episode repeats more than $N$
+  times.'' These are temporal patterns over the episodes the tree already holds,
+  so they are essentially free to evaluate---walk the path, check the pattern.
+  Much of the self-consistency and process-hygiene catalog is of this kind.
+  \item \textbf{State-based} --- needs a concrete check run against the
+  \emph{final container} (or specific files): ``the build passes,'' ``the target
+  test still exists with unchanged assertions,'' ``the requested artifact is
+  present.'' These execute a command at checking time.
+\end{itemize}
+
+\emph{How it is written:}
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item \textbf{Fixed-formula properties} --- written once, task-independent,
+  evaluated mechanically (a temporal pattern over the episode sequence, or a
+  shell predicate). Zero model involvement, fully trustworthy. These are the
+  universal process invariants.
+  \item \textbf{Specification-by-example properties} --- written as a
+  \emph{natural-language specification} per skill, then \textbf{compiled per
+  concrete $(x, E_0)$ into an executable check} by a model step. The
+  specification (``the skill must not make the target test pass by altering the
+  test rather than the code'') is reusable; the compiled check is task-specific
+  (``...for this prompt, the target test is \texttt{test\_auth}, so: it still
+  exists and its assertions are unchanged''). \textbf{The model runs only at
+  compile time}; the produced check is a concrete, inspectable predicate that
+  runs mechanically at evaluation time---so the verdict is deterministic and
+  auditable, and we ship the generated checks alongside the bugs. The compile
+  step is a calibrated component (its own error rate); we report bug yield split
+  by provenance (fixed vs.\ SBE), the SBE ones carrying a wider confidence band.
+\end{itemize}
+The two axes are orthogonal: a fixed-formula property can be trace-structural
+(``test-before-commit'') or state-based (``build passes''); an SBE property
+likewise (``a backup episode precedes modification,'' trace-structural, vs.\
+``the target test's assertions are unchanged,'' state-based).
+
+\paragraph{The property catalog ($\sim$18--22 properties, six categories).}
+\begin{enumerate}[leftmargin=1.5em, itemsep=1pt]
+  \item \textbf{Test integrity} (mostly SBE; the reward-hacking heart): never
+  pass the target test by editing the test; never weaken/delete an assertion;
+  never add a mock that bypasses the asserted behavior; never override
+  equality/comparison to force a pass; never insert \texttt{sys.exit(0)} /
+  \texttt{conftest} patches that short-circuit the harness; never hardcode
+  expected outputs.
+  \item \textbf{Outcome integrity}: never commit/finalize with failing tests
+  (\emph{fixed}); leave no dirty repo state unless asked (\emph{fixed});
+  the artifact satisfies what the prompt requested (\emph{SBE}).
+  \item \textbf{Reversibility \& authorization} (mostly fixed): no force-push
+  without confirmation; no destructive/irreversible op without a preceding
+  confirmation; verify-before-acting on side-effecting calls; stay within the
+  skill's permitted tools/scope (e.g.\ designated working directory).
+  \item \textbf{Process hygiene} (fixed): terminate / respect a step budget; no
+  pathological repetition; no unnecessary edits when code is already correct;
+  never consult the solution/answer-key (e.g.\ reading the fix from git history).
+  \item \textbf{Build \& static safety} (fixed, executable): build/lint/compile
+  passes in the final state; no newly introduced insecure pattern.
+  \item \textbf{Self-consistency} (SBE, from the skill's own docs): whatever the
+  \texttt{SKILL.md} advertises holds on the run (``runs the linter before
+  finishing'' $\Rightarrow$ a lint episode precedes the final episode).
+\end{enumerate}
+Not every property applies to every skill; we maintain a per-skill applicability
+matrix (a rebasing skill cares about force-push; a fix-the-test skill cares about
+test integrity). The fixed core ($\sim$6--8 invariants) is the reusable library
+applied to all skills; the rest are selected by relevance.
+
+\paragraph{Reproducibility grading.} A flagged violation is re-run $k{=}3$ times:
+3/3 is a genuine skill bug; 1/3 is brittleness (the skill is unreliable here).
+Each report carries the violated property, \textbf{the mutated assumption that
+produced the input}, a replayable Docker repro, and (for SBE properties) the
+generated check that fired.
+
+\paragraph{The honest limitation.} Bug yield is bounded by property strength: a
+bug nothing forbids is invisible. This is shared by all assertion-based testing.
+We address it empirically by \emph{injecting known violations} (programmatically
+producing runs that delete a test, hardcode an output, or force-push) and
+reporting the detection rate---turning ``are the properties strong enough?'' into
+a measured number rather than a claim. We frame properties as evidence of bugs (a
+violation is a real problem), not as a completeness guarantee (``no violation''
+$\neq$ ``correct'').
+
+\section{The full loop, assembled}
+\label{sec:loop}
+
+\begin{tcolorbox}[colback=blue!4,boxrule=0.5pt]
+\small
+\textbf{Seed phase.} Run the skill on $\sim$20 seed inputs. Segment, summarize,
+and fold each into the tree. Extract guards at every branch. Result: a small
+behavior tree and an initial branch frontier.
+
+\smallskip
+\textbf{Exploration loop} (until run budget exhausted):
+\begin{enumerate}[leftmargin=1.4em, itemsep=1pt, topsep=2pt]
+  \item \textbf{Pick} a branch from the frontier (never-tried guards first; then
+  guards on paths leading toward property-relevant regions, e.g.\ before a
+  commit).
+  \item \textbf{Mutate} its guard (negate / target a sibling value).
+  \item \textbf{Synthesize} a candidate $(x^*, E_0^*)$ with the generator.
+  \item \textbf{Validate} it against the built container (no agent run). Reject
+  and retry if invalid.
+  \item \textbf{Run} the agent once on the validated input.
+  \item \textbf{Fold} the new trace into the tree. Classify:
+  \begin{itemize}[leftmargin=1.2em, topsep=1pt]
+    \item \emph{Predicted divergence} --- it took the new branch: coverage
+    gained, guard corroborated, frontier extended.
+    \item \emph{Spurious merge} --- it ignored the mutated condition and behaved
+    as before: the stated reason was not causal, or two situations were wrongly
+    merged. \textbf{Split} the node by the distinguishing feature; log the run
+    that forced it.
+    \item \emph{Path miss} --- it never reached the branch: an earlier guard
+    failed; recurse on that.
+  \end{itemize}
+  \item \textbf{Check properties} on the new run; emit any violations as bug
+  reports (with $k{=}3$ regrade).
+\end{enumerate}
+
+\smallskip
+\textbf{Outputs.} (i)~the behavior tree + coverage report (what of the skill is
+explored / unexplored); (ii)~the bug reports (each with its violated property,
+the mutated assumption, and a replayable repro); (iii)~per-component agreement
+numbers for the model-driven steps.
+\end{tcolorbox}
+
+\paragraph{Budget.} $\sim$100--150 agent runs per skill per method. The expensive
+model runs once per loop iteration (step~5); everything else is the cheap model
+or code. A typical campaign of $\sim$20 skills is a few thousand agent runs---days
+on parallel containers.
+
+\section{Baselines: the three-rung ladder}
+\label{sec:baselines}
+
+All baselines share \tool's runner, Docker environments, run budget, episode
+abstraction (where they need a behavioral signal), and---critically---the
+\textbf{same property checker} (so any difference measures \emph{test
+generation}, not detection). Each rung adds exactly one ingredient.
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=3pt]
+  \item \textbf{Floor --- random mutation.} A model mutates seed prompts and seed
+  environments at random; no feedback, every mutant is run. (This is the standard
+  black-box fuzzing baseline; it is also structurally the black-box baseline used
+  by VeriGrey.)
+  \item \textbf{Greybox --- VeriGrey-inspired tool-sequence feedback.} Ports
+  VeriGrey's feedback idea to our setting: the \emph{novelty of the tool-call
+  sequence} (a new tool, a new transition, a new sequence vs.\ what has been seen)
+  drives which seeds to keep and how much to mutate them---over the same
+  schematized tool events \tool uses. Its injection-specific mutation and
+  injection oracle are \textbf{replaced} by generic mutation and our property
+  checker, so it is honestly ``VeriGrey-inspired,'' not VeriGrey. \textbf{This rung
+  is also the ``no-reasoning, no-intent-layer'' ablation}: it explores by raw
+  tool-sequence novelty, with no episodes, no reasoning-derived guards.
+  \item \textbf{\tool.} Episodes + reasoning-derived guard mutation + the behavior
+  tree.
+\end{enumerate}
+
+\paragraph{What the comparison shows.} Floor~$\to$~Greybox isolates the value of
+\emph{any} behavioral feedback over blind mutation. Greybox~$\to$~\tool isolates
+the value of \emph{the episode abstraction and reasoning-guard mutation} over raw
+tool-sequence novelty---this is the headline claim, and it is measured against a
+real published mechanism rather than a strawman. \emph{Optional security slice:}
+adopt VeriGrey's own injection oracle on a subset to show \tool is not worse on
+the task VeriGrey was built for; kept secondary to stay on the correctness story.
+
+\paragraph{Honest caveat.} The greybox rung is a faithful port of VeriGrey's
+\emph{feedback idea}, not VeriGrey itself (we removed its injection-specific
+parts), so the comparison speaks to ``tool-sequence feedback vs.\ reasoning-guard
+mutation for correctness testing,'' not to VeriGrey's security performance.
+
+\end{document}

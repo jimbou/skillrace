@@ -1,0 +1,17 @@
+# Built image tarballs — rebuild from the Dockerfiles instead (source of truth)
+images/**/*.tar
+images/**/*.tar.gz
+*.tar.gz
+
+# Build logs
+images/**/build.log
+skills/**/base-build.log
+CLAUDE.md
+
+# Run artifacts / traces / snapshots (regenerated per run)
+out/
+
+# Python cache
+__pycache__/
+*.pyc
+.claude*

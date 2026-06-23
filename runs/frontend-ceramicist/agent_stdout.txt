@@ -1,0 +1,37 @@
+On branch main
+nothing to commit, working tree clean
+The dev server compiled cleanly. Here's what was built:
+
+---
+
+### Design System Built Across 4 Files
+
+**`tailwind.config.js`** — Custom typography scale and color palette:
+- **Display fonts**: `Cormorant Garamond` at 4 sizes (3rem → 7rem), ultra-tight tracking, near-zero line-heights for that editorial magazine feel
+- **Body fonts**: `DM Sans` with a unique label size (0.625rem, 0.2em letter-spacing) for metadata
+- **Custom colors**: `clay` (warm terracotta spectrum), `bone` (cream paper tones), `soot` (charcoal ink), plus accent `terracotta` and `ash`
+- **Custom easing**: `'clay'` cubic-bezier `(0.22, 1, 0.36, 1)` — the same smooth deceleration used across every transition
+- **Animations**: `fade-up`, `scale-in`, `draw-line`, `breath` — all defined in config
+
+**`src/index.css`** — Bespoke stylistic rules replacing Tailwind defaults:
+- Film-grain SVG overlay for tactile warmth
+- CSS-only pottery forms via asymmetrical `border-radius` ratios (`form-bowl`, `form-plate`, `form-vase`) — no images needed
+- Glaze shimmer layer using `mix-blend-mode: soft-light` radial gradient
+- Specular highlight for subtle volume illusion
+- Ink-line dividers with fading edges
+- Cursor-follow glow (desktop only)
+- Hover micro-interactions: `translateY(-4px)` lift, badge fill transitions, price color shifts to terracotta
+- Nav-link underline animation via `::after` pseudo-element with width draw
+
+**`src/App.vue`** — Editorial asymmetric layout:
+- Hero uses the display font as the primary visual element ("Handmade & Unhurried") — large Cormorant italic ampersand in clay color
+- Offset two-column editorial section for studio statement (label left, prose right)
+- Alternating grid rows with `lg:-mt-10` offset creating rhythmic overlap between cards
+- Blockquote hero closing section: "The pot remembers every touch that shaped it."
+- Staggered load animations on page mount
+
+**`src/components/ProductCard.vue`** — Typography-driven product card:
+- Abstract form visualization from `product.gradient` + layered CSS overlays (texture noise, specular highlight, glaze shimmer)
+- Each piece has a different vessel shape via `border-radius` variation
+- Information hierarchy: tiny uppercase label → large serif title → italic subtitle → muted body text → decorative rule → price + CTA row
+- Title color shifts to `clay-700` on hover; price turns terracotta

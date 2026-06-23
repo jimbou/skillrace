@@ -1,0 +1,20 @@
+{
+  "run_id": "run-d67e074946aa",
+  "skill": "frontent-design",
+  "prompt": "Design a responsive product showcase where the visual hierarchy relies entirely on the interplay between a large, expressive display font and crisp body text, utilizing generous whitespace and subtle micro-interactions to highlight the tactile quality of handmade pottery without relying on decorative stock imagery. Use the existing Vue 3 and Tailwind setup, overwriting the default utility-first baseline with bespoke stylistic rules that give the page a distinct, non-templated character.",
+  "base_image": "skillrace/frontent-design:base",
+  "env_image": "skillrace/recon-ceramicist:latest",
+  "container": "recon-ceramicist",
+  "container_alive": true,
+  "cleanup_grace_s": 1800,
+  "case": "out/frontend-gen/cases/cand-1bde4d9d445d",
+  "model": "qwen3.6-flash",
+  "termination": {
+    "reason": "completed",
+    "rc": 0,
+    "seconds": 145.7
+  },
+  "trace": "raw/session.jsonl",
+  "workspace_diff": "logs/workspace.diff",
+  "_note": "reconstructed from workspace.diff to re-verify checks after syntax-gate fix"
+}

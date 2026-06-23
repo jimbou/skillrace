@@ -1,0 +1,101 @@
+diff --git a/cli.py b/cli.py
+new file mode 100644
+index 0000000..f9d9724
+--- /dev/null
++++ b/cli.py
+@@ -0,0 +1,82 @@
++#!/usr/bin/env python3
++"""A small CLI tool to analyze text files using argparse subcommands."""
++
++import argparse
++import re
++import sys
++
++
++def cmd_stats(args):
++    """Print line, word, and character counts for the given file."""
++    try:
++        with open(args.file, "r", encoding="utf-8") as f:
++            content = f.read()
++    except FileNotFoundError:
++        print(f"Error: file not found: {args.file}", file=sys.stderr)
++        sys.exit(1)
++    except OSError as e:
++        print(f"Error reading file: {e}", file=sys.stderr)
++        sys.exit(1)
++
++    lines = content.splitlines()
++    line_count = len(lines) if content else 0
++    word_count = len(content.split())
++    char_count = len(content)
++
++    print(f"Lines:   {line_count}")
++    print(f"Words:   {word_count}")
++    print(f"Chars:   {char_count}")
++
++
++def cmd_grep(args):
++    """Print lines from a file matching the given regex pattern."""
++    try:
++        pattern = re.compile(args.pattern)
++    except re.error as e:
++        print(f"Invalid regex pattern: {e}", file=sys.stderr)
++        sys.exit(1)
++
++    try:
++        with open(args.file, "r", encoding="utf-8") as f:
++            for lineno, line in enumerate(f, start=1):
++                if pattern.search(line):
++                    # Strip the trailing newline for display, then add it back
++                    print(line.rstrip("\n"))
++    except FileNotFoundError:
++        print(f"Error: file not found: {args.file}", file=sys.stderr)
++        sys.exit(1)
++    except OSError as e:
++        print(f"Error reading file: {e}", file=sys.stderr)
++        sys.exit(1)
++
++
++def main():
++    parser = argparse.ArgumentParser(
++        prog="cli",
++        description="Analyze text files with subcommands (stats, grep).",
++    )
++    subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
++
++    # --- stats subcommand ---
++    stats_parser = subparsers.add_parser("stats", help="Show line, word, and char counts")
++    stats_parser.add_argument("file", help="Path to the input file")
++
++    # --- grep subcommand ---
++    grep_parser = subparsers.add_parser("grep", help="Search for lines matching a regex pattern")
++    grep_parser.add_argument("pattern", help="Basic regex pattern to search for")
++    grep_parser.add_argument("file", help="Path to the input file")
++
++    args = parser.parse_args()
++
++    if args.command is None:
++        parser.print_help()
++        sys.exit(1)
++
++    if args.command == "stats":
++        cmd_stats(args)
++    elif args.command == "grep":
++        cmd_grep(args)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/sample.txt b/sample.txt
+new file mode 100644
+index 0000000..a4cc96a
+--- /dev/null
++++ b/sample.txt
+@@ -0,0 +1,7 @@
++Hello world, this is a sample text file.
++It contains several lines of text.
++The quick brown fox jumps over the lazy dog.
++This line has some numbers like 42 and 100.
++Another line with lowercase words here.
++Python is great for scripting tasks!
++Final line of the sample document.

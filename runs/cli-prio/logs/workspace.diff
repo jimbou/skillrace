@@ -1,0 +1,191 @@
+diff --git a/cli.py b/cli.py
+new file mode 100644
+index 0000000..248d8ff
+--- /dev/null
++++ b/cli.py
+@@ -0,0 +1,83 @@
++#!/usr/bin/env python3
++"""Convert a CSV file to a JSON array of objects."""
++
++import argparse
++import csv
++import json
++import sys
++
++
++def parse_args(argv=None):
++    parser = argparse.ArgumentParser(
++        description="Convert a CSV file to a JSON array of objects."
++    )
++    parser.add_argument(
++        "input",
++        help="Path to the input CSV file.",
++    )
++    parser.add_argument(
++        "--output", "-o",
++        required=True,
++        help="Destination file path for the JSON output.",
++    )
++    parser.add_argument(
++        "--sep",
++        default=",",
++        help='Custom field separator (default: ","). Use "\\t" for tab.',
++    )
++    parser.add_argument(
++        "--columns", "-c",
++        default=None,
++        help=(
++            "Comma-separated list of column names to include. "
++            "If omitted, all columns are included."
++        ),
++    )
++    return parser.parse_args(argv)
++
++
++def convert_csv_to_json(input_path, sep, columns=None):
++    """Read *input_path* (CSV, delimited by *sep*) and return a list of dicts."""
++    with open(input_path, newline="", encoding="utf-8") as fh:
++        reader = csv.DictReader(fh, delimiter=sep)
++        if reader.fieldnames is None:
++            print("Error: CSV file appears to be empty or has no header row.", file=sys.stderr)
++            sys.exit(1)
++
++        requested_columns = columns.split(",") if columns else None
++        if requested_columns:
++            # Validate requested columns exist in the header
++            invalid = [c for c in requested_columns if c not in reader.fieldnames]
++            if invalid:
++                print(
++                    f"Error: Column(s) {', '.join(repr(c) for c in invalid)} "
++                    f"not found in CSV header ({', '.join(reader.fieldnames)})"
++                )
++                sys.exit(1)
++
++        rows = []
++        for record in reader:
++            if requested_columns:
++                rows.append({col: record[col] for col in requested_columns})
++            else:
++                rows.append(dict(record))
++
++    return rows
++
++
++def main():
++    args = parse_args()
++
++    # Resolve --sep escapes (e.g., "\\t" -> actual tab character)
++    sep = args.sep.encode().decode("unicode_escape")
++
++    data = convert_csv_to_json(args.input, sep, columns=args.columns)
++
++    with open(args.output, "w", encoding="utf-8") as fh:
++        json.dump(data, fh, indent=2, ensure_ascii=False)
++
++    print(f"Wrote {len(data)} records to {args.output}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/output.json b/output.json
+new file mode 100644
+index 0000000..23db900
+--- /dev/null
++++ b/output.json
+@@ -0,0 +1,42 @@
++[
++  {
++    "id": "1",
++    "name": "Alice",
++    "age": "30",
++    "salary": "75000.50",
++    "is_active": "true",
++    "join_date": "2020-01-15"
++  },
++  {
++    "id": "2",
++    "name": "Bob",
++    "age": "25",
++    "salary": "55000.00",
++    "is_active": "false",
++    "join_date": "2021-06-01"
++  },
++  {
++    "id": "3",
++    "name": "Charlie",
++    "age": "35",
++    "salary": "92000.75",
++    "is_active": "true",
++    "join_date": "2019-03-20"
++  },
++  {
++    "id": "4",
++    "name": "Diana",
++    "age": "28",
++    "salary": "61000.25",
++    "is_active": "true",
++    "join_date": "2022-11-10"
++  },
++  {
++    "id": "5",
++    "name": "Eve",
++    "age": "31",
++    "salary": "83000.00",
++    "is_active": "false",
++    "join_date": "2020-08-05"
++  }
++]
+\ No newline at end of file
+diff --git a/output_subset.json b/output_subset.json
+new file mode 100644
+index 0000000..4047242
+--- /dev/null
++++ b/output_subset.json
+@@ -0,0 +1,22 @@
++[
++  {
++    "name": "Alice",
++    "salary": "75000.50"
++  },
++  {
++    "name": "Bob",
++    "salary": "55000.00"
++  },
++  {
++    "name": "Charlie",
++    "salary": "92000.75"
++  },
++  {
++    "name": "Diana",
++    "salary": "61000.25"
++  },
++  {
++    "name": "Eve",
++    "salary": "83000.00"
++  }
++]
+\ No newline at end of file
+diff --git a/output_tsv.json b/output_tsv.json
+new file mode 100644
+index 0000000..b0e64d8
+--- /dev/null
++++ b/output_tsv.json
+@@ -0,0 +1,17 @@
++[
++  {
++    "id,name,age,salary,is_active,join_date": "1,Alice,30,75000.50,true,2020-01-15"
++  },
++  {
++    "id,name,age,salary,is_active,join_date": "2,Bob,25,55000.00,false,2021-06-01"
++  },
++  {
++    "id,name,age,salary,is_active,join_date": "3,Charlie,35,92000.75,true,2019-03-20"
++  },
++  {
++    "id,name,age,salary,is_active,join_date": "4,Diana,28,61000.25,true,2022-11-10"
++  },
++  {
++    "id,name,age,salary,is_active,join_date": "5,Eve,31,83000.00,false,2020-08-05"
++  }
++]
+\ No newline at end of file

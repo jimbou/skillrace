@@ -1,0 +1,11 @@
+All **16 tests pass**. Here's a summary of the two fixes applied to `csv_parser.py`:
+
+### Fix 1: Escaped quotes (`""` → `"`) inside quoted fields (lines ~30-38)
+**Before:** When encountering `"` while `in_quotes=True`, the code blindly set `in_quotes=False`, eating the escape mechanism entirely. This caused `b""c` → `bc` instead of `b"c`.
+
+**After:** Now checks if the next character is also `"` — if so, it appends a single `"` to the field and advances past both characters. Otherwise, it treats the lone `"` as the closing quote.
+
+### Fix 2: Empty string input (final accumulation, line ~57)
+**Before:** The condition `if current_field or current_row:` was falsy for an empty string (`current_field=""`, `current_row=[]`), resulting in `[]` instead of `[[""]]`.
+
+**After:** Changed to `if not rows or current_field or current_row:` — when no rows have been collected yet (the empty-input case), it ensures we emit a single row with one empty field.

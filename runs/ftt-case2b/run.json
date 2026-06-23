@@ -1,0 +1,16 @@
+{
+  "run_id": "run-5e91c45044df",
+  "skill": "fix-failing-test",
+  "prompt": "Execute the pytest suite, read the failing tests to understand expected behavior, and fix the CSV parsing implementation in csv_parser.py to handle quoted fields correctly according to RFC 4180.",
+  "base_image": "skillrace/fix-failing-test:base",
+  "env_image": "skillrace/runenv-run-5e91c45044df",
+  "case": "out/genagent/cases/case2",
+  "model": "qwen3.6-flash",
+  "termination": {
+    "reason": "completed",
+    "rc": 0,
+    "seconds": 33.2
+  },
+  "trace": "raw/session.jsonl",
+  "workspace_diff": "logs/workspace.diff"
+}

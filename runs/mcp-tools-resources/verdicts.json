@@ -1,0 +1,44 @@
+[
+  {
+    "property_id": "builds-clean",
+    "holds": false,
+    "violated": true,
+    "detail": "exit=1; 'FAIL: Could not determine declared entry point'",
+    "script": "checks/builds-clean.sh"
+  },
+  {
+    "property_id": "uses-official-mcp-sdk",
+    "holds": true,
+    "violated": false,
+    "detail": "exit=0; 'PASS: Server correctly relies on the official MCP SDK'",
+    "script": "checks/uses-official-mcp-sdk.sh"
+  },
+  {
+    "property_id": "registers-capabilities",
+    "holds": true,
+    "violated": false,
+    "detail": "exit=0; 'PASS: Server instantiated and at least one item registered.'",
+    "script": "checks/registers-capabilities.sh"
+  },
+  {
+    "property_id": "tools-have-input-schemas",
+    "holds": true,
+    "violated": false,
+    "detail": "exit=0; 'PASS: All 1 registered tool(s) declare valid input schemas.'",
+    "script": "checks/tools-have-input-schemas.sh"
+  },
+  {
+    "property_id": "connects-a-transport",
+    "holds": true,
+    "violated": false,
+    "detail": "exit=0; 'HOLD: Server constructs a transport and calls connect().'",
+    "script": "checks/connects-a-transport.sh"
+  },
+  {
+    "property_id": "server-starts-and-lists-tools",
+    "holds": true,
+    "violated": false,
+    "detail": "exit=0; 'PASS: MCP server started, initialized, and listed tools successfully.'",
+    "script": "checks/server-starts-and-lists-tools.sh"
+  }
+]

@@ -1,0 +1,15 @@
+All 16 tests pass. Here's a summary of the two fixes applied to `csv_parser.py`:
+
+**Fix 1 — RFC 4180 escaped quotes** (the main bug): When inside a quoted field and encountering `"`, the parser now checks if the next character is also `"`. If so, it writes a single `"` to the field and skips the second quote. Otherwise, it closes the quoted field.
+
+```python
+if char == '"':
+    # Check for escaped quote (RFC 4180: "" inside quoted field = ")
+    if i + 1 < len(text) and text[i + 1] == '"':
+        current_field += '"'
+        i += 1  # Skip the second quote
+    else:
+        in_quotes = False
+```
+
+**Fix 2 — Empty string edge case**: An empty input string now correctly returns `[[""]]` instead of `[]`, matching RFC 4180 semantics where even an empty CSV is considered one empty row.

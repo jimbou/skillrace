@@ -1,0 +1,13 @@
+{
+  "skill": "fix-failing-test",
+  "source": "random",
+  "model": "qwen3.6-flash",
+  "batches": 1,
+  "skipped": 0,
+  "digest": [
+    "Fix off-by-one error in list sorting implementation",
+    "Correct type conversion bug in string parser",
+    "Fix infinite recursion in tree traversal implementation"
+  ],
+  "gen_cost_usd": 0.002005
+}

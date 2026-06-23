@@ -1,0 +1,32 @@
+[
+  {
+    "id": "builds-clean",
+    "reads": "state",
+    "nl": "The MCP server project must actually build: installing dependencies succeeds and compiling the TypeScript reports no type errors — i.e. the project's build command (`npm run build`, or `npx tsc --noEmit` / `tsc`) exits 0. A project whose dependencies fail to install or whose TypeScript does not compile fails this. Do NOT require a declared `main`/`bin` entry point or a specific output file — MCP servers are commonly launched via a `start` script such as `tsx src/index.ts`, so the build succeeding (not a particular entry-point field) is what matters."
+  },
+  {
+    "id": "uses-official-mcp-sdk",
+    "reads": "state",
+    "nl": "The server must be built on the OFFICIAL MCP SDK, not a hand-rolled protocol: `@modelcontextprotocol/sdk` appears in package.json dependencies AND is imported in the source (e.g. `from \"@modelcontextprotocol/sdk/...\"`). Re-implementing the JSON-RPC/MCP wire protocol by hand instead of using the SDK fails this."
+  },
+  {
+    "id": "registers-capabilities",
+    "reads": "state",
+    "nl": "The code must instantiate an MCP server (e.g. `new McpServer(...)` or `new Server(...)`) AND register at least one tool, resource, or prompt through the SDK API. Accept ANY SDK-version spelling of the registration call — `registerTool`/`tool`/`registerResource`/`resource`/`registerPrompt`/`prompt`. A server that is created but registers nothing fails this."
+  },
+  {
+    "id": "tools-have-input-schemas",
+    "reads": "state",
+    "nl": "Schema-first (the skill's top best practice): every registered TOOL must declare an input schema, using Zod (`z.object(...)`/`z.*`) or the SDK's schema field (`inputSchema`). A tool registered with no input schema — or with an empty/untyped `{}` where parameters are clearly expected — fails this. (Resources/prompts are exempt; this is about tools.)"
+  },
+  {
+    "id": "connects-a-transport",
+    "reads": "state",
+    "nl": "The server must wire up a real transport and connect it, so it is actually runnable rather than just a server object with handlers: the code constructs a transport (a stdio transport such as `StdioServerTransport`, or a Streamable HTTP transport) and calls `server.connect(<transport>)` (or the SDK equivalent). Defining tools but never connecting a transport fails this."
+  },
+  {
+    "id": "server-starts-and-lists-tools",
+    "reads": "state",
+    "nl": "Behavioral end-to-end check: the built server must actually start and speak MCP. Launching the entry point as a stdio server and sending a JSON-RPC `initialize` request followed by `tools/list` must return a valid JSON-RPC response that lists the registered tool(s), with the process not crashing or emitting a raw stack trace. A server that fails to start, hangs without responding, or errors on the handshake fails this."
+  }
+]

@@ -1,0 +1,1338 @@
+Tool Call 1 — bash
+  reasoning: Let me start by understanding the project structure and what's already in place. I need to:
+1. Look at the project structure
+2. Read the existing code and tests
+3. Check the MCP SDK documentation for correct method signatures
+4. Implement the custom action tool and resource
+
+Let me begin by exploring the workspace.
+  args: $ find /workspace -type f | head -50
+  result:
+/workspace/.git/logs/HEAD
+/workspace/.git/logs/refs/heads/main
+/workspace/.git/config
+/workspace/.git/COMMIT_EDITMSG
+/workspace/.git/description
+/workspace/.git/hooks/commit-msg.sample
+/workspace/.git/hooks/pre-applypatch.sample
+/workspace/.git/hooks/update.sample
+/workspace/.git/hooks/post-update.sample
+/workspace/.git/hooks/pre-rebase.sample
+/workspace/.git/hooks/fsmonitor-watchman.sample
+/workspace/.git/hooks/push-to-checkout.sample
+/workspace/.git/hooks/applypatch-msg.sample
+/workspace/.git/hooks/pre-push.sample
+/workspace/.git/hooks/pre-commit.sample
+      … (30 lines truncated for brevity) …
+/workspace/node_modules/iconv-lite/lib/streams.js
+/workspace/node_modules/iconv-lite/lib/index.js
+/workspace/node_modules/iconv-lite/lib/bom-handling.js
+/workspace/node_modules/iconv-lite/lib/index.d.ts
+/workspace/node_modules/iconv-lite/encodings/tables/gb18030-ranges.json
+
+Tool Call 2 — read
+  args: /workspace/package.json
+  result:
+{
+  "name": "mcp-custom-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0",
+    "tsx": "^4.7.0",
+    "@types/node": "^20.11.0"
+  }
+}
+
+Tool Call 3 — read
+  reasoning: Let me read the source file, test file, and check the MCP SDK to understand the API.
+  args: /workspace/src/index.ts
+  result:
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+
+export function createServer() {
+  const server = new McpServer({ name: "calc-server", version: "1.0.0" });
+
+  // TODO: Implement a custom action tool named "calculate_sum"
+  // Parameters: a (number), b (number)
+  // Returns: sum (number)
+  // NOTE: The installed SDK is ^1.0.0. Verify the exact registration method signature (e.g., tool() vs registerTool()) against the official MCP docs or Context7 before proceeding.
+
+  // TODO: Implement a read-only resource named "config"
+  // URI: "config://app/settings"
+  // Returns: JSON string {"theme": "dark", "debug": false}
+      … (7 lines truncated for brevity) …
+  const transport = new StdioServerTransport();
+  server.connect(transport).then(() => {
+    console.error("Calculation MCP Server running on stdio");
+  }).catch(console.error);
+}
+
+Tool Call 4 — read
+  args: /workspace/tests/index.test.ts
+  result:
+import { describe, it, expect } from "vitest";
+import { createServer } from "../src/index.js";
+
+describe("MCP Server Registration", () => {
+  it("should register calculate_sum tool with correct schema", async () => {
+    const server = createServer();
+    
+    const tools = await server.listTools();
+    const calcTool = tools.tools.find(t => t.name === "calculate_sum");
+    expect(calcTool).toBeDefined();
+    expect(calcTool?.inputSchema).toHaveProperty("properties");
+    expect(calcTool?.inputSchema.properties).toHaveProperty("a");
+    expect(calcTool?.inputSchema.properties).toHaveProperty("b");
+  });
+
+      … (4 lines truncated for brevity) …
+    const configRes = resources.resources.find(r => r.uri === "config://app/settings");
+    expect(configRes).toBeDefined();
+    expect(configRes?.name).toBe("config");
+  });
+});
+
+Tool Call 5 — bash
+  reasoning: Now I need to check the MCP SDK documentation for the correct method signatures. Let me look at the installed SDK version and its source code to understand how `tool()` and `resource()` work.
+  note: Now let me check the MCP SDK's API for the installed version:
+  args: $ ls /workspace/node_modules/@modelcontextprotocol/sdk/
+  result:
+LICENSE
+README.md
+dist
+package.json
+
+Tool Call 6 — bash
+  args: $ cat /workspace/node_modules/@modelcontextprotocol/sdk/package.json | head -20
+  result:
+{
+    "name": "@modelcontextprotocol/sdk",
+    "version": "1.29.0",
+    "description": "Model Context Protocol implementation for TypeScript",
+    "license": "MIT",
+    "author": "Anthropic, PBC (https://anthropic.com)",
+    "homepage": "https://modelcontextprotocol.io",
+    "bugs": "https://github.com/modelcontextprotocol/typescript-sdk/issues",
+    "type": "module",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/modelcontextprotocol/typescript-sdk.git"
+    },
+    "engines": {
+        "node": ">=18"
+    },
+    "keywords": [
+        "modelcontextprotocol",
+        "mcp"
+    ],
+
+Tool Call 7 — bash
+  reasoning: It's version 1.29.0. Let me look at the SDK source to understand the method signatures for `tool()` and `resource()`.
+  args: $ ls /workspace/node_modules/@modelcontextprotocol/sdk/dist/
+  result:
+cjs
+esm
+
+Tool Call 8 — bash
+  reasoning: Let me look at the ESM version to find the McpServer class and understand the tool() and resource() methods.
+  args: $ find /workspace/node_modules/@modelcontextprotocol/sdk/dist -name "*.js" | head -20
+  result:
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/auth.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/websocket.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/sse.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/middleware.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/auth-extensions.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/stores/in-memory.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/client.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/helpers.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/mcp-server.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/index.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/types.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/index.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/streamableHttp.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
+
+Tool Call 9 — bash
+  reasoning: Let me find the MCP server file and look at the method signatures.
+  args: $ find /workspace/node_modules/@modelcontextprotocol/sdk/dist -path "*server/mcp*" -name "*.js" | head -10
+  result:
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/examples/server/mcpServerOutputSchema.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/cjs/server/mcp.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/cjs/examples/server/mcpServerOutputSchema.js
+
+Tool Call 10 — bash
+  reasoning: Let me read the main MCP server file to understand the API signatures.
+  args: $ grep -n "tool\|resource" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js | head -40
+  result:
+7:import { validateAndWarnToolName } from '../shared/toolNameValidation.js';
+11: * High-level MCP server that provides a simpler API for working with resources, tools, and prompts.
+21:        this._toolHandlersInitialized = false;
+23:        this._resourceHandlersInitialized = false;
+57:        if (this._toolHandlersInitialized) {
+63:            tools: {
+68:            tools: Object.entries(this._registeredTools)
+69:                .filter(([, tool]) => tool.enabled)
+70:                .map(([name, tool]) => {
+71:                const toolDefinition = {
+73:                    title: tool.title,
+74:                    description: tool.description,
+76:                        const obj = normalizeObjectSchema(tool.inputSchema);
+84:                    annotations: tool.annotations,
+85:                    execution: tool.execution,
+      … (20 lines truncated for brevity) …
+172:        const inputObj = normalizeObjectSchema(tool.inputSchema);
+173:        const schemaToParse = inputObj ?? tool.inputSchema;
+178:            throw new McpError(ErrorCode.InvalidParams, `Input validation error: Invalid arguments for tool ${toolName}: ${errorMessage}`);
+183:     * Validates tool output against the tool's output schema.
+185:    async validateToolOutput(tool, result, toolName) {
+
+Tool Call 11 — bash
+  reasoning: Let me look for the actual `tool()` and `resource()` method definitions.
+  args: $ grep -n "^\s*tool\|^\s*resource\|registerTool\|registerResource" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js | head -20
+  result:
+63:            tools: {
+68:            tools: Object.entries(this._registeredTools)
+91:                        toolDefinition.outputSchema = toJsonSchemaCompat(obj, {
+114:                    throw new McpError(ErrorCode.InternalError, `Tool ${request.params.name} has taskSupport '${taskSupport}' but was not registered with registerToolTask`);
+340:            resources: {
+448:    resource(name, uriOrTemplate, ...rest) {
+473:    registerResource(name, uriOrTemplate, config, readCallback) {
+527:            resourceTemplate: template,
+657:    tool(name, ...rest) {
+699:    registerTool(name, config, cb) {
+
+Tool Call 12 — read
+  reasoning: There are both `tool()` and `registerTool()` methods, and both `resource()` and `registerResource()`. Let me read the full method signatures to understand which one the tests expect.
+  args: /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
+  result:
+            else {
+                const cb = prompt.callback;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                return await Promise.resolve(cb(extra));
+            }
+        });
+        this._promptHandlersInitialized = true;
+    }
+    resource(name, uriOrTemplate, ...rest) {
+        let metadata;
+        if (typeof rest[0] === 'object') {
+            metadata = rest.shift();
+        }
+        const readCallback = rest[0];
+        if (typeof uriOrTemplate === 'string') {
+      … (102 lines truncated for brevity) …
+        const hasCompleter = Array.isArray(variableNames) && variableNames.some(v => !!template.completeCallback(v));
+        if (hasCompleter) {
+            this.setCompletionRequestHandler();
+
+[358 more lines in file. Use offset=560 to continue.]
+
+Tool Call 13 — read
+  reasoning: Now let me look at the `tool()` and `registerTool()` method signatures.
+  args: /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
+  result:
+        this.setToolRequestHandlers();
+        this.sendToolListChanged();
+        return registeredTool;
+    }
+    /**
+     * tool() implementation. Parses arguments passed to overrides defined above.
+     */
+    tool(name, ...rest) {
+        if (this._registeredTools[name]) {
+            throw new Error(`Tool ${name} is already registered`);
+        }
+        let description;
+        let inputSchema;
+        let outputSchema;
+        let annotations;
+      … (82 lines truncated for brevity) …
+     * @see LoggingMessageNotification
+     * @param params
+     * @param sessionId optional for stateless and backward compatibility
+
+[168 more lines in file. Use offset=750 to continue.]
+
+Tool Call 14 — bash
+  reasoning: Now I understand the API. The `tool()` and `resource()` methods use a simpler signature style:
+
+For `tool()`:
+- `tool(name, description?, inputSchema?, callback)`
+
+For `resource()`:
+- `resource(name, uri, readCallback)` - where uri is a string (not template)
+
+Let me also check how the tests expect the schema to look. Looking at the test:
+```js
+expect(calcTool?.inputSchema).toHaveProperty("properties");
+expect(calcTool?.inputSchema.properties).toHaveProperty("a");
+      … (3 lines truncated for brevity) …
+So the `inputSchema` needs to be an object with `properties`. In Zod, when using `z.object({a: z.number(), b: z.number()})`, this gets converted to JSON schema via `normalizeObjectSchema`. Let me see what format is expected.
+
+The SDK uses `isZodRawShapeCompat(firstArg)` to detect zod schemas. Let me check that.
+  args: $ grep -n "isZodRawShapeCompat\|normalizeObjectSchema" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js | head -10
+  result:
+2:import { normalizeObjectSchema, safeParseAsync, getObjectShape, objectFromShape, getParseErrorMessage, getSchemaDescription, isSchemaOptional, getLiteralValue } from './zod-compat.js';
+76:                        const obj = normalizeObjectSchema(tool.inputSchema);
+89:                    const obj = normalizeObjectSchema(tool.outputSchema);
+172:        const inputObj = normalizeObjectSchema(tool.inputSchema);
+200:        const outputObj = normalizeObjectSchema(tool.outputSchema);
+429:                const argsObj = normalizeObjectSchema(prompt.argsSchema);
+675:            if (isZodRawShapeCompat(firstArg)) {
+679:                if (rest.length > 1 && typeof rest[0] === 'object' && rest[0] !== null && !isZodRawShapeCompat(rest[0])) {
+842:function isZodRawShapeCompat(obj) {
+865:    if (isZodRawShapeCompat(schema)) {
+
+Tool Call 15 — read
+  reasoning: Let me also check the Zod imports and how to properly use them with `tool()`.
+  args: /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
+  result:
+ */
+function isZodSchemaInstance(obj) {
+    return '_def' in obj || '_zod' in obj || isZodTypeLike(obj);
+}
+/**
+ * Checks if an object is a "raw shape" - a plain object where values are Zod schemas.
+ *
+ * Raw shapes are used as shorthand: `{ name: z.string() }` instead of `z.object({ name: z.string() })`.
+ *
+ * IMPORTANT: This must NOT match actual Zod schema instances (like z.preprocess, z.pipe),
+ * which have internal properties that could be mistaken for schema values.
+ */
+function isZodRawShapeCompat(obj) {
+    if (typeof obj !== 'object' || obj === null) {
+        return false;
+      … (32 lines truncated for brevity) …
+    return Object.entries(shape).map(([name, field]) => {
+        // Get description - works for both v3 and v4
+        const description = getSchemaDescription(field);
+
+[38 more lines in file. Use offset=880 to continue.]
+
+Tool Call 16 — bash
+  reasoning: Now I understand. The SDK accepts Zod schemas in two ways:
+1. As a "raw shape" - just a plain object `{ a: z.number(), b: z.number() }`  
+2. As a full Zod schema `z.object({ a: z.number(), b: z.number() })`
+
+For `resource()`, the signature is:
+- `resource(name, uri, metadata?, readCallback?)` where readCallback is optional based on what comes next
+
+Wait, let me re-read the `resource()` method more carefully:
+
+```javascript
+resource(name, uriOrTemplate, ...rest) {
+    let metadata;
+      … (23 lines truncated for brevity) …
+- The `name` becomes the registered resource's name field
+
+When registering a resource with `server.resource('config', 'config://app/settings', async ({uri}) => ...)`, the name parameter sets the `.name` property on the returned object, which matches what the test expects to find. The callback receives the URI as a parameter and should handle the response formatting internally.
+  note: Let me also check how resource read callbacks work:
+  args: $ grep -n "resourceRequest\|_createRegisteredResource" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js | head -20
+  result:
+458:            const registeredResource = this._createRegisteredResource(name, undefined, uriOrTemplate, metadata, readCallback);
+467:            const registeredResourceTemplate = this._createRegisteredResourceTemplate(name, undefined, uriOrTemplate, metadata, readCallback);
+478:            const registeredResource = this._createRegisteredResource(name, config.title, uriOrTemplate, config, readCallback);
+487:            const registeredResourceTemplate = this._createRegisteredResourceTemplate(name, config.title, uriOrTemplate, config, readCallback);
+493:    _createRegisteredResource(name, title, uri, metadata, readCallback) {
+525:    _createRegisteredResourceTemplate(name, title, template, metadata, readCallback) {
+
+Tool Call 17 — bash
+  reasoning: Now let me see how the resource handler processes requests. Let me look for where `_registeredResources` is used to handle read requests.
+  args: $ grep -n "resourceReadRequest\|_registeredResources\[" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js | head -20
+  result:
+319:            if (this._registeredResources[ref.uri]) {
+379:            const resource = this._registeredResources[uri.toString()];
+455:            if (this._registeredResources[uriOrTemplate]) {
+475:            if (this._registeredResources[uriOrTemplate]) {
+505:                    delete this._registeredResources[uri];
+507:                        this._registeredResources[updates.uri] = registeredResource;
+522:        this._registeredResources[uri] = registeredResource;
+
+Tool Call 18 — read
+  reasoning: Let me see around line 379 where resource read happens.
+  args: /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
+  result:
+                name,
+                uriTemplate: template.resourceTemplate.uriTemplate.toString(),
+                ...template.metadata
+            }));
+            return { resourceTemplates };
+        });
+        this.server.setRequestHandler(ReadResourceRequestSchema, async (request, extra) => {
+            const uri = new URL(request.params.uri);
+            // First check for exact resource match
+            const resource = this._registeredResources[uri.toString()];
+            if (resource) {
+                if (!resource.enabled) {
+                    throw new McpError(ErrorCode.InvalidParams, `Resource ${uri} disabled`);
+                }
+                return resource.readCallback(uri, extra);
+      … (32 lines truncated for brevity) …
+                };
+            })
+        }));
+
+[498 more lines in file. Use offset=420 to continue.]
+
+Tool Call 19 — bash
+  reasoning: So the readCallback receives `(uri, extra)` where `uri` is a URL. The return value goes directly back as the result of the MCP request. Looking at the MCP protocol, a resource response should have `contents` array with ResourceContents objects.
+
+Let me check what format the callback should return by looking at some examples in the SDK.
+  args: $ find /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/examples -name "*.js" | head -5
+  result:
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/examples/client/simpleStreamableHttp.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/examples/client/simpleClientCredentials.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/examples/client/simpleOAuthClient.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/examples/client/ssePollingClient.js
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/examples/client/parallelToolCallsClient.js
+
+Tool Call 20 — bash
+  reasoning: Let me search for example files that use resource() in the server examples.
+  args: $ find /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/examples/server -name "*.js" | xargs grep -l "resource(" 2>/dev/null
+  result(ERROR):
+(no output)
+
+Command exited with code 123
+
+Tool Call 21 — bash
+  reasoning: Let me check the types instead to understand the expected return format for the resource callback.
+  args: $ find /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm -name "*.d.ts" | head -10
+  result:
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/spec.types.d.ts
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/sse.d.ts
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.d.ts
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/middleware.d.ts
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/auth-extensions.d.ts
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.d.ts
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/websocket.d.ts
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.d.ts
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/client/auth.d.ts
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.d.ts
+
+Tool Call 22 — bash
+  reasoning: Let me look at the type definitions for the resource callback to understand what it should return.
+  args: $ find /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm -name "mcp.d.ts" | head -3
+  result:
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.d.ts
+
+Tool Call 23 — bash
+  reasoning: Let me check that file for the type definition.
+  args: $ grep -A 30 "resource(" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.d.ts | head -50
+  result:
+    resource(name: string, uri: string, readCallback: ReadResourceCallback): RegisteredResource;
+    /**
+     * Registers a resource `name` at a fixed URI with metadata, which will use the given callback to respond to read requests.
+     * @deprecated Use `registerResource` instead.
+     */
+    resource(name: string, uri: string, metadata: ResourceMetadata, readCallback: ReadResourceCallback): RegisteredResource;
+    /**
+     * Registers a resource `name` with a template pattern, which will use the given callback to respond to read requests.
+     * @deprecated Use `registerResource` instead.
+     */
+    resource(name: string, template: ResourceTemplate, readCallback: ReadResourceTemplateCallback): RegisteredResourceTemplate;
+    /**
+     * Registers a resource `name` with a template pattern and metadata, which will use the given callback to respond to read requests.
+     * @deprecated Use `registerResource` instead.
+     */
+      … (26 lines truncated for brevity) …
+     * between ToolAnnotations and ZodRawShapeCompat during overload resolution, as both are plain object types.
+     * @deprecated Use `registerTool` instead.
+     */
+    tool<Args extends ZodRawShapeCompat>(name: string, paramsSchemaOrAnnotations: Args | ToolAnnotations, cb: ToolCallback<Args>): RegisteredTool;
+    /**
+
+Tool Call 24 — bash
+  reasoning: Now let me check the ReadResourceCallback type.
+  args: $ grep -n "ReadResourceCallback\|ReadResourceTemplateCallback" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.d.ts | head -10
+  result:
+82:    resource(name: string, uri: string, readCallback: ReadResourceCallback): RegisteredResource;
+87:    resource(name: string, uri: string, metadata: ResourceMetadata, readCallback: ReadResourceCallback): RegisteredResource;
+92:    resource(name: string, template: ResourceTemplate, readCallback: ReadResourceTemplateCallback): RegisteredResourceTemplate;
+97:    resource(name: string, template: ResourceTemplate, metadata: ResourceMetadata, readCallback: ReadResourceTemplateCallback): RegisteredResourceTemplate;
+102:    registerResource(name: string, uriOrTemplate: string, config: ResourceMetadata, readCallback: ReadResourceCallback): RegisteredResource;
+103:    registerResource(name: string, uriOrTemplate: ResourceTemplate, config: ResourceMetadata, readCallback: ReadResourceTemplateCallback): RegisteredResourceTemplate;
+302:export type ReadResourceCallback = (uri: URL, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => ReadResourceResult | Promise<ReadResourceResult>;
+307:    readCallback: ReadResourceCallback;
+316:        callback?: ReadResourceCallback;
+324:export type ReadResourceTemplateCallback = (uri: URL, variables: Variables, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => ReadResourceResult | Promise<ReadResourceResult>;
+
+Tool Call 25 — bash
+  reasoning: Now let me check what `ReadResourceResult` is.
+  args: $ grep -n "ReadResourceResult" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.d.ts | head -10
+  result:
+3:import { Implementation, CallToolResult, Resource, ListResourcesResult, GetPromptResult, ReadResourceResult, ServerRequest, ServerNotification, ToolAnnotations, LoggingMessageNotification, Result, ToolExecution } from '../types.js';
+302:export type ReadResourceCallback = (uri: URL, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => ReadResourceResult | Promise<ReadResourceResult>;
+324:export type ReadResourceTemplateCallback = (uri: URL, variables: Variables, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => ReadResourceResult | Promise<ReadResourceResult>;
+
+Tool Call 26 — bash
+  reasoning: Let me check the types.js or spec.types.d.ts for ReadResourceResult.
+  args: $ grep -n "ReadResourceResult" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/types.d.ts 2>/dev/null || grep -n "ReadResourceResult" /workspace/node_modules/@modelcontextprotocol/sdk/dist/es
+  result:
+1628:export declare const ReadResourceResultSchema: z.ZodObject<{
+8058:export type ReadResourceResult = Infer<typeof ReadResourceResultSchema>;
+
+Tool Call 27 — read
+  reasoning: Let me check the schema.
+  args: /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/spec.types.d.ts
+  result:
+/**
+ * An image provided to or from an LLM.
+ *
+ * @category Content
+ */
+export interface ImageContent {
+    type: "image";
+    /**
+     * The base64-encoded image data.
+     *
+     * @format byte
+     */
+    data: string;
+    /**
+     * The MIME type of the image. Different providers may support different image types.
+      … (2 lines truncated for brevity) …
+    /**
+     * Optional annotations for the client.
+     */
+
+[667 more lines in file. Use offset=1645 to continue.]
+
+Tool Call 28 — bash
+  reasoning: The grep was just finding the name. Let me search more specifically for the schema definition.
+  args: $ sed -n '1628,1640p' /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/spec.types.d.ts
+  result:
+ * @category Content
+ */
+export interface ImageContent {
+    type: "image";
+    /**
+     * The base64-encoded image data.
+     *
+     * @format byte
+     */
+    data: string;
+    /**
+     * The MIME type of the image. Different providers may support different image types.
+     */
+
+Tool Call 29 — bash
+  reasoning: The sed output is showing the wrong line range. Let me try differently.
+  args: $ grep -n "ReadResourceResultSchema" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/spec.types.d.ts
+  result(ERROR):
+(no output)
+
+Command exited with code 1
+
+Tool Call 30 — bash
+  reasoning: Let me search more broadly.
+  args: $ grep -n "ReadResourceResultSchema\|readResourceResult" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/spec.types.d.ts | head -5
+  result:
+(no output)
+
+Tool Call 31 — bash
+  reasoning: Hmm, maybe it's in the spec types file. Let me search across all ts files.
+  args: $ grep -rn "ReadResourceResult" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/*.d.ts 2>/dev/null | head -10
+  result:
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/spec.types.d.ts:684:export interface ReadResourceResult extends Result {
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/spec.types.d.ts:2310:export type ServerResult = EmptyResult | InitializeResult | CompleteResult | GetPromptResult | ListPromptsResult | ListResourceTemplatesResult | ListResourcesResult | ReadResourceResult | CallToolResult | ListToolsResult | GetTaskResult | GetTaskPayloadResult | ListTasksResult | CancelTaskResult;
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/types.d.ts:1628:export declare const ReadResourceResultSchema: z.ZodObject<{
+/workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/types.d.ts:8058:export type ReadResourceResult = Infer<typeof ReadResourceResultSchema>;
+
+Tool Call 32 — read
+  reasoning: Let me look at the interface definition.
+  args: /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/spec.types.d.ts
+  result:
+ * The server's response to a resources/read request from the client.
+ *
+ * @category `resources/read`
+ */
+export interface ReadResourceResult extends Result {
+    contents: (TextResourceContents | BlobResourceContents)[];
+}
+/**
+ * An optional notification from the server to the client, informing it that the list of resources it can read from has changed. This may be issued by servers without any previous subscription from the client.
+ *
+ * @category `notifications/resources/list_changed`
+ */
+export interface ResourceListChangedNotification extends JSONRPCNotification {
+    method: "notifications/resources/list_changed";
+    params?: NotificationParams;
+      … (2 lines truncated for brevity) …
+ * Parameters for a `resources/subscribe` request.
+ *
+ * @category `resources/subscribe`
+
+[1612 more lines in file. Use offset=700 to continue.]
+
+Tool Call 33 — bash
+  reasoning: So `ReadResourceResult` has `contents: (TextResourceContents | BlobResourceContents)[]`. Let me check what TextResourceContents looks like.
+  args: $ grep -n "interface TextResourceContents\|interface BlobResourceContents" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/spec.types.d.ts
+  result:
+848:export interface TextResourceContents extends ResourceContents {
+857:export interface BlobResourceContents extends ResourceContents {
+
+Tool Call 34 — read
+  reasoning: Let me see those interfaces.
+  args: /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/spec.types.d.ts
+  result:
+/**
+ * @category Content
+ */
+export interface TextResourceContents extends ResourceContents {
+    /**
+     * The text of the item. This must only be set if the item can actually be represented as text (not binary data).
+     */
+    text: string;
+}
+/**
+ * @category Content
+ */
+export interface BlobResourceContents extends ResourceContents {
+    /**
+     * A base64-encoded string representing the binary data of the item.
+      … (2 lines truncated for brevity) …
+     */
+    blob: string;
+}
+
+[1447 more lines in file. Use offset=865 to continue.]
+
+Tool Call 35 — bash
+  reasoning: And ResourceContents:
+  args: $ grep -n "interface ResourceContents" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/spec.types.d.ts
+  result:
+827:export interface ResourceContents {
+
+Tool Call 36 — read
+  reasoning: (none)
+  args: /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/spec.types.d.ts
+  result:
+ * @internal
+ */
+export interface ResourceContents {
+    /**
+     * The URI of this resource.
+     *
+     * @format uri
+     */
+    uri: string;
+    /**
+     * The MIME type of this resource, if known.
+     */
+    mimeType?: string;
+    /**
+     * See [General fields: `_meta`](/specification/draft/basic/index#meta) for notes on `_meta` usage.
+      … (2 lines truncated for brevity) …
+        [key: string]: unknown;
+    };
+}
+
+[1467 more lines in file. Use offset=845 to continue.]
+
+Tool Call 37 — edit
+  reasoning: Now I have all the info I need. For the resource callback, it needs to return:
+```js
+{
+    contents: [{
+        uri: "config://app/settings",
+        mimeType: "application/json",
+        text: '{"theme": "dark", "debug": false}'
+    }]
+}
+```
+
+And for the tool, based on the overloads:
+      … (3 lines truncated for brevity) …
+Now let me implement this. Let me also double-check by looking at how the `listTools` response structures the schema. Looking back at the MCP server code around line 71-96, when returning list tools, it calls `normalizeObjectSchema(tool.inputSchema)` which converts the Zod schema to JSON schema with `properties`.
+
+Let me now write the implementation:
+  note: Now I have a clear picture of the SDK API. Let me implement the solution:
+
+- **SDK version**: 1.29.0 (installed as `^1.0.0`)
+- **Tool signature**: `tool(name, paramsSchema, cb)` — paramsSchema accepts Zod raw shapes like `{ a: z.number() }`
+- **Resource signature**: `resource(name, uri, readCallback)` — readCallback returns `{ contents: [...] }`
+  args: /workspace/src/index.ts
+  args-body:
+- old:
+export function createServer() {
+  const server = new McpServer({ name: "calc-server", version: "1.0.0" });
+
+  // TODO: Implement a custom action tool named "calculate_sum"
+  // Parameters: a (number), b (number)
+  // Returns: sum (number)
+  // NOTE: The installed SDK is ^1.0.0. Verify the exact registration method signature (e.g., tool() vs registerTool()) against the official MCP docs or Context7 before proceeding.
+
+  // TODO: Implement a read-only resource named "config"
+  // URI: "config://app/settings"
+  // Returns: JSON string {"theme": "dark", "debug": false}
+  // NOTE: Ensure the resource handler matches the current SDK API.
+
+  return server;
+      … (27 lines truncated for brevity) …
+    })
+  );
+
+  return server;
+}
+  result:
+Successfully replaced text in /workspace/src/index.ts.
+
+Tool Call 38 — bash
+  reasoning: Now let me run the tests to see if they pass.
+  args: $ cd /workspace && npm test 2>&1
+  result(ERROR):
+
+> mcp-custom-server@1.0.0 test
+> vitest run
+
+
+⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
+Error: Cannot find module @rollup/rollup-linux-x64-gnu. npm has a bug related to optional dependencies (https://github.com/npm/cli/issues/4828). Please try `npm i` again after removing both package-lock.json and node_modules directory.
+    at requireWithFriendlyError (/workspace/node_modules/rollup/dist/native.js:121:9)
+    at Object.<anonymous> (/workspace/node_modules/rollup/dist/native.js:130:76)
+    ... 3 lines matching cause stack trace ...
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+    at cjsLoader (node:internal/modules/esm/translators:298:15)
+    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:240:7)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+      … (18 lines truncated for brevity) …
+
+
+
+
+Command exited with code 1
+
+Tool Call 39 — bash
+  reasoning: There's a rollup native module issue. Let me fix it by reinstalling dependencies.
+  args: $ cd /workspace && rm -rf node_modules package-lock.json && npm install 2>&1 | tail -20
+  result:
+
+added 166 packages, and audited 167 packages in 1m
+
+54 packages are looking for funding
+  run `npm fund` for details
+
+4 vulnerabilities (2 moderate, 1 high, 1 critical)
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+Tool Call 40 — bash
+  reasoning: Good, let me try running the tests again.
+  args: $ cd /workspace && npm test 2>&1
+  result(ERROR):
+
+> mcp-custom-server@1.0.0 test
+> vitest run
+
+
+ RUN  v1.6.1 /workspace
+
+ ❯ tests/index.test.ts  (2 tests | 2 failed) 7ms
+   ❯ tests/index.test.ts > MCP Server Registration > should register calculate_sum tool with correct schema
+     → server.listTools is not a function
+   ❯ tests/index.test.ts > MCP Server Registration > should register config resource with correct URI
+     → server.listResources is not a function
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+      … (27 lines truncated for brevity) …
+   Duration  271ms (transform 26ms, setup 0ms, collect 89ms, tests 7ms, environment 0ms, prepare 44ms)
+
+
+
+Command exited with code 1
+
+Tool Call 41 — bash
+  reasoning: The test calls `server.listTools()` and `server.listResources()` but these are not methods on the McpServer class. Let me check how to access registered tools and resources. Looking at the SDK code earlier, there's `_registeredTools` and `_registeredResources` as private properties. But the tests call public methods...
+
+Wait, let me check if there's a way to list tools/resources before connecting, or if maybe I need to call `connect()` first or set up the handlers. Let me look more carefully at the MCP server source.
+  args: $ grep -n "listTools\|listResources\|ListTools\|ListResources" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js | head -20
+  result:
+4:import { McpError, ErrorCode, ListResourceTemplatesRequestSchema, ReadResourceRequestSchema, ListToolsRequestSchema, CallToolRequestSchema, ListResourcesRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema, CompleteRequestSchema, assertCompleteRequestPrompt, assertCompleteRequestResourceTemplate } from '../types.js';
+60:        this.server.assertCanSetRequestHandler(getMethodValue(ListToolsRequestSchema));
+67:        this.server.setRequestHandler(ListToolsRequestSchema, () => ({
+336:        this.server.assertCanSetRequestHandler(getMethodValue(ListResourcesRequestSchema));
+344:        this.server.setRequestHandler(ListResourcesRequestSchema, async (request, extra) => {
+
+Tool Call 42 — bash
+  reasoning: I see. The `listTools` and `listResources` are handled via request handlers (via MCP protocol). But the test calls them as methods directly on `server`. These don't exist as public methods.
+
+Wait, let me re-read the test. Maybe the tests expect us to call `.connect()` first? No, that doesn't make sense - you can't connect in unit tests without a transport.
+
+Actually wait, looking more carefully at the MCP SDK source, these are request handlers, not public methods. The tests must be expecting some way to access these...
+
+Let me look if there's maybe been an update or if I need to check for other API patterns. Maybe I should look at how the server exports/list tools before connecting.
+
+Actually, hold on. Let me reconsider. The SDK has `_registeredTools` internally. Perhaps the tests need us to provide our own method wrappers? Or perhaps the McpServer exposes a different API than I think.
+
+Let me look more carefully at what the McpServer class exposes:
+  args: $ grep -n "^\s*[a-z].*(" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js | head -30
+  result:
+16:    constructor(serverInfo, options) {
+25:        this.server = new Server(serverInfo, options);
+34:    get experimental() {
+35:        if (!this._experimental) {
+37:                tasks: new ExperimentalMcpServerTasks(this)
+47:    async connect(transport) {
+48:        return await this.server.connect(transport);
+53:    async close() {
+54:        await this.server.close();
+56:    setToolRequestHandlers() {
+57:        if (this._toolHandlersInitialized) {
+60:        this.server.assertCanSetRequestHandler(getMethodValue(ListToolsRequestSchema));
+61:        this.server.assertCanSetRequestHandler(getMethodValue(CallToolRequestSchema));
+62:        this.server.registerCapabilities({
+67:        this.server.setRequestHandler(ListToolsRequestSchema, () => ({
+      … (10 lines truncated for brevity) …
+106:                if (!tool.enabled) {
+107:                    throw new McpError(ErrorCode.InvalidParams, `Tool ${request.params.name} disabled`);
+113:                if ((taskSupport === 'required' || taskSupport === 'optional') && !isTaskHandler) {
+114:                    throw new McpError(ErrorCode.InternalError, `Tool ${request.params.name} has taskSupport '${taskSupport}' but was not registered with registerToolTask`);
+117:                if (taskSupport === 'required' && !isTaskRequest) {
+
+Tool Call 43 — read
+  reasoning: Looking at the SDK, `listTools` and `listResources` are NOT public methods on the McpServer class. They're MCP protocol request handlers that only get triggered when a client sends a list tools/resources request over the transport.
+
+The test calls `server.listTools()` directly. This means either:
+1. The tests are wrong (but we're told to pass them)
+2. I need to add these methods to the server (maybe via monkey-patching or extending)
+3. Maybe I need to check if there's another pattern in the SDK
+
+Wait, looking at the SDK more carefully, maybe I should look at what version of the SDK has these as public methods. Let me also check if perhaps there's something with connecting...
+
+Actually, re-reading the task: "ensure your registration calls match the current MCP SDK API". And "pass all tests in tests/index.test.ts."
+
+The test expects `server.listTools()` and `server.listResources()`. Since these don't exist on the MCP SDK's McpServer class, but the test expects them, perhaps I need to:
+      … (12 lines truncated for brevity) …
+The cleanest path forward is probably to extend McpServer with custom methods that expose these internally registered items, since the SDK doesn't provide public accessors for `_registeredTools` and `_registeredResources`. I could wrap the created server to add these helpers, or subclass it directly.
+
+Re-reading the requirements confirms I should update the stubs in `createServer` itself. Looking at how `setToolRequestHandlers` accesses `this._registeredTools`, I realize these private properties already exist on the McpServer instance—I just need to write public accessor methods that read from them, converting the internal tool and resource definitions into the same format the request handlers return.
+  note: The tests expect `listTools()` and `listResources()` as methods. These aren't built-in on `McpServer` — they're handled via MCP protocol request handlers set during `connect()`. I need to add these methods myself.
+  args: /workspace/src/index.ts
+  result:
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+
+export function createServer() {
+  const server = new McpServer({ name: "calc-server", version: "1.0.0" });
+
+  // Register a custom action tool named "calculate_sum" that adds two numbers
+  server.tool(
+    "calculate_sum",
+    "Add two numbers together and return the sum.",
+    { a: z.number(), b: z.number() },
+    async ({ a, b }) => ({
+      content: [{ type: "text", text: String(a + b) }],
+    })
+      … (22 lines truncated for brevity) …
+  const transport = new StdioServerTransport();
+  server.connect(transport).then(() => {
+    console.error("Calculation MCP Server running on stdio");
+  }).catch(console.error);
+}
+
+Tool Call 44 — write
+  reasoning: Looking at the test, `server.listTools()` and `server.listResources()` need to be callable. Since `McpServer` from the SDK doesn't expose these as methods, I need to add them. 
+
+The simplest approach is to create the McpServer, then add methods to it that return the correct format. I can use the `_registeredTools` and `_registeredResources` private properties that are populated by `tool()` and `resource()`.
+
+Let me write a helper function that adds these methods after registration:
+  args: /workspace/src/index.ts
+  args-body:
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+
+export function createServer() {
+  const server = new McpServer({ name: "calc-server", version: "1.0.0" });
+
+  // Register a custom action tool named "calculate_sum" that adds two numbers
+  server.tool(
+    "calculate_sum",
+    "Add two numbers together and return the sum.",
+    { a: z.number(), b: z.number() },
+    async ({ a, b }) => ({
+      content: [{ type: "text", text: String(a + b) }],
+    })
+      … (110 lines truncated for brevity) …
+  const transport = new StdioServerTransport();
+  server.connect(transport).then(() => {
+    console.error("Calculation MCP Server running on stdio");
+  }).catch(console.error);
+}
+  result:
+Successfully wrote 4232 bytes to /workspace/src/index.ts
+
+Tool Call 45 — bash
+  reasoning: Let me run the tests now to see how it goes.
+  args: $ cd /workspace && npm test 2>&1
+  result(ERROR):
+
+> mcp-custom-server@1.0.0 test
+> vitest run
+
+
+ RUN  v1.6.1 /workspace
+
+ ❯ tests/index.test.ts  (2 tests | 1 failed) 7ms
+   ❯ tests/index.test.ts > MCP Server Registration > should register calculate_sum tool with correct schema
+     → expected ZodObject{ …(29) } to have property "properties"
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/index.test.ts > MCP Server Registration > should register calculate_sum tool with correct schema
+AssertionError: expected ZodObject{ …(29) } to have property "properties"
+      … (13 lines truncated for brevity) …
+   Duration  267ms (transform 42ms, setup 0ms, collect 87ms, tests 7ms, environment 0ms, prepare 86ms)
+
+
+
+Command exited with code 1
+
+Tool Call 46 — read
+  reasoning: Resource test passes. The tool test fails because the `inputSchema` is a ZodObject (not a plain JSON schema with `properties`). I need to convert the Zod schema into a proper JSON schema object with `properties`. Let me look at how `normalizeObjectSchema` works in the SDK.
+  args: /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
+  result:
+// zod-compat.ts
+// ----------------------------------------------------
+// Unified types + helpers to accept Zod v3 and v4 (Mini)
+// ----------------------------------------------------
+import * as z3rt from 'zod/v3';
+import * as z4mini from 'zod/v4-mini';
+// --- Runtime detection ---
+export function isZ4Schema(s) {
+    // Present on Zod 4 (Classic & Mini) schemas; absent on Zod 3
+    const schema = s;
+    return !!schema._zod;
+}
+// --- Schema construction ---
+export function objectFromShape(shape) {
+    const values = Object.values(shape);
+      … (189 lines truncated for brevity) …
+    if (directValue !== undefined)
+        return directValue;
+    return undefined;
+}
+//# sourceMappingURL=zod-compat.js.map
+
+Tool Call 47 — bash
+  reasoning: Now I understand. The `normalizeObjectSchema` function returns the Zod schema object itself (not a JSON schema), and when the SDK converts it to JSON Schema in `ListToolsRequestSchema` handler, it calls `toJsonSchemaCompat`. Let me look at how that works.
+
+Looking back at the SDK code:
+```javascript
+inputSchema: (() => {
+    const obj = normalizeObjectSchema(tool.inputSchema);
+    return toJsonSchemaCompat(obj, { allowJs: true });
+})(),
+```
+
+So when tools are returned via MCP protocol, they're converted to JSON schema using `toJsonSchemaCompat`. But my `listTools()` method doesn't do this conversion - it just stores the raw Zod schema.
+
+      … (19 lines truncated for brevity) …
+The test only cares about `inputSchema.properties.a` and `inputSchema.properties.b`. I can access these from the Zod schema's `.shape` property, which contains a record of each field's schema. So I can build a JSON-compatible structure by mapping over the shape and extracting the necessary information.
+
+Since both parameters are simple `z.number()` types without descriptions or defaults, I can keep the conversion straightforward. Rather than trying to reverse-engineer the SDK's internal serialization, I'll implement a practical solution that handles the cases needed for the tests.
+  note: The issue is that `inputSchema` is a Zod schema object but needs to have a `properties` field. I need to convert it properly. Let me check if zod-to-json-schema is available:
+  args: $ ls /workspace/node_modules | grep -i "zod.*json\|json.*zod" 2>/dev/null; echo "---"; node -e "const z = require('zod'); console.log(z.number().safeParse(42));" 2>&1 | head -5
+  result:
+zod-to-json-schema
+---
+{ success: true, data: 42 }
+
+Tool Call 48 — bash
+  reasoning: `zod-to-json-schema` is available. Let me use it to convert the Zod schema to JSON schema properly.
+  args: $ cat /workspace/node_modules/zod-to-json-schema/package.json | grep version | head -1
+  result:
+  "version": "3.25.2",
+
+Tool Call 49 — write
+  reasoning: Good, it's installed. Let me use `zodToJsonSchema` from this package to properly convert the Zod schema to JSON schema format.
+  args: /workspace/src/index.ts
+  args-body:
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+
+export function createServer() {
+  const server = new McpServer({ name: "calc-server", version: "1.0.0" });
+
+  // Register a custom action tool named "calculate_sum" that adds two numbers
+  server.tool(
+    "calculate_sum",
+    "Add two numbers together and return the sum.",
+    { a: z.number(), b: z.number() },
+    async ({ a, b }) => ({
+      content: [{ type: "text", text: String(a + b) }],
+      … (84 lines truncated for brevity) …
+  const transport = new StdioServerTransport();
+  server.connect(transport).then(() => {
+    console.error("Calculation MCP Server running on stdio");
+  }).catch(console.error);
+}
+  result:
+Successfully wrote 3649 bytes to /workspace/src/index.ts
+
+Tool Call 50 — read
+  reasoning: Wait, I'm trying to access `inputSchema` from the tool object directly but that won't work because I'm iterating over the values of `_registeredTools`. Let me check how the internal structure works by looking at the SDK more carefully. Actually, looking back at my earlier read:
+
+```javascript
+toolDefinition = {
+    name,
+    title: tool.title,
+    description: tool.description,
+    inputSchema: (() => {
+        const obj = normalizeObjectSchema(tool.inputSchema);
+        return toJsonSchemaCompat(obj, { allowJs: true });
+    })(),
+    ...
+}
+```
+
+So `tool` has an `inputSchema` property. When I iterate with `Object.entries(registeredTools)`, each `tool` value should have this property. But I was trying to cast it wrong. Let me look more carefully at what `_createRegisteredTool` returns.
+  args: /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
+  result:
+    async validateToolOutput(tool, result, toolName) {
+        if (!tool.outputSchema) {
+            return;
+        }
+        // Only validate CallToolResult, not CreateTaskResult
+        if (!('content' in result)) {
+            return;
+        }
+        if (result.isError) {
+            return;
+        }
+        if (!result.structuredContent) {
+            throw new McpError(ErrorCode.InvalidParams, `Output validation error: Tool ${toolName} has an output schema but no structured content was provided`);
+        }
+        // if the tool has an output schema, validate structured content
+      … (42 lines truncated for brevity) …
+     * Handles automatic task polling for tools with taskSupport 'optional'.
+     */
+    async handleAutomaticTaskPolling(tool, request, extra) {
+
+[673 more lines in file. Use offset=245 to continue.]
+
+Tool Call 51 — bash
+  reasoning: Let me find the `_createRegisteredTool` function to see what properties it sets.
+  args: $ grep -n "_createRegisteredTool" /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js | head -10
+  result:
+605:    _createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, execution, _meta, handler) {
+694:        return this._createRegisteredTool(name, undefined, description, inputSchema, outputSchema, annotations, { taskSupport: 'forbidden' }, undefined, callback);
+704:        return this._createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, { taskSupport: 'forbidden' }, _meta, cb);
+
+Tool Call 52 — read
+  reasoning: Let me look at _createRegisteredTool.
+  args: /workspace/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
+  result:
+        return registeredPrompt;
+    }
+    _createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, execution, _meta, handler) {
+        // Validate tool name according to SEP specification
+        validateAndWarnToolName(name);
+        const registeredTool = {
+            title,
+            description,
+            inputSchema: getZodSchemaObject(inputSchema),
+            outputSchema: getZodSchemaObject(outputSchema),
+            annotations,
+            execution,
+            _meta,
+            handler: handler,
+            enabled: true,
+      … (32 lines truncated for brevity) …
+        this.setToolRequestHandlers();
+        this.sendToolListChanged();
+        return registeredTool;
+
+[265 more lines in file. Use offset=653 to continue.]
+
+Tool Call 53 — write
+  reasoning: Now I can see the structure clearly. Each registered tool has:
+- `title`, `description`, `inputSchema`, `outputSchema`, `annotations`, `execution`, `_meta`, `handler`, `enabled`
+
+The `inputSchema` is already set via `getZodSchemaObject(inputSchema)` which either converts a raw shape to an object schema or returns it as-is.
+
+So when iterating over `registeredTools`, each `tool` value will have `.inputSchema`. Let me fix my code.
+  args: /workspace/src/index.ts
+  args-body:
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+
+export function createServer() {
+  const server = new McpServer({ name: "calc-server", version: "1.0.0" });
+
+  // Register a custom action tool named "calculate_sum" that adds two numbers
+  server.tool(
+    "calculate_sum",
+    "Add two numbers together and return the sum.",
+    { a: z.number(), b: z.number() },
+    async ({ a, b }) => ({
+      content: [{ type: "text", text: String(a + b) }],
+      … (76 lines truncated for brevity) …
+  const transport = new StdioServerTransport();
+  server.connect(transport).then(() => {
+    console.error("Calculation MCP Server running on stdio");
+  }).catch(console.error);
+}
+  result:
+Successfully wrote 3043 bytes to /workspace/src/index.ts
+
+Tool Call 54 — bash
+  reasoning: Let me run the tests now.
+  args: $ cd /workspace && npm test 2>&1
+  result(ERROR):
+
+> mcp-custom-server@1.0.0 test
+> vitest run
+
+
+ RUN  v1.6.1 /workspace
+
+ ❯ tests/index.test.ts  (2 tests | 1 failed) 8ms
+   ❯ tests/index.test.ts > MCP Server Registration > should register calculate_sum tool with correct schema
+     → expected { …(3) } to have property "properties"
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/index.test.ts > MCP Server Registration > should register calculate_sum tool with correct schema
+AssertionError: expected { …(3) } to have property "properties"
+      … (13 lines truncated for brevity) …
+   Duration  259ms (transform 27ms, setup 0ms, collect 86ms, tests 8ms, environment 0ms, prepare 34ms)
+
+
+
+Command exited with code 1
+
+Tool Call 55 — bash
+  reasoning: The result still doesn't have `properties`. Let me debug by printing what zodToJsonSchema actually produces.
+  args: $ cd /workspace && node -e "
+  args-body:
+cd /workspace && node -e "
+const { z } = require('zod');
+const { zodToJsonSchema } = require('zod-to-json-schema');
+const schema = z.object({ a: z.number(), b: z.number() });
+console.log(JSON.stringify(zodToJsonSchema(schema), null, 2));
+" 2>&1
+  result:
+{
+  "type": "object",
+  "properties": {
+    "a": {
+      "type": "number"
+    },
+    "b": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "a",
+    "b"
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
+
+Tool Call 56 — bash
+  reasoning: The zodToJsonSchema output is correct. The problem must be that `tool.inputSchema` is not what I expect. Let me check what the actual value stored in `_registeredTools` looks like.
+  args: $ cd /workspace && node --loader tsx --no-warnings -e "
+  args-body:
+cd /workspace && node --loader tsx --no-warnings -e "
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
+
+const server = new McpServer({ name: 'test', version: '1.0.0' });
+
+server.tool('calculate_sum', 'sum of two numbers', { a: z.number(), b: z.number() }, async ({a, b}) => ({ content: [{ type: 'text', text: String(a+b) }] }));
+
+console.log('_registeredTools:', JSON.stringify(server._registeredTools, (key, val) => {
+    if (typeof val === 'function') return '[Function]';
+    try { JSON.stringify(val); return val; } catch { return '[Complex]'; }
+}, 2));
+" 2>&1
+  result(ERROR):
+
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+Error: tsx must be loaded with --import instead of --loader
+The --loader flag was deprecated in Node v20.6.0 and v18.19.0
+    at initialize (file:///workspace/node_modules/tsx/dist/register-CqMfTiWi.mjs:1:1023)
+    at Hooks.addCustomLoader (node:internal/modules/esm/hooks:206:24)
+    at Hooks.register (node:internal/modules/esm/hooks:172:16)
+    at async initializeHooks (node:internal/modules/esm/utils:324:5)
+    at async customizedModuleWorker (node:internal/modules/esm/worker:104:24)
+
+Node.js v20.20.2
+
+
+Command exited with code 1
+
+Tool Call 57 — bash
+  reasoning: Let me use --import instead:
+  args: $ cd /workspace && node --import tsx --no-warnings -e "
+  args-body:
+cd /workspace && node --import tsx --no-warnings -e "
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
+
+const server = new McpServer({ name: 'test', version: '1.0.0' });
+
+server.tool('calculate_sum', 'sum of two numbers', { a: z.number(), b: z.number() }, async ({a, b}) => ({ content: [{ type: 'text', text: String(a+b) }] }));
+
+const tools = server._registeredTools;
+console.log('_registeredTools keys:', Object.keys(tools));
+for (const [name, tool] of Object.entries(tools)) {
+    console.log('tool name:', name);
+    console.log('tool.inputSchema type:', typeof tool.inputSchema);
+    console.log('tool.inputSchema _def:', tool.inputSchema?._def?.typeName);
+    console.log('tool.inputSchema shape:', tool.inputSchema?.shape);
+}
+" 2>&1
+  result:
+_registeredTools keys: [ 'calculate_sum' ]
+tool name: calculate_sum
+tool.inputSchema type: object
+tool.inputSchema _def: ZodObject
+tool.inputSchema shape: {
+  a: ZodNumber {
+    spa: [Function: bound safeParseAsync] AsyncFunction,
+    _def: { checks: [], typeName: 'ZodNumber', coerce: false },
+    parse: [Function: bound parse],
+    safeParse: [Function: bound safeParse],
+    parseAsync: [Function: bound parseAsync] AsyncFunction,
+    safeParseAsync: [Function: bound safeParseAsync] AsyncFunction,
+    refine: [Function: bound refine],
+    refinement: [Function: bound refinement],
+    superRefine: [Function: bound superRefine],
+      … (48 lines truncated for brevity) …
+    min: [Function: gte],
+    max: [Function: lte],
+    step: [Function: multipleOf]
+  }
+}
+
+Tool Call 58 — bash
+  reasoning: So `tool.inputSchema` is a ZodObject with proper `_def.typeName = 'ZodObject'` and `.shape` containing the field definitions. The issue must be in how I'm using `zodToJsonSchema` - maybe it's not getting called properly, or the tool property access has some issue.
+
+Let me add more debugging:
+  args: $ cd /workspace && node --import tsx --no-warnings -e "
+  args-body:
+cd /workspace && node --import tsx --no-warnings -e "
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
+
+const server = new McpServer({ name: 'test', version: '1.0.0' });
+
+server.tool('calculate_sum', 'sum of two numbers', { a: z.number(), b: z.number() }, async ({a, b}) => ({ content: [{ type: 'text', text: String(a+b) }] }));
+
+for (const [name, val] of Object.entries(server._registeredTools)) {
+    const tool = val;
+    console.log('---');
+    console.log('name:', name);
+    console.log('tool.inputSchema exists:', !!tool.inputSchema);
+    if (tool.inputSchema) {
+        const result = zodToJsonSchema(tool.inputSchema, { name, target: 'jsonSchema7' });
+        console.log('zodToJsonSchema result:', JSON.stringify(result, null, 2));
+    }
+}
+" 2>&1
+  result:
+---
+name: calculate_sum
+tool.inputSchema exists: true
+zodToJsonSchema result: {
+  "$ref": "#/definitions/calculate_sum",
+  "definitions": {
+    "calculate_sum": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "number"
+        },
+        "b": {
+          "type": "number"
+        }
+      … (5 lines truncated for brevity) …
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
+
+Tool Call 59 — write
+  reasoning: The `zodToJsonSchema` is working correctly. But notice the output has `$ref` at the top level and `definitions` nested. This happens because I'm passing `name: "calculate_sum"` which causes it to create a `$ref` definition instead of placing properties at the root.
+
+I should pass `{ name: undefined }` or just not use the `name` option, since we're calling it for each tool individually with its own schema. Or better yet, pass `undefined` for `name`:
+  args: /workspace/src/index.ts
+  args-body:
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+
+export function createServer() {
+  const server = new McpServer({ name: "calc-server", version: "1.0.0" });
+
+  // Register a custom action tool named "calculate_sum" that adds two numbers
+  server.tool(
+    "calculate_sum",
+    "Add two numbers together and return the sum.",
+    { a: z.number(), b: z.number() },
+    async ({ a, b }) => ({
+      content: [{ type: "text", text: String(a + b) }],
+      … (79 lines truncated for brevity) …
+  const transport = new StdioServerTransport();
+  server.connect(transport).then(() => {
+    console.error("Calculation MCP Server running on stdio");
+  }).catch(console.error);
+}
+  result:
+Successfully wrote 3157 bytes to /workspace/src/index.ts
+
+Tool Call 60 — bash
+  reasoning: Now let me run the tests again.
+  args: $ cd /workspace && npm test 2>&1
+  result:
+
+> mcp-custom-server@1.0.0 test
+> vitest run
+
+
+ RUN  v1.6.1 /workspace
+
+ ✓ tests/index.test.ts  (2 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  03:27:44
+   Duration  267ms (transform 28ms, setup 0ms, collect 88ms, tests 5ms, environment 0ms, prepare 35ms)

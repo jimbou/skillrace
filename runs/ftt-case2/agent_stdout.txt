@@ -1,0 +1,11 @@
+All **16/16 tests pass** now. Here's a summary of the two bugs I fixed in `csv_parser.py`:
+
+### Bug 1: Escaped quotes (`""` inside quoted fields)
+The original code simply toggled `in_quotes = False` whenever it saw `"`, destroying escaped quote content like `'b"c'`. 
+
+**Fix**: When inside a quoted field and encountering `"`, check if the next character is also `"`. If so, emit a single `"` into the field output and advance by 2 positions (consuming both characters). This is RFC 4180 behavior.
+
+### Bug 2: Empty string handling
+An empty input returned `[]` instead of `[[""]]`.
+
+**Fix**: Simplified the end-of-input logic to always append the final field and row unconditionally, ensuring that even an empty string produces a single row with one empty field.

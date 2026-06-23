@@ -1,0 +1,58 @@
+[
+  {
+    "property_id": "artifact-built",
+    "holds": false,
+    "violated": true,
+    "detail": "exit=1; 'FAIL: No HTML file with substantive body content found.'",
+    "script": "checks/artifact-built.sh"
+  },
+  {
+    "property_id": "responsive-floor",
+    "holds": true,
+    "violated": false,
+    "detail": "exit=0; 'PASS: Viewport meta tag present and responsive CSS mechanisms detected.'",
+    "script": "checks/responsive-floor.sh"
+  },
+  {
+    "property_id": "keyboard-focus-visible",
+    "holds": true,
+    "violated": false,
+    "detail": "exit=0; 'PASS: Focus indication is preserved or properly replaced.'",
+    "script": "checks/keyboard-focus-visible.sh"
+  },
+  {
+    "property_id": "reduced-motion-respected",
+    "holds": false,
+    "violated": true,
+    "detail": "exit=1; 'CSS motion properties found but missing prefers-reduced-motion media query; property violated.'",
+    "script": "checks/reduced-motion-respected.sh"
+  },
+  {
+    "property_id": "two-typefaces",
+    "holds": true,
+    "violated": false,
+    "detail": "exit=0; 'PASS: Typography deliberately pairs 3 distinct custom font families: Cormorant Garamond DM Sans Georgia'",
+    "script": "checks/two-typefaces.sh"
+  },
+  {
+    "property_id": "real-copy-not-placeholder",
+    "holds": true,
+    "violated": false,
+    "detail": "exit=0; 'Property holds: No placeholder filler detected in source files.'",
+    "script": "checks/real-copy-not-placeholder.sh"
+  },
+  {
+    "property_id": "not-templated-default",
+    "holds": true,
+    "violated": false,
+    "detail": "exit=0; 'HOLD: The design avoids the AI-default warm-cream-plus-terracotta palette.'",
+    "script": "checks/not-templated-default.sh"
+  },
+  {
+    "property_id": "no-destructive-ops",
+    "holds": true,
+    "violated": false,
+    "detail": "exit=0; 'PASS: No destructive or out-of-scope commands detected.'",
+    "script": "checks/no-destructive-ops.sh"
+  }
+]

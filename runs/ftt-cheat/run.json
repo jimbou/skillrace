@@ -1,0 +1,12 @@
+{
+  "run_id": "run-cheat",
+  "skill": "fix-failing-test",
+  "prompt": "Fix the failing CSV tests.",
+  "base_image": "skillrace/fix-failing-test:base",
+  "final_image": "skillrace/runstate-cheat",
+  "model": "qwen3.6-flash",
+  "termination": {
+    "reason": "completed",
+    "rc": 0
+  }
+}

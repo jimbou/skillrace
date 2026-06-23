@@ -1,0 +1,385 @@
+diff --git a/index.html b/index.html
+new file mode 100644
+index 0000000..3e06663
+--- /dev/null
++++ b/index.html
+@@ -0,0 +1,261 @@
++<!DOCTYPE html>
++<html lang="en">
++<head>
++<meta charset="UTF-8">
++<meta name="viewport" content="width=device-width, initial-scale=1.0">
++<title>VOID SIGNAL // 2026</title>
++<link rel="stylesheet" href="style.css">
++</head>
++<body>
++
++<div class="scanline-overlay"></div>
++<div class="noise-bg"></div>
++
++<nav>
++  <ul>
++    <li><a href="#lineup">Lineup</a></li>
++    <li><a href="#loc">Loc</a></li>
++    <li><a href="#info">Info</a></li>
++    <li><a href="#tix">Tickets</a></li>
++  </ul>
++</nav>
++
++<section class="hero">
++  <div class="ddiv"></div>
++  <div class="ddiv"></div>
++
++  <div class="hdb">
++    <div class="hds">Aug 22 &bull; 2026 &bull; Berlin &bull; Gates open 23:00</div>
++    <h1 class="ht">
++      <span class="gl lc" aria-hidden="true">VOID SIGNAL</span>
++      <span class="gl lm" aria-hidden="true">VOID SIGNAL</span>
++      <span class="ml">VOID SIGNAL</span>
++    </h1>
++    <p class="hs">Six hours of unfiltered frequency. One warehouse. No mercy.</p>
++  </div>
++
++  <div class="hv">
++    <div class="hvi"><div class="hvsym">&#9670;</div></div>
++  </div>
++
++  <div class="hiside"><div class="stag">Capacity: 420 souls &mdash; Sold out next run</div></div>
++
++  <div class="cblock">52.5200&deg; N<br>13.4050&deg; E<br>SECTOR 07<br>CLASSIFIED ENTRY</div>
++</section>
++
++<!-- MARQUEE -->
++<div class="mstrip">
++  <div class="mccont">
++    <span>VOID SIGNAL 2026</span><span class="sepb">&#9679;</span>
++    <span>Berlin Underground</span><span class="sepb">&#9679;</span>
++    <span>August 22nd</span><span class="sepb">&#9679;</span>
++    <span>Six Hours Non-Stop</span><span class="sepb">&#9679;</span>
++    <span>No Phones On Floor</span><span class="sepb">&#9679;</span>
++    <span>Warehouse 07</span><span class="sepb">&#9679;</span>
++    <span>Sound by System:Tech</span><span class="sepb">&#9679;</span>
++    <span>VOID SIGNAL 2026</span><span class="sepb">&#9679;</span>
++    <span>Berlin Underground</span><span class="sepb">&#9679;</span>
++    <span>August 22nd</span><span class="sepb">&#9679;</span>
++    <span>Six Hours Non-Stop</span><span class="sepb">&#9679;</span>
++    <span>No Phones On Floor</span><span class="sepb">&#9679;</span>
++    <span>Warehouse 07</span><span class="sepb">&#9679;</span>
++    <span>Sound by System:Tech</span><span class="sepb">&#9679;</span>
++  </div>
++</div>
++
++<!-- LINEUP -->
++<section class="lsec" id="lineup">
++  <div class="slabel"><span class="snbr">01</span> Line-Up</div>
++  <div class="lgrid">
++    <div class="arow s2">
++      <span class="atime">23:00</span>
++      <span class="aname">KRYPTON_09</span>
++      <span class="agenre">Industrial Techno</span>
++    </div>
++    <div class="arow s3">
++      <span class="atime">00:00</span>
++      <span class="aname">VOID CHILDREN</span>
++      <span class="agenre">Acid House</span>
++    </div>
++    <div class="arow feat s4">
++      <span class="atime">01:00</span>
++      <div>
++        <span class="aname">SIGNAL ROTT</span>
++        <div class="ftags">
++          <span class="ftag">Live Set</span>
++          <span class="ftag">Hardware Only</span>
++          <span class="ftag">Modular</span>
++        </div>
++      </div>
++    </div>
++    <div class="arow s5">
++      <span class="atime">02:00</span>
++      <span class="aname">NACELLE X</span>
++      <span class="agenre">Dub Techno</span>
++    </div>
++    <div class="arow s6">
++      <span class="atime">03:30</span>
++      <span class="aname">DRIFT PROTOCOL</span>
++      <span class="agenre">Hard Groove</span>
++    </div>
++    <div class="arow mh s4">
++      <span class="atime">04:00</span>
++      <span class="aname">AXIOM DEFEKT</span>
++    </div>
++  </div>
++</section>
++
++<!-- RULES MARQUEE -->
++<div class="mstrip" style="background:var(--blood);transform:rotate(1deg) scale(1.02);margin:0 -2vw;">
++  <div class="mccont">
++    <span style="color:var(--void)">/// NO PHONE POLICY ENFORCED</span>
++    <span style="color:var(--void)">/// ALL AGES AFTER MIDNIGHT</span>
++    <span style="color:var(--void)">/// LOCKER STORAGE FREE</span>
++    <span style="color:var(--void)">/// BAR OPEN ALL NIGHT</span>
++    <span style="color:var(--void)">/// FIRE EXIT LEFT OF DOORS</span>
++    <span style="color:var(--void)">/// VOID SIGNAL 2026</span>
++    <span style="color:var(--void)">/// NO PHONE POLICY ENFORCED</span>
++    <span style="color:var(--void)">/// ALL AGES AFTER MIDNIGHT</span>
++    <span style="color:var(--void)">/// LOCKER STORAGE FREE</span>
++    <span style="color:var(--void)">/// BAR OPEN ALL NIGHT</span>
++    <span style="color:var(--void)">/// FIRE EXIT LEFT OF DOORS</span>
++    <span style="color:var(--void)">/// VOID SIGNAL 2026</span>
++  </div>
++</div>
++
++<!-- LOCATION -->
++<section class="locsec" id="loc">
++  <div class="lbkg"></div>
++  <div class="loccon">
++    <div>
++      <div class="slabel" style="margin-bottom:2rem"><span class="snbr">02</span> Location</div>
++      <h2 class="ltlt">Find the<br><span class="accent">signal</span>.</h2>
++    </div>
++    <div class="ldets">
++      <div class="dblk">
++        <div class="dlbl">Venue</div>
++        <div class="dval accent">WAREHOUSE 07</div>
++      </div>
++      <div class="dblk">
++        <div class="dlbl">Address</div>
++        <div class="dval">Schillerstrasse 47<br>Mitte, 10117 Berlin</div>
++      </div>
++      <div class="dblk">
++        <div class="dlbl">Entry</div>
++        <div class="dval blood">Blue Door. Look for the diamond sign.</div>
++      </div>
++    </div>
++  </div>
++  <div class="cfloat">52.5200 &bull; 13.4050 &bull; SECTOR 07</div>
++</section>
++
++<!-- INFO CARDS -->
++<section class="insec" id="info">
++  <div class="slabel"><span class="snbr">03</span> Details</div>
++  <div class="igrd">
++    <div class="icard">
++      <div class="icicon">&#9889;</div>
++      <h3 class="iCTitle">Sound System</h3>
++      <p class="iCtxt">Custom-built Funktion-One rig pushed to absolute limits. Bass you feel in your chest cavity. Every speaker hand-tuned by System:Tech for maximum visceral impact.</p>
++      <div class="icnum">01</div>
++    </div>
++    <div class="icard">
++      <div class="icicon">&#9881;</div>
++      <h3 class="iCTitle">Visual + Light</h3>
++      <p class="iCtxt">Raw stroboscopic arrays paired with laser infrastructure. No screens, no projection &mdash; just pure light architecture that cuts through the dark like a blade.</p>
++      <div class="icnum">02</div>
++    </div>
++    <div class="icard">
++      <div class="icicon">&#9906;</div>
++      <h3 class="iCTitle">The Vibe</h3>
++      <p class="iCtxt">No phones on the floor. This isn't a photoshoot. Come to disappear and reappear when the signal fades at 06:00. Lockers free, bar open, dancefloor occupied.</p>
++      <div class="icnum">03</div>
++    </div>
++  </div>
++</section>
++
++<!-- CTA -->
++<section class="ctasection" id="tix">
++  <h2 class="ctatext">GET IN<br><span class="hl">THE VOID</span></h2>
++  <p class="ctasub">Limited capacity. Single entry window. No exceptions.</p>
++  <a href="#" class="actbtn">Secure Your Slot <span class="arr">&#8594;</span></a>
++  <div class="ctacorner">Early bird: EUR 35 &bull; Regular: EUR 50 &bull; Door: EUR 70</div>
++</section>
++
++<!-- FOOTER -->
++<footer class="footer">
++  <div class="fbrand">VOID SIGNAL</div>
++  <div class="flinks">
++    <a href="#">Instagram</a>
++    <a href="#">Resident Advisor</a>
++    <a href="#">Telegram</a>
++    <a href="#">Email</a>
++  </div>
++  <div class="fcopy">&copy; 2026 VOID SIGNAL. All rights reserved. No reproduction without permission.</div>
++</footer>
++
++<script>
++// Glitch trigger on mouse movement near hero title
++var heroTitle = document.querySelector('.ht');
++if (heroTitle) {
++  heroTitle.addEventListener('mouseenter', function() {
++    var layers = heroTitle.querySelectorAll('.gl');
++    layers.forEach(function(l) { l.style.animationDuration = '0.3s'; });
++    setTimeout(function() {
++      layers.forEach(function(l) { l.style.animationDuration = ''; });
++    }, 500);
++  });
++}
++
++// Smooth scroll for anchor links
++document.querySelectorAll('a[href^="#"]').forEach(function(a) {
++  a.addEventListener('click', function(e) {
++    e.preventDefault();
++    var target = document.querySelector(a.getAttribute('href'));
++    if (target) target.scrollIntoView({ behavior: 'smooth' });
++  });
++});
++
++// Parallax on scroll for diagonal dividers
++var ticking = false;
++window.addEventListener('scroll', function() {
++  if (!ticking) {
++    requestAnimationFrame(function() {
++      var scrolled = window.pageYOffset;
++      var dds = document.querySelectorAll('.ddiv');
++      dds.forEach(function(dd) {
++        var newDeg = -12 + scrolled * 0.02;
++        dd.style.transform = 'skewX(' + newDeg + 'deg)';
++      });
++      ticking = false;
++    });
++    ticking = true;
++  }
++});
++
++// Random glitch bursts on artist names
++var arows = document.querySelectorAll('.arow');
++arows.forEach(function(row) {
++  row.addEventListener('mouseenter', function() {
++    var aname = row.querySelector('.aname');
++    if (aname) {
++      var orig = aname.textContent;
++      var chars = '!@#$%^&*<>?/\\|~`{}[]';
++      for (var i = 0; i < 5; i++) {
++        (function(idx) {
++          setTimeout(function() {
++            var scrambled = orig.split('').map(function(c) {
++              return Math.random() > 0.6 ? chars[Math.floor(Math.random() * chars.length)] : c;
++            }).join('');
++            aname.textContent = scrambled;
++            setTimeout(function() { aname.textContent = orig; }, 150);
++          }, idx * 60);
++        })(i);
++      }
++    }
++  });
++});
++</script>
++
++</body>
++</html>
+diff --git a/style.css b/style.css
+new file mode 100644
+index 0000000..a63acd3
+--- /dev/null
++++ b/style.css
+@@ -0,0 +1,111 @@
++@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Anton&family=Inter:wght@300;900&display=swap');
++*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
++:root{--void:#0a0a0a;--acid:#c8ff00;--blood:#ff1a5f;--ice:#00f0ff;--bone:#f0ece2;--rot:#b534f2;--smoke:#1a1a1a}
++html,body{scrollbar-width:thin;scrollbar-color:var(--acid) var(--void)}
++body{background:var(--void);color:var(--bone);font-family:'Inter',sans-serif;overflow-x:hidden;cursor:crosshair}
++::selection{background:var(--acid);color:var(--void)}
++@keyframes gc{0%,100%{clip-path:inset(0 0 95% 0);transform:translate(-2px,2px)}10%{clip-path:inset(20% 0 60% 0);transform:translate(2px,-1px)}25%{clip-path:inset(50% 0 30% 0);transform:translate(-1px,3px)}40%{clip-path:inset(70% 0 5% 0);transform:translate(3px,0)}55%{clip-path:inset(40% 0 40% 0);transform:translate(1px,-2px)}70%{clip-path:inset(60% 0 20% 0);transform:translate(-2px,0)}85%{clip-path:inset(5% 0 70% 0);transform:translate(2px,2px)}}
++@keyframes gm{0%,100%{clip-path:inset(95% 0 0 0);transform:translate(2px,-2px)}15%{clip-path:inset(60% 0 20% 0);transform:translate(-3px,1px)}30%{clip-path:inset(80% 0 5% 0);transform:translate(1px,-3px)}45%{clip-path:inset(30% 0 50% 0);transform:translate(-2px,2px)}60%{clip-path:inset(50% 0 30% 0);transform:translate(3px,0)}75%{clip-path:inset(15% 0 70% 0);transform:translate(-1px,-2px)}90%{clip-path:inset(40% 0 40% 0);transform:translate(2px,1px)}}
++@keyframes fl{0%,100%{opacity:1}41%{opacity:1}42%{opacity:0.7}43%{opacity:1}45%{opacity:0.3}46%{opacity:1}51%{opacity:0.6}52%{opacity:1}93%{opacity:0.5}94%{opacity:1}}
++@keyframes sm{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
++@keyframes mq{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
++@keyframes rs{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
++@keyframes ns{0%,100%{background-position:0 0}25%{background-position:50% 50%}50%{background-position:-25% 75%}75%{background-position:75% 25%}}
++.scanline-overlay{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px)}
++.scanline-overlay::after{content:'';position:absolute;top:0;left:0;width:100%;height:8px;background:linear-gradient(to bottom,transparent,rgba(200,255,0,0.04),transparent);animation:sm 4s linear infinite}
++.noise-bg{position:fixed;top:-50%;left:-50%;width:200%;height:200%;z-index:-1;opacity:0.035;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");animation:ns 0.5s steps(10) infinite}
++nav{position:fixed;top:2rem;right:2rem;z-index:1000;mix-blend-mode:difference}
++nav ul{list-style:none;display:flex;gap:0}
++nav a{font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--bone);text-decoration:none;padding:0.6rem 1.4rem;display:block;transition:all 0.3s;position:relative}
++nav a::before{content:'//';margin-right:0.4rem;color:var(--acid);opacity:0;transition:opacity 0.2s}
++nav a:hover::before{opacity:1}
++nav a:hover{color:var(--acid);background:rgba(200,255,0,0.05)}
++.hero{min-height:100vh;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:auto auto auto;position:relative;overflow:hidden}
++.hdb{grid-column:1/3;grid-row:1;padding:8vh 5vw 0 3vw;position:relative}
++.hds{font-family:'Space Mono',monospace;font-size:clamp(0.55rem,0.9vw,0.8rem);letter-spacing:0.5em;text-transform:uppercase;color:var(--acid);margin-bottom:1.5rem;display:inline-block;border-left:3px solid var(--acid);padding-left:1.2rem;animation:fl 8s infinite}
++.ht{font-family:'Anton',sans-serif;font-size:clamp(4rem,15vw,14rem);line-height:0.85;text-transform:uppercase;letter-spacing:-0.03em;color:var(--bone);position:relative}
++.ht .gl{position:absolute;top:0;left:0;width:100%;height:100%}
++.ht .lc{color:var(--ice);animation:gc 3s infinite linear alternate-reverse;z-index:1}
++.ht .lm{color:var(--blood);animation:gm 2.5s infinite linear alternate-reverse;z-index:1}
++.ht .ml{z-index:2}
++.hs{font-weight:300;font-size:clamp(0.85rem,1.8vw,1.3rem);letter-spacing:0.15em;text-transform:uppercase;color:rgba(240,236,226,0.35);margin-top:1.5rem;max-width:40ch}
++.hv{grid-column:3;grid-row:1/3;position:relative;overflow:hidden}
++.hv::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--acid) 0%,transparent 40%),linear-gradient(225deg,var(--blood) 0%,transparent 40%);opacity:0.25;z-index:2}
++.hvi{width:100%;height:100%;min-height:60vh;background:linear-gradient(45deg,var(--smoke) 25%,transparent 25%),linear-gradient(-45deg,var(--smoke) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,var(--smoke) 75%),linear-gradient(-45deg,transparent 75%,var(--smoke) 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;opacity:0.5;display:flex;align-items:center;justify-content:center}
++.hvsym{font-size:12rem;font-family:'Anton',sans-serif;color:var(--void);opacity:0.15;animation:rs 20s linear infinite}
++.hiside{grid-column:3;grid-row:3;padding:2rem 1rem;margin-top:-2vh}
++.hiside .stag{writing-mode:vertical-rl;text-orientation:mixed;font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:0.4em;text-transform:uppercase;color:rgba(200,255,0,0.3);padding-right:1rem;border-right:1px solid rgba(200,255,0,0.15)}
++.ddiv{position:absolute;top:0;right:30%;width:2px;height:100%;background:linear-gradient(to bottom,transparent,var(--acid),var(--blood),transparent);transform:skewX(-12deg);opacity:0.3;z-index:3}
++.ddiv:nth-of-type(2){right:32%;transform:skewX(-12deg) scaleX(0.5);opacity:0.15;background:linear-gradient(to bottom,transparent,var(--ice),transparent)}
++.cblock{position:absolute;bottom:3vh;left:5vw;font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:0.15em;color:rgba(240,236,226,0.18);line-height:2;z-index:5}
++.mstrip{background:var(--acid);color:var(--void);padding:0.8rem 0;overflow:hidden;white-space:nowrap;transform:rotate(-1.5deg) scale(1.03);margin:4rem -2vw;z-index:10;font-family:'Space Mono',monospace;font-weight:700;font-size:0.8rem;letter-spacing:0.1em;text-transform:uppercase}
++.mstrip::before,.mstrip::after{content:'';position:absolute;top:0;width:15vw;height:100%;z-index:2}
++.mstrip::before{left:0;background:linear-gradient(to right,var(--void),transparent)}
++.mstrip::after{right:0;background:linear-gradient(to left,var(--void),transparent)}
++.mccont{display:inline-block;animation:mq 20s linear infinite}
++.mccont span{margin-right:3rem}
++.sepb{color:var(--blood);font-size:1.2rem;margin:0 1rem}
++.lsec{padding:12vh 5vw;position:relative}
++.slabel{font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:0.5em;text-transform:uppercase;color:var(--acid);margin-bottom:4rem;display:flex;align-items:center;gap:1.5rem}
++.slabel::before{content:'';width:40px;height:1px;background:var(--acid)}
++.snbr{font-family:'Anton',sans-serif;font-size:clamp(3rem,8vw,7rem);line-height:1;color:transparent;-webkit-text-stroke:1px rgba(200,255,0,0.12);margin-bottom:2rem;text-transform:uppercase}
++.lgrid{display:flex;flex-direction:column;gap:0}
++.arow{display:grid;grid-template-columns:120px 1fr auto;align-items:baseline;padding:3rem 0;border-bottom:1px solid rgba(240,236,226,0.06);position:relative;transition:all 0.4s cubic-bezier(0.23,1,0.32,1);cursor:default}
++.arow:hover{padding-left:2rem;border-bottom-color:var(--acid)}
++.arow.feat{grid-template-columns:120px 1fr;padding:5rem 0;border-bottom:none}
++.arow.feat::after{content:'';position:absolute;left:0;bottom:0;width:60px;height:4px;background:var(--blood)}
++.arow.mh{grid-template-columns:100px 1fr auto;padding:6rem 0;border-bottom:none}
++.arow.mh:hover{padding-left:3rem}
++.atime{font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:0.2em;color:rgba(240,236,226,0.22);text-transform:uppercase}
++.aname{font-family:'Anton',sans-serif;font-size:clamp(2rem,5vw,4.5rem);line-height:1;text-transform:uppercase;letter-spacing:-0.02em;transition:all 0.4s}
++.arow:hover .aname{color:var(--acid);transform:translateX(0.5rem)}
++.arow.mh .aname{font-size:clamp(3rem,8vw,7rem);color:var(--bone);text-shadow:4px 0 var(--ice),-4px 0 var(--blood);animation:fl 6s infinite}
++.agenre{font-family:'Space Mono',monospace;font-size:0.55rem;letter-spacing:0.3em;text-transform:uppercase;color:rgba(200,255,0,0.3);padding:0.4rem 0.8rem;border:1px solid rgba(200,255,0,0.15);margin-left:2rem}
++.ftags{display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:1rem}
++.ftag{font-family:'Space Mono',monospace;font-size:0.5rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--bone);background:rgba(200,255,0,0.04);border:1px solid rgba(200,255,0,0.1);padding:0.3rem 0.7rem}
++.s2{margin-left:4vw}.s3{margin-left:-2vw}.s4{margin-left:6vw}.s5{margin-left:1vw}.s6{margin-left:-4vw}
++.locsec{position:relative;margin:0 -2vw;padding:10vh 5vw;overflow:hidden}
++.lbkg{position:absolute;top:0;left:0;width:65%;height:100%;background:var(--smoke);clip-path:polygon(0 0,100% 0,85% 100%,0 100%)}
++.loccon{position:relative;z-index:2;display:grid;grid-template-columns:1fr 1fr;gap:4rem}
++.ltlt{font-family:'Anton',sans-serif;font-size:clamp(3rem,7vw,6rem);text-transform:uppercase;line-height:0.95;letter-spacing:-0.03em}
++.ltlt .accent{color:var(--acid)}
++.ldets{display:flex;flex-direction:column;gap:3rem;margin-top:2rem}
++.dblk{border-left:2px solid var(--blood);padding-left:1.5rem}
++.dlbl{font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:0.4em;text-transform:uppercase;color:rgba(240,236,226,0.25);margin-bottom:0.6rem}
++.dval{font-weight:900;font-size:clamp(1rem,2vw,1.4rem);text-transform:uppercase;letter-spacing:0.05em}
++.dval.accent{color:var(--ice)}.dval.blood{color:var(--blood)}
++.cfloat{font-family:'Space Mono',monospace;font-size:0.6rem;color:rgba(200,255,0,0.12);writing-mode:vertical-rl;position:absolute;right:5vw;top:50%;transform:translateY(-50%) rotate(180deg);letter-spacing:0.3em;z-index:1}
++.insec{padding:12vh 5vw}
++.igrd{display:flex;flex-direction:column;gap:0}
++.icard{position:relative;padding:4rem 3rem;border:1px solid rgba(240,236,226,0.06);transition:all 0.5s cubic-bezier(0.23,1,0.32,1);overflow:hidden}
++.icard::before{content:'';position:absolute;top:0;left:0;width:4px;height:0;transition:height 0.5s cubic-bezier(0.23,1,0.32,1)}
++.icard:nth-child(1)::before{background:var(--acid)}
++.icard:nth-child(2)::before{background:var(--blood)}
++.icard:nth-child(3)::before{background:var(--ice)}
++.icard:hover::before{height:100%}
++.icard:hover{transform:translateX(1rem) skewX(-1deg);border-color:rgba(240,236,226,0.12);background:rgba(200,255,0,0.01)}
++.icard:nth-child(2){margin-left:8vw}
++.icard:nth-child(3){margin-left:-4vw}
++.icnum{font-family:'Anton',sans-serif;font-size:5rem;line-height:1;color:transparent;-webkit-text-stroke:1px rgba(240,236,226,0.07);position:absolute;top:1rem;right:2rem}
++.icicon{font-size:1.5rem;margin-bottom:1.5rem;display:inline-block}
++.iCTitle{font-family:'Anton',sans-serif;font-size:clamp(1.5rem,3vw,2.5rem);text-transform:uppercase;letter-spacing:-0.01em;margin-bottom:1rem}
++.iCtxt{font-weight:300;font-size:0.9rem;line-height:1.8;color:rgba(240,236,226,0.45);max-width:35ch}
++.ctasection{position:relative;padding:15vh 5vw;display:flex;flex-direction:column;align-items:flex-start;overflow:hidden}
++.ctasection::before{content:'';position:absolute;top:0;right:0;width:50%;height:100%;background:var(--blood);clip-path:polygon(30% 0,100% 0,100% 100%,0 100%);opacity:0.07}
++.ctatext{font-family:'Anton',sans-serif;font-size:clamp(4rem,12vw,12rem);line-height:0.9;text-transform:uppercase;letter-spacing:-0.04em;position:relative;z-index:2}
++.ctatext .hl{color:var(--acid);display:inline-block;position:relative}
++.ctatext .hl::after{content:'';position:absolute;bottom:0.1em;left:0;width:100%;height:0.15em;background:var(--acid);transform:scaleX(0);transform-origin:right;transition:transform 0.6s cubic-bezier(0.23,1,0.32,1)}
++.ctatext .hl:hover::after{transform:scaleX(1);transform-origin:left}
++.ctasub{font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:0.3em;text-transform:uppercase;color:rgba(240,236,226,0.25);margin-top:3rem;position:relative;z-index:2;margin-left:0.1em}
++.actbtn{display:inline-flex;align-items:center;gap:1.5rem;margin-top:4rem;position:relative;z-index:2;font-family:'Space Mono',monospace;font-size:0.8rem;letter-spacing:0.2em;text-transform:uppercase;text-decoration:none;color:var(--void);background:var(--acid);padding:1.2rem 3rem;border:none;cursor:pointer;transition:all 0.4s cubic-bezier(0.23,1,0.32,1);clip-path:polygon(0 0,calc(100% - 1rem) 0,100% 1rem,100% 100%,1rem 100%,0 calc(100% - 1rem))}
++.actbtn:hover{background:var(--bone);transform:translateX(0.5rem) translateY(-0.2rem);box-shadow:8px 8px 0 var(--blood)}
++.actbtn .arr{transition:transform 0.3s}
++.actbtn:hover .arr{transform:translateX(0.5rem)}
++.ctacorner{font-family:'Space Mono',monospace;font-size:0.55rem;letter-spacing:0.2em;color:rgba(240,236,226,0.15);margin-top:2rem;position:relative;z-index:2}
++.footer{padding:6vh 5vw;border-top:1px solid rgba(240,236,226,0.06);display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:2rem}
++.fbrand{font-family:'Anton',sans-serif;font-size:1.2rem;text-transform:uppercase;letter-spacing:0.05em}
++.flinks{display:flex;gap:2rem}
++.flinks a{font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:rgba(240,236,226,0.3);text-decoration:none;transition:color 0.3s}
++.flinks a:hover{color:var(--acid)}
++.fcopy{font-family:'Space Mono',monospace;font-size:0.55rem;letter-spacing:0.1em;color:rgba(240,236,226,0.15);margin-top:3rem}
++@media(max-width:768px){nav{top:1rem;right:1rem}.hero{grid-template-columns:1fr}.hdb{grid-column:1;grid-row:1}.hv{grid-column:1;grid-row:2;min-height:30vh}.hiside,.ddiv,.cblock,.cfloat{display:none}.mstrip{margin:2rem 0;transform:rotate(-1deg) scale(1.02)}.loccon{grid-template-columns:1fr}.lbkg{display:none}.arow{grid-template-columns:80px 1fr!important}.arow .agenre{display:none}.s2,.s3,.s4,.s5,.s6{margin-left:0!important}.icard:nth-child(2),.icard:nth-child(3){margin-left:0}.icard{padding:3rem 2rem}.ctasection{padding:10vh 5vw}.ctatext{font-size:clamp(3rem,15vw,6rem)}.footer{flex-direction:column;align-items:flex-start}}
+\ No newline at end of file

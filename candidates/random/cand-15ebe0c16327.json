@@ -1,0 +1,18 @@
+{
+  "candidate_id": "cand-15ebe0c16327",
+  "skill": "fix-failing-test",
+  "prompt": "Run the test suite (`python3 -m pytest -q`) to see exactly what fails. Read the failing test to understand the expected behavior. Locate and fix the bug in the **implementation** code. Re-run the tests to confirm they pass and report what the bug was and how you fixed it.",
+  "base_image": "skillrace/fix-failing-test:base",
+  "containerfile": "FROM skillrace/fix-failing-test:base\n# >>> SKILLRACE TAIL >>>\nRUN apt-get update && apt-get install -y python3-pip\nRUN pip install --break-system-packages pytest\nRUN cat > /workspace/mathlib.py <<'EOF'\ndef factorial(n):\n    if n < 0:\n        raise ValueError(\"n must be non-negative\")\n    result = 1\n    for i in range(1, n + 1):\n        result *= i\n    return result\n\n\ndef fib(n):\n    a, b = 0, 1\n    for _ in range(n):\n        a, b = b, a + b\n    return a\n\n\nclass InvalidDivisionError(ValueError):\n    pass\n\n\ndef division(a, b):\n    if b == 0:\n        raise InvalidDivisionError(\"Cannot divide by zero\")\n    return a / b\nEOF\nRUN cat > /workspace/test_mathlib.py <<'EOF'\nimport pytest\nfrom mathlib import factorial, fib, division, InvalidDivisionError\n\n\ndef test_factorial_base_cases():\n    assert factorial(0) == 1\n    assert factorial(1) == 1\n\n\ndef test_factorial_five():\n    assert factorial(5) == 120\n\n\ndef test_fib():\n    assert fib(7) == 13\n\n\ndef test_division_by_zero():\n    with pytest.raises(InvalidDivisionError):\n        division(10, 0)\nEOF\nRUN cd /workspace && git add -A && git commit -q -m \"skillrace: test setup\" || true\n# <<< SKILLRACE TAIL <<<\n",
+  "built_image": "skillrace/cand-15ebe0c16327:built",
+  "provenance": {
+    "source": "random",
+    "parent_run_id": null,
+    "branch_id": null,
+    "mutation": null,
+    "summary": "Fix failing calculator division by zero handling",
+    "task_nl": "Run the test suite and update the division function to properly raise a custom exception when the divisor is zero.",
+    "env_nl": "A lightweight math utility package configured with pytest. The test suite asserts that invalid divisions raise a specific ValueError subclass. The current implementation incorrectly raises the built-in ZeroDivisionError.",
+    "build_attempts": 4
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "candidate_id": "cand-bd2fc2c5241b",
+  "skill": "fix-failing-test",
+  "prompt": "Run the test suite to identify failures in the parser module. Read test_parser.py to understand the expected behavior for parse_number, specifically that integer strings like '42' should return an int and decimal strings like '3.14' should return a float. Fix the implementation in utils/parser.py to correctly handle type casting based on the presence of a decimal point, then re-run tests to confirm they pass.",
+  "base_image": "skillrace/fix-failing-test:base",
+  "containerfile": "FROM skillrace/fix-failing-test:base\n# >>> SKILLRACE TAIL >>>\nRUN mkdir -p /workspace/utils\n\nRUN cat > /workspace/utils/__init__.py <<'EOF'\nEOF\n\nRUN cat > /workspace/utils/parser.py <<'EOF'\ndef parse_number(s):\n    if '.' in s:\n        return float(s)\n    else:\n        return int(s)\nEOF\n\nRUN cat > /workspace/test_parser.py <<'EOF'\nfrom utils.parser import parse_number\n\ndef test_parse_integer_string():\n    result = parse_number('42')\n    assert result == 42\n    assert isinstance(result, int)\n\ndef test_parse_float_string():\n    result = parse_number('3.14')\n    assert result == 3.14\n    assert isinstance(result, float)\nEOF\nRUN cd /workspace && git add -A && git commit -q -m \"skillrace: test setup\" || true\n# <<< SKILLRACE TAIL <<<\n",
+  "built_image": "skillrace/cand-bd2fc2c5241b:built",
+  "provenance": {
+    "source": "random",
+    "parent_run_id": null,
+    "branch_id": null,
+    "mutation": null,
+    "summary": "Correct type conversion bug in string parser",
+    "task_nl": "Investigate the failing tests for the data converter module where integer strings are being parsed as floats due to incorrect casting logic, and update the parse_number function to return the correct int type when no decimal point is present.",
+    "env_nl": "A Python package named utils with a parser.py file containing functions to convert string inputs to numbers, and test_parser.py checking that '42' returns integer 42 and '3.14' returns float 3.14.",
+    "build_attempts": 1
+  }
+}

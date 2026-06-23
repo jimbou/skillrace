@@ -1,0 +1,27 @@
+On branch main
+nothing to commit, working tree clean
+Both work correctly. Here's a summary of results:
+
+### `stats --file sample.txt`
+```
+Lines:    7
+Words:    56
+Characters: 303
+```
+
+### `grep "fox|Python" --file sample.txt`
+```
+3:The quick brown fox jumps over the lazy dog.
+4:Python CLI tools are fun to build.
+```
+
+### `grep "[0-9]+" --file sample.txt`
+```
+6:regex patterns can match numbers like 42 or words like "hello".
+```
+
+**Files created:**
+- `/workspace/cli.py` — the CLI tool with `stats` and `grep` subcommands
+- `/workspace/sample.txt` — the 7-line test file
+
+Both subcommands require `--file` / `-f` to specify the input path. The `grep` subcommand supports any valid Python regex via `re.search()`. Error handling covers missing files, unreadable files, and invalid regex patterns (all exit with code 1 and print to stderr).

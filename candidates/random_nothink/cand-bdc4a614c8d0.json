@@ -1,0 +1,18 @@
+{
+  "candidate_id": "cand-bdc4a614c8d0",
+  "skill": "fix-failing-test",
+  "prompt": "Run the test suite to identify the RecursionError in graphlib.py caused by incorrect visited set handling. Fix the DFS helper function signature and logic to correctly track visited nodes and prevent infinite loops on cycles, then re-run tests to confirm they pass.",
+  "base_image": "skillrace/fix-failing-test:base",
+  "containerfile": "FROM skillrace/fix-failing-test:base\n# >>> SKILLRACE TAIL >>>\nRUN cat > /workspace/graphlib.py <<'EOF'\ndef dfs(graph, start, end):\n    \"\"\"Check if there is a path from start to end in the directed graph.\"\"\"\n    def _dfs_helper(node, target, visited):\n        if node == target:\n            return True\n        visited.add(node)\n        for neighbor in graph.get(node, []):\n            if neighbor not in visited:\n                if _dfs_helper(neighbor, target, visited):\n                    return True\n        return False\n    \n    return _dfs_helper(start, end, set())\nEOF\n\nRUN cat > /workspace/test_graph.py <<'EOF'\nfrom graphlib import dfs\n\ndef test_simple_path():\n    graph = {\n        'A': ['B'],\n        'B': ['C'],\n        'C': []\n    }\n    assert dfs(graph, 'A', 'C') == True\n    assert dfs(graph, 'C', 'A') == False\n\ndef test_cycle_handling():\n    graph = {\n        'A': ['B'],\n        'B': ['C'],\n        'C': ['A']  # Cycle back to A\n    }\n    assert dfs(graph, 'A', 'C') == True\n    assert dfs(graph, 'A', 'A') == True  # Start equals end\n\ndef test_disconnected_nodes():\n    graph = {\n        'A': ['B'],\n        'B': [],\n        'C': ['D'],\n        'D': []\n    }\n    assert dfs(graph, 'A', 'D') == False\n    assert dfs(graph, 'C', 'D') == True\nEOF\nRUN cd /workspace && git add -A && git commit -q -m \"skillrace: test setup\" || true\n# <<< SKILLRACE TAIL <<<\n",
+  "built_image": "skillrace/cand-bdc4a614c8d0:built",
+  "provenance": {
+    "source": "random",
+    "parent_run_id": null,
+    "branch_id": null,
+    "mutation": null,
+    "summary": "Fix infinite recursion in tree traversal implementation",
+    "task_nl": "Debug the failing recursive depth-first search implementation in graphlib.py where the visited set is not passed correctly causing infinite loops on cycles, and fix the helper function signature to include the visited state.",
+    "env_nl": "A Python repository with a graphlib.py implementing DFS on a directed graph and test_graph.py testing reachability between nodes, currently failing with RecursionError or timeout due to unhandled cycles.",
+    "build_attempts": 1
+  }
+}

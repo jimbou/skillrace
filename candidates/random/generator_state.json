@@ -1,0 +1,13 @@
+{
+  "skill": "fix-failing-test",
+  "source": "random",
+  "model": "qwen3.6-flash",
+  "batches": 1,
+  "skipped": 0,
+  "digest": [
+    "Fix failing calculator division by zero handling",
+    "Patch broken date formatting string parsing",
+    "Resolve inventory stock count discrepancy"
+  ],
+  "gen_cost_usd": 0.022635
+}

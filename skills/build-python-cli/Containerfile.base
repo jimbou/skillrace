@@ -1,0 +1,15 @@
+# Level-2 per-skill base: build-python-cli. FROM the shared pi-base.
+FROM skillrace/pi-base:0.62.0
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY repo/    /workspace/
+COPY SKILL.md /skills/build-python-cli/SKILL.md
+
+RUN set -eux; \
+    ln -sf "$(command -v python3)" /usr/local/bin/python; \
+    git config --global user.email base@skillrace.local; git config --global user.name skillrace; \
+    cd /workspace; printf '__pycache__/\n*.pyc\n' > .gitignore; \
+    git init -q -b main; git add -A; git commit -q -m "base: empty CLI workspace"

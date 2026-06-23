@@ -1,0 +1,17 @@
+On branch main
+nothing to commit, working tree clean
+All 2 tests pass. Here's a summary of what was implemented:
+
+**Tool `calculate_sum`** — registered via `server.tool()`:
+- Takes two number parameters (`a`, `b`) using a Zod raw shape `{ a: z.number(), b: z.number() }`
+- Adds them together and returns the result as text content
+
+**Resource `config`** — registered via `server.resource()`:
+- URI: `"config://app/settings"` 
+- Returns JSON string `{"theme":"dark","debug":false}` with MIME type `application/json`
+
+**API verification** against MCP SDK v1.29.0:
+- `tool(name, description, paramsSchema, callback)` — accepts Zod raw shapes directly
+- `resource(name, uri, readCallback)` — receives `uri: URL` in the handler
+
+**Test helpers** — added `listTools()` and `listResources()` methods that convert internal Zod schemas to JSON Schema objects (using `zod-to-json-schema`) so assertions like `.toHaveProperty("properties")` work correctly.

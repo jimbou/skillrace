@@ -1,0 +1,31 @@
+# Level-2 per-skill base: fix-failing-test (Python). Built ONCE per skill,
+# on top of the shared pi-base (environments.md, D-ENV-3).
+FROM skillrace/pi-base:0.62.0
+
+# Python toolchain + pytest (apt avoids PEP-668 pip headaches).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 python3-pytest \
+ && rm -rf /var/lib/apt/lists/*
+
+# The target project @ its base commit (ships the failing test).
+COPY repo/ /workspace/
+# The skill guidance, placed where pi discovers exactly this one skill.
+COPY SKILL.md /skills/fix-failing-test/SKILL.md
+
+# Finalize the base environment:
+#   - `python` -> `python3` (smoother runs; the agent otherwise hits "python: not found")
+#   - git-init the repo at the BUGGY base commit so we get clean diffs/snapshots
+#     and history that contains ONLY the buggy state (supports the test-integrity and
+#     "don't read the fix from git history" properties).
+#   - sanity: record that the suite currently FAILS (do NOT fail the build).
+RUN set -eux; \
+    ln -sf "$(command -v python3)" /usr/local/bin/python; \
+    git config --global user.email "base@skillrace.local"; \
+    git config --global user.name "skillrace"; \
+    cd /workspace; \
+    printf '__pycache__/\n*.pyc\n' > .gitignore; \
+    git init -q -b main; \
+    git add -A; \
+    git commit -q -m "base: project at failing-test commit"; \
+    git log --oneline; \
+    (python3 -m pytest -q || true)

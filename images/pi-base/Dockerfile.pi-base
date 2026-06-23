@@ -1,0 +1,41 @@
+# syntax=docker/dockerfile:1.7
+# SkillRACE pi-base — shared across ALL skills (environments.md, D-ENV-3).
+# Built once; per-skill bases do `FROM skillrace/pi-base`.
+#
+# node:20-bookworm-slim matches the host-verified runtime (pi 0.62 on node 20.20.1).
+FROM node:20-bookworm-slim
+
+LABEL org.opencontainers.image.title="skillrace-pi-base" \
+      org.opencontainers.image.description="Shared Pi agent base for SkillRACE runs (CloseAI-ready)" \
+      org.opencontainers.image.source="skillrace/images/pi-base"
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends bash ca-certificates git ripgrep \
+ && rm -rf /var/lib/apt/lists/*
+
+# Package + version as a build ARG so we can bump the version OR migrate scope
+# (@mariozechner -> @earendil-works, per the npm deprecation notice) WITHOUT editing
+# this file:  docker build --build-arg PI_PKG=@earendil-works/pi-coding-agent@<v> …
+ARG PI_PKG=@mariozechner/pi-coding-agent@0.62.0
+
+# - BuildKit cache mount keeps the npm cache across rebuilds → fast version bumps
+#   (the first build is still ~11 min; later bumps reuse cached tarballs).
+# - --loglevel=error silences the harmless, build-time-only deprecation notices.
+RUN --mount=type=cache,target=/root/.npm \
+    npm install -g --ignore-scripts --loglevel=error "$PI_PKG" \
+ && pi --version
+
+# Bake a closeai-only models.json. The API key is NEVER baked — it is injected at
+# run time via `-e CLOSE_API_KEY`; models.json references the BARE env-var name.
+COPY models.closeai.json /root/.pi/agent/models.json
+
+# Mount points used by the Runner:
+#   /skills    — the skill under test (read-only)
+#   /logs      — session/trace + snapshot out (bind-mounted to a host run dir)
+#   /workspace — the task repo (baked into per-skill images; scratch here)
+RUN mkdir -p /skills /logs /workspace
+WORKDIR /workspace
+
+# No ENTRYPOINT on purpose: the Runner passes the full command itself
+#   - validation/property checks:  docker run … bash -lc '<checks>'
+#   - the agent run:               docker run … pi --print --session /logs/… --skill /skills/<x> …

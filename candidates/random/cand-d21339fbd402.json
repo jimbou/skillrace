@@ -1,0 +1,18 @@
+{
+  "candidate_id": "cand-d21339fbd402",
+  "skill": "fix-failing-test",
+  "prompt": "Run the test suite using `python3 -m pytest -q` to see exactly what fails. Read the failing tests to understand the expected DD-MM-YYYY parsing behavior. Locate and fix the bug in `date_extractor.py` where the month and day values are incorrectly assigned. Re-run the tests to confirm they pass.",
+  "base_image": "skillrace/fix-failing-test:base",
+  "containerfile": "FROM skillrace/fix-failing-test:base\n# >>> SKILLRACE TAIL >>>\nRUN cat > /workspace/date_extractor.py <<'EOF'\nimport re\nfrom datetime import datetime\n\ndef parse_date(date_str):\n    match = re.match(r'(\\d{2})-(\\d{2})-(\\d{4})', date_str)\n    if not match:\n        raise ValueError(\"Invalid date format\")\n    month, day, year = match.groups()\n    return datetime.strptime(f\"{month}-{day}-{year}\", \"%m-%d-%Y\")\nEOF\n\nRUN cat > /workspace/test_date_extractor.py <<'EOF'\nfrom date_extractor import parse_date\nfrom datetime import datetime\n\ndef test_parse_dd_mm_yyyy():\n    assert parse_date(\"05-12-2023\") == datetime(2023, 12, 5)\n\ndef test_parse_single_digit_day():\n    assert parse_date(\"01-09-2021\") == datetime(2021, 9, 1)\n\ndef test_parse_leap_year():\n    assert parse_date(\"29-02-2024\") == datetime(2024, 2, 29)\nEOF\nRUN cd /workspace && git add -A && git commit -q -m \"skillrace: test setup\" || true\n# <<< SKILLRACE TAIL <<<\n",
+  "built_image": "skillrace/cand-d21339fbd402:built",
+  "provenance": {
+    "source": "random",
+    "parent_run_id": null,
+    "branch_id": null,
+    "mutation": null,
+    "summary": "Patch broken date formatting string parsing",
+    "task_nl": "Examine the failed unit tests and modify the date extractor to correctly parse DD-MM-YYYY strings into standardized datetime objects.",
+    "env_nl": "A log-processing utility module relying on standard library regex. Pytest validates multiple date string formats against expected parsed outputs. The extraction logic hardcodes MM-DD-YYYY ordering, causing systematic mismatches.",
+    "build_attempts": 1
+  }
+}

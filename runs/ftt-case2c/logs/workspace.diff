@@ -1,0 +1,33 @@
+diff --git a/csv_parser.py b/csv_parser.py
+index 47fa2e2..360e42f 100644
+--- a/csv_parser.py
++++ b/csv_parser.py
+@@ -30,10 +30,12 @@ def parse_csv(text):
+ 
+         if in_quotes:
+             if char == '"':
+-                # BUG: Incorrectly handles escaped quotes
+-                # Should check if next char is also a quote (escaped quote)
+-                # but instead just ends the quoted field
+-                in_quotes = False
++                # Check for escaped quote (RFC 4180: "" inside quoted field = ")
++                if i + 1 < len(text) and text[i + 1] == '"':
++                    current_field += '"'
++                    i += 1  # Skip the second quote
++                else:
++                    in_quotes = False
+             else:
+                 current_field += char
+         else:
+@@ -57,7 +59,10 @@ def parse_csv(text):
+         i += 1
+ 
+     # Handle the last field/row
+-    if current_field or current_row:
++    if i == 0:
++        # Empty input should yield one empty row
++        rows.append([""])
++    elif current_field or current_row:
+         current_row.append(current_field)
+         rows.append(current_row)
+ 
