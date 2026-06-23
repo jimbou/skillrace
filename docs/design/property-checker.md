@@ -1,3 +1,5 @@
+<a href="../../README.md"><img src="../../skillrace-icon.png" alt="SkillRACE" width="54" align="right"></a>
+
 # Component 6 — Property Checker
 
 > **Design spec** (Component 6, from the tex). The *implemented* command is `check_properties` — see [docs/property-checker.md](../property-checker.md).

@@ -1,3 +1,5 @@
+<a href="../../README.md"><img src="../../skillrace-icon.png" alt="SkillRACE" width="54" align="right"></a>
+
 # Component 1 — Runner
 
 > **Design spec** (Component 1, from the tex). The *implemented* command is `run_case` — see [docs/runner.md](../runner.md).

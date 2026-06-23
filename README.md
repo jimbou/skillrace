@@ -1,6 +1,14 @@
-# SkillRACE
+<p align="center">
+  <img src="logo.png" alt="SkillRACE" width="460">
+</p>
 
-**Reasoning-Augmented Concolic Execution for Coding-Agent Skills.**
+<h1 align="center">SkillRACE</h1>
+
+<p align="center"><b>Reasoning-Augmented Concolic Execution for Coding-Agent Skills.</b></p>
+
+<!-- SkillRACE — banner: logo.png lives at the repo root -->
+
+---
 
 SkillRACE tests coding-agent *skills* (a `SKILL.md` plus optional scripts —
 reusable procedural guidance an agent consults to do a task) the way concolic

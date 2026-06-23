@@ -1,3 +1,5 @@
+<a href="../../README.md"><img src="../../skillrace-icon.png" alt="SkillRACE" width="54" align="right"></a>
+
 # Component 2 — Episode Segmenter
 
 > **REVISED design (supersedes the original tex-derived spec).** Status: the

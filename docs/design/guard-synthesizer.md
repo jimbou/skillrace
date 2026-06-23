@@ -1,3 +1,5 @@
+<a href="../../README.md"><img src="../../skillrace-icon.png" alt="SkillRACE" width="54" align="right"></a>
+
 # Component 5 — Guard Extractor & Test Synthesizer
 
 > **Design spec** (Component 5, from the tex) — not yet implemented.

@@ -1,3 +1,5 @@
+<a href="../../README.md"><img src="../../skillrace-icon.png" alt="SkillRACE" width="54" align="right"></a>
+
 # Component 4 — Tree Builder (online merging)
 
 > **Design spec** (Component 4, from the tex) — not yet implemented.

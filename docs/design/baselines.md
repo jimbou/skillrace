@@ -1,3 +1,5 @@
+<a href="../../README.md"><img src="../../skillrace-icon.png" alt="SkillRACE" width="54" align="right"></a>
+
 # Baselines — the three-rung ladder
 
 > **Design spec** (baseline ladder, from the tex). The *implemented* test-case generator (`gen_agent`) is the floor/seed generator — see [docs/generator.md](../generator.md).
