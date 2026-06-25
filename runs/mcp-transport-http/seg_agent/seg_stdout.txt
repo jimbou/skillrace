@@ -1,0 +1,10 @@
+Done. `episodes.raw.json` written with **8 episodes** covering all 20 tool calls (partition verified — no gaps, no overlaps).
+
+Key splits at contingent decisions:
+- **4→5**: pivot from "understand current codebase" to "search SDK for new transport"
+- **6→7**: shift from availability scan to deep examination of type signatures
+- **8→9**: move from SDK internals to dependency landscape (what needs installing vs what's available)
+- **12→13**: decision point — install deps and write new code using native http
+- **14→15**: discovery during compile check — per-request transport pattern is wrong for sessions
+- **16→17**: switch from compile-only verification to runtime test
+- **18→19**: diagnosis of stale dist artifact → decision to rebuild

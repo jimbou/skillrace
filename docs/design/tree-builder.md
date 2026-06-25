@@ -2,7 +2,14 @@
 
 # Component 4 — Tree Builder (online merging)
 
-> **Design spec** (Component 4, from the tex) — not yet implemented.
+> **Component 4. v1 IMPLEMENTED in [`skillrace/tree.py`](../../skillrace/tree.py)** — the
+> minimal job: fold one run's episode line into the global tree (purpose-merge, broaden,
+> branch). **NOT in v1:** the frontier/selection and guard handoff (those sections below
+> remain design-only, from the tex). (`split` from the tex was **dropped** — see the note
+> under "Why similarity-merging is safe.") Reconciled with the current episode
+> schema (`{intent, what_it_did, outcome, opening_reasoning}`): see
+> [What v1 actually does](#whats-implemented-v1--skillracetreepy) and
+> [The line-into-tree merge, step by step](#the-line-into-tree-merge-step-by-step-reconciled-with-the-episode-schema).
 
 > tex §6 ("The behavior tree"). **Cheap model for merge decisions; plain code for
 > the tree.** The merge decision is the single riskiest model step in the system —
@@ -26,10 +33,180 @@ the same target are the **same node even if their outcomes differ** — and the
 **differing outcome becomes the guard on the diverging *next* edge**, because a
 different outcome is what led the agent to a different next decision. Merged node
 summaries are **rewritten to generalize (broaden only)**; consistency rests on
-**temperature-0 caching** plus a **spurious-merge/split** self-correction. Merging is
+**temperature-0 caching** (differing outcomes are handled by branching, not repair —
+there is no `split`). Merging is
 **contextual** (only among a node's existing children), so "ran tests" at the start
 and "ran tests" after a fix stay distinct nodes — the trajectory structure is
 preserved.
+
+---
+
+## What's implemented (v1 — `skillrace/tree.py`)
+
+The **only** job of v1: given the global tree (a JSON file, created empty if missing) and
+**one run's episode line**, **update the global tree**. No frontier and no guard synthesis
+(and no `split` — that was dropped from the design). Model: `qwen3.6-flash` (the shared
+judgment model), temperature 0, cached.
+
+**Inputs.**
+- `--episodes` — the segmenter's output (`episodes.json` / `episodes.raw.json`): a list
+  with `start_call` / `intent` / `what_it_did` / `outcome`.
+- `--session` — the run's **`raw/session.jsonl`** (the *agent-under-test* trace). Used
+  ONLY to attach each episode's **`opening_reasoning`** = the reasoning of the assistant
+  message owning its `start_call` (the reasoning that leads from the previous episode into
+  this one). `start_call`/`end_call` are used **only** for this lookup, never for identity.
+- `--tree` — the global tree JSON (and a sidecar `tree.cache.json` of judgment verdicts).
+
+**Tree top level (`tree.json`).**
+```json
+{
+  "schema": "behavior-tree/2",
+  "skill": "mcp-server-patterns",
+  "runs": { "<run_id>": {"dir": "runs/…", "session": "…/raw/session.jsonl", "episodes": "…/episodes.json"} },
+  "root_children": ["n0"],
+  "root_edges": { "n0": [ {"run","in_outcome": null, "reasoning"} ] },
+  "next_id": 13,
+  "nodes": { "n0": { … } }
+}
+```
+- **`runs`** — the run registry: every folded run's **id → its directory** (+ the session
+  and episodes files it came from), so any node/edge can be traced back to its run's
+  artifacts.
+- **`root_edges`** — the ROOT→level-0 entry edges, so **every transition is available as
+  an edge** (not just parent→child): the entry into a level-0 node has `in_outcome: null`
+  and the run's opening reasoning.
+
+**A node (`nodes[id]`).**
+```json
+{
+  "id": "n1",
+  "intent": "<broadened purpose — the merge KEY>",
+  "what_it_did_variants": [ {"text": "<a distinct approach>", "runs": ["runA", "runB"]} ],
+  "runs": ["runA", "runB"],
+  "members": [ {"run","episode_index","intent","what_it_did","outcome","opening_reasoning"} ],
+  "children": ["n2","n7"],
+  "edges": { "n2": [ {"run","in_outcome","reasoning"} ], "n7": [ … ] }
+}
+```
+- **`runs`** — which run(s) this node belongs to. A node merged from several runs lists
+  them all (e.g. the `n0`/`n1` prefix shared by two runs).
+- **`members`** — one record per merged episode (so per-run provenance is never lost).
+- **`edges`** — out-edges keyed by child id; **each edge record names its `run`**, plus
+  the guard data (`in_outcome` = the parent's outcome for that run, `reasoning` = the
+  child's opening reasoning). Every run's transition is its own record, so a branch node
+  carries one edge record per run that took each fork.
+
+**Three model judgments, all cached (`tree.cache.json`):**
+1. **`same_purpose(ep, node)`** — the merge decision. Decided on **purpose** (`intent`),
+   with the node's variants as secondary context; **merges even when done a slightly
+   different way**; **ignores outcome**. This is the contextual child-match in the fold.
+2. **`broaden_intent(cur, new)`** — on every merge, the node's `intent` (the key) is
+   **regeneralized** to cover the new member's purpose too (broaden only, never narrow),
+   so the merge key stays representative as members accumulate.
+3. **`same_approach(a_did, b_did)`** — on every merge, the member's `what_it_did` is
+   matched against the node's existing `what_it_did_variants`: **same way → record the run
+   on that variant; genuinely different way → add a new variant.** So a node keeps the
+   *distinct* approaches its members took, deduped.
+
+**Edges carry the guard data** (recorded but not yet *consumed* in v1): each parent→child
+edge stores, per run, the parent's **`in_outcome`** and the child's **`opening_reasoning`**
+— exactly the two guard signals Component 5 will later read.
+
+---
+
+## The line-into-tree merge, step by step (reconciled with the episode schema)
+
+> The concrete walkthrough to validate the merge process, reconciled with the **current
+> episode schema** (`{intent, what_it_did, outcome, opening_reasoning}` from the
+> segmenter) and the "level-by-level" mental model. The pseudocode under
+> [The fold algorithm](#the-fold-algorithm-how-a-run-merges-in) is the precise form;
+> this section is the intuition + a worked example.
+
+**Field reconciliation.** The tex's `attempt`+`target` is carried by our **`intent` +
+`what_it_did`** (what the episode tried, and on what); the tex's `result` is our
+**`outcome`**:
+
+- **Merge key (node identity):** the **`intent`** (purpose), compared by `same_purpose`
+  (a similarity judgment that merges even when the two went about it a slightly different
+  way) — **`outcome` is excluded**. On merge the `intent` is **broadened** to stay
+  representative; `what_it_did` is kept as **distinct variants** (same way collapses,
+  different way is added) — see [v1](#whats-implemented-v1--skillracetreepy).
+- **Edge / guard:** the parent episode's **`outcome`** + this episode's
+  **`opening_reasoning`** (the reasoning before its first tool call — the thing that
+  "points to" the node).
+
+**Inputs.** The incoming run is a **LINE** `L = [e0, e1, …, ek]` (episodes in order; not
+a tree). The global tree `T` is rooted at a virtual **ROOT** whose children are the
+**level-0 nodes** (every run's first episode). "Level x" = depth x from the root.
+
+**First run.** If `T` is empty, `T := L` exactly: `e0→e1→…→ek` is a linear chain under
+the root. (The first test's episode line is the initial tree.)
+
+**Folding a line into an existing `T` (prefix-merge):**
+
+```text
+node = ROOT                                  # node.children = the level-0 episodes
+for x, e in enumerate(L):                    # walk the line top→down, level by level
+    cand = node.children                     # ← candidate set at level x  (see NOTE)
+    match = first c in cand with same_purpose(e, c)  # cached judgment on PURPOSE (intent)
+    if match exists:
+        add e as a member of match           # same purpose ⇒ same node
+        broaden_intent(match)                # regeneralize the merge key
+        merge_variant(match, e)              # same way → collapse; different way → add variant
+        edge(node→match): in_outcome = prev.outcome, reasoning = e.opening_reasoning
+        node = match                         # DESCEND, continue to level x+1
+    else:
+        new = fresh_node(e); link node→new (same edge signal)
+        graft the REST of L (e_{x+1..k}) as a fresh chain under new
+        BREAK                                # DIVERGE — stop comparing further levels
+    prev = e
+```
+
+**NOTE — the candidate set is the matched node's CHILDREN, not "all nodes at level x".**
+At the root these coincide (root's children = all level-0 nodes), which is why "compare
+the head against every level-0 node" is exactly right. Deeper down, "all nodes at level
+x" would include nodes under *other* branches; merging into one of those makes the line
+**jump branches** and gives a node members whose root-to-node action prefix doesn't
+match. So once we've matched a node at level x−1 we only consider **that node's
+children** at level x. (They're a subset of level-x nodes; they equal "all level-x
+nodes" only while the tree is still a single line — the common early case.)
+
+**Why "stop after the first mismatch."** A line is a single path. The instant its action
+at level x matches nothing in the candidate set, it has left the explored region; the
+remaining suffix is all-new by construction (it can't match a subtree that doesn't
+exist), so it grafts on as a fresh branch and comparison stops. The loop gives this for
+free: after a fresh node, its `children` set is empty, so every later episode also
+fails to match → fresh chain.
+
+**Where the branch (and the guard) appear.** A node becomes a **branch** the moment it
+has >1 out-edge — two runs shared the prefix up to it, then diverged. The divergence is
+explained by the parent's differing **`outcome`** (and/or differing `opening_reasoning`)
+— that is the guard the synthesizer later negates ([guards](./guard-synthesizer.md)).
+
+**Worked example (3 runs).**
+
+```text
+Run A:  scaffold → install-deps → run-tests(PASS) → done
+   T empty  ⇒  T := the A line.
+
+Run B:  scaffold → install-deps → run-tests(FAIL) → fix → run-tests(PASS) → done
+   L0 scaffold      vs {scaffold}      → same  ⇒ merge, descend
+   L1 install-deps  vs {install-deps}  → same  ⇒ merge, descend
+   L2 run-tests     vs {run-tests}     → same  ⇒ MERGE — same node even though
+                                                  A passed and B failed (outcome NOT in key);
+                                                  node now has 2 members, outcomes {PASS, FAIL}
+   L3 fix           vs {done}          → different ⇒ DIVERGE: "fix→run-tests→done" grafts on
+   ⇒ run-tests is now a BRANCH: edge→done carries in_outcome=PASS;
+                                 edge→fix  carries in_outcome=FAIL.   ← the outcome became the guard
+
+Run C:  scaffold → build-docs → …
+   L0 scaffold   vs {scaffold}            → same      ⇒ merge, descend
+   L1 build-docs vs {install-deps}        → different ⇒ DIVERGE at level 1
+   ⇒ scaffold becomes a branch; C's suffix grafts on.
+```
+
+This yields exactly the shared-prefix / branch-on-divergence structure we want, and the
+branch points are where outcomes/decisions differ — the fuel for guard synthesis.
 
 ---
 
@@ -47,8 +224,9 @@ preserved.
     "merge_threshold": 0.5, "use_embedding_prefilter": true }
   ```
 
-The Tree Builder reads **only** episodes (intent + summary{attempted,target,result}
-+ canonical + opening_reasoning), never the raw trace, never the live container.
+The Tree Builder reads **only** episodes (`intent` + `what_it_did` + `outcome` +
+`opening_reasoning` — `intent`+`what_it_did` are the merge key; `outcome` is excluded
+from it and used for the edge/guard), never the raw trace, never the live container.
 
 ---
 
@@ -135,35 +313,32 @@ ways, both of which are explicit, testable mechanisms — **document and test bo
   in [MergeDecision](../data-contracts.md#7-mergedecision--the-cached-unit-of-component-4s-model-step)).
   The same action pair therefore **always** gets the same verdict within a campaign.
   The cache *is* the consistency guarantee; it is an inspectable artifact.
-- **(ii) Self-correcting wrong merges (spurious-merge → split).** If two actions that
-  actually behave differently were merged (e.g. attempt+target looked the same but
-  the contexts differ enough to matter), a later test driven down that branch reveals
-  the divergence; the loop classifies it as a **spurious merge** and the tree
-  **splits** the node by the distinguishing feature (see the `split` section below).
-  So a merge error degrades *search guidance temporarily*; it does **not** silently
-  corrupt results. (This net is more important now that merging ignores outcome —
-  over-merging on attempt+target is exactly what split repairs.)
+- **(ii) Differing outcomes are handled by the structure, not by repair.** Merging two
+  same-purpose episodes that turned out differently is **correct**, not a problem: the
+  differing `outcome` is recorded on the node's members and on the out-edges, and the
+  runs' **next** episodes — which differ *because* the outcomes differed — become
+  distinct children, i.e. a **branch**, with the outcome as its guard. Wherever
+  behaviour truly diverges, it diverges at the first episode whose **purpose** differs,
+  so a new child appears there; merging the earlier same-purpose episodes never hides
+  it. (Worked example: the "install deps" node where one run succeeds and one fails on a
+  missing compiler — they share the node, their outcomes differ, and their next episodes
+  branch.) The only genuinely *wrong* merge is a `same_purpose` **misjudgment** (the
+  model calls two unrelated purposes "same"); the defence against that is **conservative,
+  contextual merging** (already done) plus the fact that `members` keeps full
+  provenance, so an over-merged node is always inspectable. There is **no automatic
+  `split`** — it was dropped (see note).
 
-**Determinism, honestly (tex §6).** The build is a deterministic *procedure* (same
-seeds + same selection policy + temperature 0 + caching ⇒ same campaign), not an
-order-invariant abstraction. Build stability is reported empirically: re-run a
-campaign under a different selection seed and measure tree agreement.
+**Determinism, honestly.** The build is a deterministic *procedure* (same seeds + same
+selection policy + temperature 0 + caching ⇒ same campaign), not an order-invariant
+abstraction. Build stability is reported empirically: re-run a campaign under a
+different selection seed and measure tree agreement.
 
-### `split` — the self-correction the Tree Builder owns
-
-`split(node, distinguishing_feature, forcing_run)` is a public Tree-Builder
-operation invoked by the loop when a fold is classified **spurious merge**
-([property-checker / loop classification](../build-plan.md)). It:
-
-1. partitions `node.members` by `distinguishing_feature` (from the env/observation
-   diff that the forcing run exposed),
-2. creates two nodes, re-parents the out-edges accordingly,
-3. invalidates the affected `MergeDecision` cache entries (so the corrected
-   boundary sticks),
-4. logs the `forcing_run` on the new branch.
-
-Because split is a tree operation over episodes (not a re-run), it is testable
-offline with fixed inputs.
+> **Note — `split` was removed from the design.** The tex proposed a "spurious-merge →
+> split" self-correction. On review it solved a non-problem: same-purpose / different-
+> outcome merges are correct and self-resolve via the recorded outcome + downstream
+> branching (above). The only residual case is a `same_purpose` false-positive, which is
+> better avoided by conservative merging than repaired by a split machine — so split is
+> not part of this component.
 
 ---
 
@@ -207,7 +382,7 @@ conditions at that node**, and the synthesizer is asked for a **new, diverse** o
   `same_action` and for broadening — temperature 0, cached.
 - (Optional) an **embedding model** to prefilter obvious non-matches cheaply before
   the LLM call; a code-level optimization, not a correctness dependency.
-- Plain code for the tree, the cache, the frontier, and `split`.
+- Plain code for the tree, the cache, and the frontier.
 
 **Does NOT depend on:**
 - Pi, Docker, the container, the raw trace, the property checker.
@@ -288,14 +463,7 @@ With `same_action` stubbed to a lookup table, assert tree topology:
 - `frontier_priority/` — assert branch priority follows the policy (below):
   higher fan-out + mid-depth + never-explored rank first.
 
-### C. `split` (pure, no model)
-
-`split_after_spurious_merge/` — a tree with a wrongly-merged node and a forcing run
-that exposes a distinguishing feature; call `split`; assert the node partitions
-correctly, edges re-parent, members are preserved (sum of split members == original
-members), and the invalidated `pair_key`s are gone from the cache.
-
-### D. Build stability (campaign-level)
+### C. Build stability (campaign-level)
 
 `stability/` — fold the same set of runs in two different orders / seeds; assert
 tree agreement ≥ threshold and report the number (tex's empirical determinism).
@@ -320,13 +488,12 @@ def test_same_action_ignores_outcome_and_is_cached():
 | Situation | Behavior |
 |-----------|----------|
 | Model gives inconsistent verdicts across calls | Impossible to observe within a campaign: the **cache** pins the first verdict for each `pair_key`. Cross-campaign drift is measured by the calibration test, not silently absorbed. |
-| A wrong merge (two different situations merged) | Not fatal: surfaces later as a **spurious merge** when a test goes down that branch; the loop calls `split`. Degrades guidance temporarily; results stay sound (tex §6). |
-| A wrong split / over-fragmentation | Extra branches = extra (validated, cheap-to-reject) frontier work, not wrong bugs. Reported via tree size vs. baseline. |
+| Same purpose, different outcome, merged into one node | **Correct, not a fault:** outcomes are recorded on members/edges and the runs' next episodes branch — the difference surfaces downstream, with the outcome as the guard. |
+| A `same_purpose` misjudgment (two unrelated purposes merged) | Avoided by conservative, contextual merging; `members` keeps full provenance so an over-merged node stays inspectable. No automatic repair (split was dropped). |
 | `broaden` narrows a summary (drops coverage) | Caught by the monotonicity invariant test; broadening is rejected and retried; a node never disowns a member. |
 | Model API error during a fold | The fold is **atomic**: on error the tree is left unchanged and the run is queued for re-fold; no partially-folded tree is committed. |
-| Embedding prefilter wrongly discards a true match | Only an optimization; if `use_embedding_prefilter` rejects a pair the LLM would have merged, the run branches instead — later self-corrected by split. Prefilter can be disabled to test its effect. |
+| Embedding prefilter wrongly discards a true match | Only an optimization; if `use_embedding_prefilter` rejects a pair the LLM would have merged, the run branches instead. Prefilter can be disabled to test its effect. |
 
-**Surfacing:** every merge verdict is written to the inspectable `MergeDecision`
-cache with its rationale; the spurious-merge/split events are logged with the
-forcing run. The tree's correctness is never asserted blindly — it is the
-empirically reported build-stability and merge-calibration numbers.
+**Surfacing:** every merge verdict is written to the inspectable verdict cache with its
+rationale. The tree's correctness is never asserted blindly — it is the empirically
+reported build-stability and merge-calibration numbers.

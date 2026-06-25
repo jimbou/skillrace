@@ -1,0 +1,12 @@
+On branch main
+nothing to commit, working tree clean
+Both tests pass. Here's a summary of what was done:
+
+**Confirmed SDK signatures** (`@modelcontextprotocol/sdk` v1.29.0):
+- `server.tool(name, description?, paramsSchema, cb)` — registers an action tool with Zod param validation (deprecated but fully functional)
+- `server.resource(name, uri, readCallback)` — registers a static resource; the callback returns `{ contents: [{ uri, text }] }`
+
+**Changes in `src/index.ts`:**
+1. **`calculate_sum` tool** — registered via `server.tool()` with `{ a: z.number(), b: z.number() }` schema and a handler that returns `{ content: [{ type: "text", text: String(a + b) }] }`
+2. **`config` resource** — registered via `server.resource()` at URI `"config://app/settings"` with a handler returning JSON stringified settings
+3. **`listTools()` / `listResources()` methods** — added as wrapper methods since the SDK only exposes these as internal JSON-RPC handlers, not direct JavaScript methods. These query locally-tracked registries so the test suite can inspect them.

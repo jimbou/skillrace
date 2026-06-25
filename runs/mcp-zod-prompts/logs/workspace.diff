@@ -1,0 +1,59 @@
+diff --git a/src/server.ts b/src/server.ts
+index f2fff0a..8bd9d6a 100644
+--- a/src/server.ts
++++ b/src/server.ts
+@@ -1,19 +1,46 @@
+ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
++import { z } from "zod";
+ 
+ const server = new McpServer({
+   name: "legacy-mcp-server",
+   version: "1.0.0"
+ });
+ 
+-// Existing tool with loose typing and no validation
+-server.tool("read_file", "Reads the content of a file", async (args: any) => {
+-  const filePath = args.path;
+-  return {
+-    content: `Simulated content for ${filePath}`,
+-    mimeType: "text/plain"
+-  };
+-});
++// Modernized tool with Zod input validation
++server.tool(
++  "read_file",
++  "Reads the content of a file",
++  {
++    path: z.string().describe("Path to the file to read")
++  },
++  async (args) => {
++    const filePath = args.path;
++    return {
++      content: [{ type: "text", text: `Simulated content for ${filePath}` }]
++    };
++  }
++);
++
++// Parameterized prompt template for code review
++server.prompt(
++  "code_review",
++  "Performs a code review on the specified file",
++  {
++    file_path: z.string().describe("Path to the source file to review")
++  },
++  async (args) => ({
++    messages: [
++      {
++        role: "user",
++        content: {
++          type: "text",
++          text: `Please review the following file:\n\n\`\`\`${args.file_path}\nSimulated content for code review\n\`\`\``
++        }
++      }
++    ]
++  })
++);
+ 
+ async function main() {
+   const transport = new StdioServerTransport();

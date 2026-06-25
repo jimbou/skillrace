@@ -1,0 +1,7 @@
+{
+  "model": "qwen3.6-flash",
+  "turns": 34,
+  "in": 307476,
+  "out": 7013,
+  "price_usd": 0.050448
+}

@@ -1,0 +1,12 @@
+Done. Written `episodes.raw.json` — **8 episodes**, covering all 42 tool calls in order with no gaps or overlaps:
+
+| Ep | Calls | Boundary Reason |
+|----|-------|-----------------|
+| 1 | 1–2 | Initial read + context gathering before any decisions |
+| 2 | 3–12 | Dependency/SDK/Zod survey — pivots on discovering Zod v4 export path |
+| 3 | 13–22 | MCP SDK tool/prompt API deep-dive — ends when enough context gathered |
+| 4 | 23–23 | Implementation edit — single decisive action after research complete |
+| 5 | 24–25 | Compile failure detected → new sub-goal of diagnosing tsconfig issues |
+| 6 | 26–32 | Pivot to `ZodRawShapeCompat` discovery, format fix, re-check |
+| 7 | 33–40 | Console error fix attempts → pivot on discovery errors are pre-existing |
+| 8 | 41–42 | Final verification — confirm only pre-existing errors remain, closeout |

@@ -1,0 +1,21 @@
+On branch main
+nothing to commit, working tree clean
+Done. Here's a summary of the changes:
+
+### Changes Made to `/workspace/src/server.ts`
+
+**1. Added Zod import:**
+```ts
+import { z } from "zod";
+```
+
+**2. Migrated `read_file` tool with Zod validation:**
+- Replaced `async (args: any)` with type-safe callback — the SDK infers the shape from `{ path: z.string().describe("...") }`
+- Updated return format to use structured MCP content array `[{ type: "text", text: ... }]` per current MCP spec
+
+**3. Added `code_review` parameterized prompt template:**
+- Registered via `server.prompt("code_review", description, argsSchema, callback)`
+- Uses `{ file_path: z.string().describe("Path to the source file to review") }` as the Zod raw shape — matching the SDK's expected `ZodRawShapeCompat` type
+- Returns a properly structured `messages` array with a `user` role message containing the file path for review
+
+**4. Preserved existing stdio transport configuration** — no changes to `main()` or transport setup.

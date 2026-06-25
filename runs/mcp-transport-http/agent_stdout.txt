@@ -1,0 +1,18 @@
+On branch main
+nothing to commit, working tree clean
+Done. Here's what changed in `/workspace/mcp-server/src/index.ts`:
+
+| Before | After |
+|--------|-------|
+| `StdioServerTransport` from `@modelcontextprotocol/sdk/server/stdio.js` | `StreamableHTTPServerTransport` from `@modelcontextprotocol/sdk/server/streamableHttp.js` |
+| Server named `"legacy-stdio-server"` | Renamed to `"streamable-http-server"` |
+| Started stdio transport directly via `server.connect(transport)` | Creates a single transport instance, connects it, then wraps it behind a Node.js `http.Server` on port 3000 |
+| Log: `"listening on stdio"` | Log: `"listening on http://localhost:3000"` |
+
+**Key structural changes:**
+1. **New dependency** — `@hono/node-server` was installed (required by the SDK's `StreamableHTTPServerTransport` for Node.js HTTP ↔ Web Standard conversion).
+2. **Transport lifecycle** — One long-lived `StreamableHTTPServerTransport` instance is created and connected once, then reused for all incoming HTTP requests.
+3. **Session mode** — Configured as stateless (`sessionIdGenerator: undefined`) so no session IDs are managed client-side.
+4. **Error handling** — Each request is wrapped in try/catch with proper `500` fallback responses.
+
+The project compiles cleanly (`tsc --noEmit`) and starts successfully on port 3000, with the `get_weather` tool and its Zod validation preserved.

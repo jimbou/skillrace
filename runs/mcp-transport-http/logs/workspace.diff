@@ -1,0 +1,115 @@
+diff --git a/mcp-server/package-lock.json b/mcp-server/package-lock.json
+index 74457e5..894342d 100644
+--- a/mcp-server/package-lock.json
++++ b/mcp-server/package-lock.json
+@@ -8,6 +8,7 @@
+       "name": "mcp-server",
+       "version": "1.0.0",
+       "dependencies": {
++        "@hono/node-server": "^2.0.6",
+         "@modelcontextprotocol/sdk": "^1.0.4",
+         "zod": "^3.23.8"
+       },
+@@ -17,12 +18,12 @@
+       }
+     },
+     "node_modules/@hono/node-server": {
+-      "version": "1.19.14",
+-      "resolved": "https://registry.npmjs.org/@hono/node-server/-/node-server-1.19.14.tgz",
+-      "integrity": "sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==",
++      "version": "2.0.6",
++      "resolved": "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.6.tgz",
++      "integrity": "sha512-7DeRlKG57JDBNZ5Qj2jwVdgwQy4b0tLubRLl3zCf91/rCf9i7p1V5FtW/yWibm1uUHE493ts9ZXH/7g/LQWl+g==",
+       "license": "MIT",
+       "engines": {
+-        "node": ">=18.14.1"
++        "node": ">=20"
+       },
+       "peerDependencies": {
+         "hono": "^4"
+@@ -68,6 +69,18 @@
+         }
+       }
+     },
++    "node_modules/@modelcontextprotocol/sdk/node_modules/@hono/node-server": {
++      "version": "1.19.14",
++      "resolved": "https://registry.npmjs.org/@hono/node-server/-/node-server-1.19.14.tgz",
++      "integrity": "sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=18.14.1"
++      },
++      "peerDependencies": {
++        "hono": "^4"
++      }
++    },
+     "node_modules/@types/node": {
+       "version": "20.19.43",
+       "resolved": "https://registry.npmjs.org/@types/node/-/node-20.19.43.tgz",
+diff --git a/mcp-server/package.json b/mcp-server/package.json
+index 8338eef..3e68f15 100644
+--- a/mcp-server/package.json
++++ b/mcp-server/package.json
+@@ -7,11 +7,12 @@
+     "start": "node dist/index.js"
+   },
+   "dependencies": {
++    "@hono/node-server": "^2.0.6",
+     "@modelcontextprotocol/sdk": "^1.0.4",
+     "zod": "^3.23.8"
+   },
+   "devDependencies": {
+-    "typescript": "^5.5.0",
+-    "@types/node": "^20.0.0"
++    "@types/node": "^20.0.0",
++    "typescript": "^5.5.0"
+   }
+ }
+diff --git a/mcp-server/src/index.ts b/mcp-server/src/index.ts
+index afc3fe3..1e807fc 100644
+--- a/mcp-server/src/index.ts
++++ b/mcp-server/src/index.ts
+@@ -1,9 +1,10 @@
++import http from "node:http";
+ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
++import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+ import { z } from "zod";
+ 
+ const server = new McpServer({
+-  name: "legacy-stdio-server",
++  name: "streamable-http-server",
+   version: "1.0.0"
+ });
+ 
+@@ -19,9 +20,28 @@ server.tool(
+ );
+ 
+ async function main() {
+-  const transport = new StdioServerTransport();
++  const transport = new StreamableHTTPServerTransport({
++    sessionIdGenerator: undefined,
++  });
++
+   await server.connect(transport);
+-  console.error("MCP Server initialized and listening on stdio");
++
++  const httpServer = http.createServer(async (req, res) => {
++    try {
++      await transport.handleRequest(req, res);
++    } catch (error) {
++      console.error("Error handling request:", error);
++      if (!res.headersSent) {
++        res.writeHead(500);
++        res.end("Internal Server Error");
++      }
++    }
++  });
++
++  const PORT = 3000;
++  httpServer.listen(PORT, () => {
++    console.error(`MCP Server initialized and listening on http://localhost:${PORT}`);
++  });
+ }
+ 
+ main().catch(console.error);

@@ -1,0 +1,19 @@
+{
+  "run_id": "run-c89894bd5989",
+  "skill": "mcp-server-patterns",
+  "prompt": "Refactor the MCP server initialization in `/workspace/mcp-server/src/index.ts` to replace the hardcoded `StdioServerTransport` with `StreamableHTTPServerTransport`. Bind the server to port 3000, preserve the existing `get_weather` tool and its Zod validation schema, and update the startup logging accordingly. Ensure the project still compiles and runs correctly after the change.",
+  "base_image": "skillrace/mcp-server-patterns:base",
+  "env_image": "skillrace/runenv-run-c89894bd5989",
+  "container": "run-c89894bd5989",
+  "container_alive": true,
+  "cleanup_grace_s": 1800,
+  "case": "out/mcp-gen/cases/cand-baa2d1bff904",
+  "model": "qwen3.6-flash",
+  "termination": {
+    "reason": "completed",
+    "rc": 0,
+    "seconds": 71.4
+  },
+  "trace": "raw/session.jsonl",
+  "workspace_diff": "logs/workspace.diff"
+}

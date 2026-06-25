@@ -127,7 +127,8 @@ gets the most isolation testing before anything depends on its output.
 **Build:** the fold algorithm (**merge on attempt+target; outcome→edge**, D-TREE-1);
 the `same_action` model call with **content-hash caching** (key hashes attempt+target,
 not outcome); monotone `broaden`; the `Frontier` view + priority scoring (fan-out /
-mid-depth / novelty, D-TREE-2); the `split` operation.
+mid-depth / novelty, D-TREE-2). (No `split` — dropped from the design; differing
+outcomes are handled by the outcome-on-edge + downstream branch, see tree-builder.md.)
 
 **Gating isolation tests** ([tree-builder.md](./design/tree-builder.md#how-to-test-it-in-isolation)):
 - **Merge decision against the labeled pair set** (`merge_pairs.jsonl`, labeled on
@@ -136,12 +137,10 @@ mid-depth / novelty, D-TREE-2); the `split` operation.
 - **Fold mechanics** with `same_action` stubbed: the **D-TREE-1 case** (same action,
   different outcome → one merged node that is a branch, with the outcome on each
   out-edge); divergent actions → branch; `broaden` monotonicity; frontier ordering.
-- **`split`**: spurious-merge correction preserves members and re-parents edges.
 - **Build stability**: two fold orders → tree agreement ≥ threshold.
 
 **Done:** the merge decision is a pure, cached, symmetric function on fixed pairs;
-the same-action/different-outcome case yields one node + an outcome-labeled branch;
-split is correct.
+the same-action/different-outcome case yields one node + an outcome-labeled branch.
 
 ---
 
@@ -212,8 +211,8 @@ Checker).
 **Build:** `skillrace.loop` (seed `--seed-count` inputs → exploration loop: pick
 frontier branch by priority → mutate guard (negate / **novel diverse sibling** given
 all observed siblings) → synthesize → **validate + run + live state-checks in one
-container** → fold → classify {predicted divergence / spurious merge → `split` / path
-miss} → trace-structural checks → optional k-fold regrade); the selection policy
+container** → fold → classify {predicted divergence / path miss} → trace-structural
+checks → optional k-fold regrade); the selection policy
 (fan-out / mid-depth / novelty, plus a property-relevance boost); budget accounting;
 campaign outputs written to `out/<method>/<skill>/`.
 
@@ -228,7 +227,7 @@ campaign outputs written to `out/<method>/<skill>/`.
 >    green, **no un-validated input reaches the Runner** — assert every Runner call
 >    was preceded by a `valid:true` `ValidationReport`);
 > 3. folds the new run and **classifies** it (at least one of predicted-divergence /
->    spurious-merge→split / path-miss exercised, using crafted replays);
+>    path-miss exercised, using crafted replays);
 > 4. runs the **shared Property Checker** (separate command) — state-based checks
 >    `docker exec`-ed into the **live container the Runner left** (then destroyed),
 >    trace-structural over the trace/diff — and emits a

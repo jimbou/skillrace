@@ -112,8 +112,8 @@ Arrows are **artifacts** (files/JSON), not function calls. Full schemas:
 branch by priority (fan-out / mid-depth / novelty) → mutate its guard (negate / ask
 for a novel diverse sibling) → synthesize and **validate** a candidate (no agent run)
 → run the agent once, **checking state-based properties live in the same container**
-→ fold the trace back in and classify it (predicted divergence / spurious merge →
-**split** / path miss) → trace-structural checks (+ optional k-fold regrade) → repeat
+→ fold the trace back in and classify it (predicted divergence / path miss)
+→ trace-structural checks (+ optional k-fold regrade) → repeat
 until the run budget (~100–150 runs/skill) is spent.
 
 ---
@@ -135,8 +135,9 @@ until the run budget (~100–150 runs/skill) is spent.
 - **Tree nodes are episodes merged on `attempt`+`target` (a model judgment), and the
   differing *outcome* becomes the guard on the diverging next edge** — so the outcome
   is the branch condition, not part of node identity. Summaries **broaden** on merge;
-  consistency rests on **temperature-0 caching + spurious-merge/split** — the riskiest
-  model step, tested against labeled pairs: [tree-builder.md](./docs/design/tree-builder.md).
+  consistency rests on **temperature-0 caching** (differing outcomes are handled by
+  branching, not by any `split`) — the riskiest model step, tested against labeled
+  pairs: [tree-builder.md](./docs/design/tree-builder.md).
 - **Guards use two distinct signals** — the prior episode's *outcome* (from tool
   outputs) and the next episode's *opening reasoning* (from reasoning text):
   [guard-synthesizer.md](./docs/design/guard-synthesizer.md).
@@ -155,6 +156,11 @@ until the run budget (~100–150 runs/skill) is spent.
 ---
 
 ## Running it
+
+> **Want to run what exists today, step by step?** See
+> **[docs/pipeline-walkthrough.md](./docs/pipeline-walkthrough.md)** — copy-pasteable
+> commands for the implemented components (generate → run → check → segment → fold),
+> worked end-to-end on one skill. The `campaign` loop below is the planned orchestration.
 
 ### The whole loop on one skill
 
