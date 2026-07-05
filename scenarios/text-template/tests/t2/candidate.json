@@ -1,0 +1,1 @@
+{"skill": "text-template", "base_image": "skillrace/skillgen-base:latest", "prompt": "Create /workspace/render.py invoked as `python3 render.py <template> <data.json> <out>`. Replace every {key} in the template with data[key]. A key absent from the data leaves the placeholder text EXACTLY as written. Single braces like {x} are left untouched. A missing key stays literal."}

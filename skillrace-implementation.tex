@@ -102,10 +102,12 @@ initialization script that builds the starting environment---it runs the skill's
 agent at temperature~0 inside the container and records everything.
 
 \paragraph{Trace format (frozen early; everything downstream consumes only
-this).} One run is one JSONL file; each line is a step:
+this).} The runner records the agent framework's raw session log; a
+\emph{deterministic renderer} (no model) projects it into the globally-numbered
+view every downstream component consumes --- one entry per tool call:
 \begin{tcolorbox}[colback=gray!5,boxrule=0.4pt]
 \small
-\texttt{\{ step: int, reasoning: str,\ \ \ \ \ \ // assistant turn before the call}\\
+\texttt{\{ call: int, reasoning: str,\ \ \ \ \ \ // assistant thinking before the call}\\
 \texttt{\ \ tool: str, args: \{...\},\ \ \ \ \ \ \ // the tool call}\\
 \texttt{\ \ observation: str \}\ \ \ \ \ \ \ \ \ \ \ \ // raw tool output}
 \end{tcolorbox}
@@ -141,14 +143,18 @@ episode). Output is strict JSON, mechanically validated: episodes partition the
 steps in order; every evidence index is in range. One retry, then the trace is
 flagged unsegmentable and counted (expected rare).
 
-\paragraph{Long traces: windowing for causality.} Rather than the whole trace at
-once, feed a window of $\sim$50 steps and have the segmenter emit \emph{complete}
-episodes while leaving any trailing, not-yet-finished steps \emph{uncommitted};
-the uncommitted tail prepends to the next window. A committed boundary is never
-revised by later context---so segmentation is \emph{causal} (an episode's
-boundary depends only on steps up to it), which is what lets the tree be built
-incrementally as runs arrive. An episode longer than the window is
-force-committed; report the force-commit rate.
+\paragraph{Mechanics.} The renderer's numbered trace plus a baked-in worked
+example goes to the segmenter with a \emph{soft episode-count target}, a smooth
+saturating function of the tool-call count ($D = 3 + N/50$, target $= N/D$) that
+discourages under-splitting without dictating boundaries. Spans are validated
+mechanically (they must partition the calls in order; boundaries may only fall
+where a reasoning turn exists); one repair attempt with the violation fed back,
+then the trace is flagged unsegmentable and counted (expected rare). Each
+episode carries \emph{intent}, \emph{what it did}, and \emph{outcome} --- the
+summarization of Section~\ref{sec:summary} is emitted in the same pass. Traces
+that exceed one context window are handled by an agentic variant of the same
+segmenter that pages through the rendered trace file itself under identical
+rules.
 
 \paragraph{Faithfulness/quality knob.} Segmentation is a model judgment, so it is
 a calibrated component: hand-segment $\sim$100 traces and measure boundary
@@ -200,31 +206,39 @@ then build''---later runs do not exist until the current tree has proposed them.
 \paragraph{How a run folds in (the merge).} Walk the new run's episode sequence
 from the root:
 \begin{enumerate}[leftmargin=1.5em, itemsep=1pt]
-  \item At the current node, compare the run's next episode (its intent +
-  outcome + summary) against the episodes on the node's existing out-edges.
-  \item \textbf{Match} $\Rightarrow$ follow that edge (the run merges into known
-  structure). Matching is a \emph{similarity judgment}, not string equality: a
-  cheap-model (or embedding) call decides whether the new episode is ``the same
-  situation'' as the edge's. When it merges, the node/edge's summary is
-  \textbf{rewritten to generalize over all its members}---broadening only, so it
-  always covers everything merged into it (a node never disowns a run it already
-  represents).
-  \item \textbf{No match} $\Rightarrow$ create a new branch (the run diverges
-  here). The first point of divergence is a \textbf{branch}---the place a guard
-  lives (Section~\ref{sec:guards}).
+  \item At the current node, compare the run's next episode against the current
+  node's \emph{children}. Matching is on \textbf{purpose} (the episode's intent;
+  how it was done is secondary context): a cheap-model similarity judgment, not
+  string equality. \textbf{The outcome does not enter the match}---it is recorded
+  on the \emph{edge} taken into the node (together with the opening reasoning of
+  the next episode), which is exactly where the guard will read it
+  (Section~\ref{sec:guards}).
+  \item \textbf{Match} $\Rightarrow$ merge into that child: the node's purpose is
+  \textbf{rewritten to generalize} over all its members (broadening only, so a
+  node never disowns a run it already represents), and the episode's concrete
+  tactic is recorded as one of the node's \emph{ways} (similar tactics collapse,
+  genuinely different ones accumulate as variants).
+  \item \textbf{No match} $\Rightarrow$ create a new child (the run diverges
+  here). A node with $\ge 2$ children is a \textbf{branch}---the place a guard
+  lives.
 \end{enumerate}
+Two runs that reach the same situation with \emph{different outcomes} therefore
+share the node but carry different outcome labels on their out-edges---the
+divergence, if it matters, appears one step later as a branch, with the differing
+outcomes sitting on its in-edges as the guard's first signal.
 
 \paragraph{Why similarity-merging, and why it is safe here.} A fixed outcome enum
 would crush the diversity of real episodes; pure string matching would never
 merge two phrasings of the same situation. Similarity-merging lets the model
-judge ``same situation'' with full nuance. The risk---that a similarity judgment
+judge ``same purpose'' with full nuance. The risk---that a similarity judgment
 is not perfectly consistent---is contained two ways: (i)~merge decisions are made
 at temperature~0 and \textbf{cached}, so the same episode pair always gets the
-same verdict within a campaign; and (ii)~a \emph{wrong} merge is self-correcting:
-if we merged two situations that actually behave differently, a later test down
-that branch will reveal the divergence, and the tree \emph{splits} the node at
-that point (Section~\ref{sec:loop}). So merge errors degrade search guidance
-temporarily; they do not silently corrupt results.
+same verdict within a campaign; and (ii)~a \emph{wrong} merge is self-limiting:
+if two genuinely different situations were merged, their next episodes diverge,
+the point presents as a branch, and the guard extracted there names the
+distinguishing condition---the search routes around the error rather than being
+corrupted by it. Merge errors degrade search guidance temporarily; they do not
+silently corrupt results.
 
 \paragraph{Determinism, honestly.} The build is a deterministic \emph{procedure}
 (same seeds + same selection policy + temperature~0 + caching $\Rightarrow$ same
@@ -299,6 +313,18 @@ A cheap-model \textbf{generator} drafts a candidate $(x^*, E_0^*)$: a prompt plu
 a Docker init script intended to satisfy the path into the branch \emph{and} the
 mutated guard.
 
+\paragraph{Property-guided targeting.} Which guard to mutate, and toward which
+value, is not chosen blindly: the selection step is shown the skill's
+\emph{correctness properties} (Section~\ref{sec:properties}) alongside the
+frontier and asked for the feasible (guard, mutation) pair whose exploration is
+most likely to drive the skill toward a property violation---e.g.\ prefer ``the
+failing test is an import error'' $\to$ ``the failing test is an
+\emph{environment} error'' when a test-integrity property could plausibly break
+there. This turns exploration into \emph{directed falsification}: the frontier
+supplies what is reachable, the properties supply what is worth reaching. The
+choice is a targeting heuristic only---it biases the search; correctness verdicts
+still come exclusively from the property checker.
+
 \paragraph{Validation BEFORE spending an agent run (the key efficiency move).}
 We only target guards that are decidable from the \textbf{initial setup}
 ($E_0$-guards: ``the repo lacks file X,'' ``the failing test is an import
@@ -344,22 +370,36 @@ A property is classified along two independent axes.
 \emph{How it is written:}
 \begin{itemize}[leftmargin=1.5em, itemsep=2pt]
   \item \textbf{Fixed-formula properties} --- written once, task-independent,
-  evaluated mechanically (a temporal pattern over the episode sequence, or a
-  shell predicate). Zero model involvement, fully trustworthy. These are the
-  universal process invariants.
+  evaluated by plain code over the trace and run manifest (no force-push, no
+  destructive operation outside the workspace, no pathological repetition,
+  terminated within budget). Zero model involvement at authoring \emph{and}
+  evaluation time; fully trustworthy. These are the universal process
+  invariants, run for every skill and every method.
   \item \textbf{Specification-by-example properties} --- written as a
   \emph{natural-language specification} per skill, then \textbf{compiled per
-  concrete $(x, E_0)$ into an executable check} by a model step. The
-  specification (``the skill must not make the target test pass by altering the
-  test rather than the code'') is reusable; the compiled check is task-specific
-  (``...for this prompt, the target test is \texttt{test\_auth}, so: it still
-  exists and its assertions are unchanged''). \textbf{The model runs only at
-  compile time}; the produced check is a concrete, inspectable predicate that
-  runs mechanically at evaluation time---so the verdict is deterministic and
-  auditable, and we ship the generated checks alongside the bugs. The compile
-  step is a calibrated component (its own error rate); we report bug yield split
-  by provenance (fixed vs.\ SBE), the SBE ones carrying a wider confidence band.
+  concrete $(x, E_0)$ into an executable check---before the run exists}. The
+  compiling model sees the prompt and the \emph{built initial environment} (its
+  tools, its starting file tree), never the run it will judge: the specification
+  (``the skill must not make the target test pass by altering the test rather
+  than the code'') is reusable; the compiled check is case-specific and must
+  \emph{discover} its concrete targets mechanically (find the test files, grep
+  the trace) since the agent's actual behavior is unknown at compile time.
+  \textbf{The model runs only at compile time}; the produced check is a
+  concrete, inspectable bash script that runs mechanically at evaluation
+  time---deterministic, auditable, shipped alongside the bugs. Because checks
+  attach to the \emph{case}, every run of that case---under any method---is
+  judged by byte-identical scripts, which is itself a fairness control. The
+  compile step is a calibrated component (its own error rate); we report bug
+  yield split by provenance (fixed vs.\ SBE), the SBE ones carrying a wider
+  confidence band.
 \end{itemize}
+
+\paragraph{One evaluation mechanism.} Every compiled check is a bash script
+executed in the run's \emph{final live container}, which exposes the final
+workspace, the full trace (\texttt{/check/trace.jsonl}), and the diff of
+everything the agent changed---so trace-structural and state-based checks run
+through the same auditable mechanism, and a check is free to combine both (grep
+the trace \emph{and} run the build).
 The two axes are orthogonal: a fixed-formula property can be trace-structural
 (``test-before-commit'') or state-based (``build passes''); an SBE property
 likewise (``a backup episode precedes modification,'' trace-structural, vs.\
@@ -421,10 +461,11 @@ behavior tree and an initial branch frontier.
 \smallskip
 \textbf{Exploration loop} (until run budget exhausted):
 \begin{enumerate}[leftmargin=1.4em, itemsep=1pt, topsep=2pt]
-  \item \textbf{Pick} a branch from the frontier (never-tried guards first; then
-  guards on paths leading toward property-relevant regions, e.g.\ before a
-  commit).
-  \item \textbf{Mutate} its guard (negate / target a sibling value).
+  \item \textbf{Pick} a (branch, mutation) from the frontier by
+  \emph{property-guided targeting} (Section~\ref{sec:guards}): among untried,
+  $E_0$-decidable mutations, the one most likely to drive a property violation.
+  \item \textbf{Mutate} its guard accordingly (negate / target a novel sibling
+  value, given all observed siblings).
   \item \textbf{Synthesize} a candidate $(x^*, E_0^*)$ with the generator.
   \item \textbf{Validate} it against the built container (no agent run). Reject
   and retry if invalid.
@@ -433,10 +474,12 @@ behavior tree and an initial branch frontier.
   \begin{itemize}[leftmargin=1.2em, topsep=1pt]
     \item \emph{Predicted divergence} --- it took the new branch: coverage
     gained, guard corroborated, frontier extended.
-    \item \emph{Spurious merge} --- it ignored the mutated condition and behaved
-    as before: the stated reason was not causal, or two situations were wrongly
-    merged. \textbf{Split} the node by the distinguishing feature; log the run
-    that forced it.
+    \item \emph{No divergence} --- it reached the branch but behaved as before
+    despite the mutated condition: the stated reason was not causal (or the
+    mutation did not change what actually mattered). The mutation is marked
+    spent and the guard demoted; the run still folds in, so if a genuinely
+    different situation was hiding behind the merge, its own divergence
+    surfaces as a new branch downstream.
     \item \emph{Path miss} --- it never reached the branch: an earlier guard
     failed; recurse on that.
   \end{itemize}
@@ -470,14 +513,24 @@ generation}, not detection). Each rung adds exactly one ingredient.
   black-box fuzzing baseline; it is also structurally the black-box baseline used
   by VeriGrey.)
   \item \textbf{Greybox --- VeriGrey-inspired tool-sequence feedback.} Ports
-  VeriGrey's feedback idea to our setting: the \emph{novelty of the tool-call
-  sequence} (a new tool, a new transition, a new sequence vs.\ what has been seen)
-  drives which seeds to keep and how much to mutate them---over the same
-  schematized tool events \tool uses. Its injection-specific mutation and
-  injection oracle are \textbf{replaced} by generic mutation and our property
-  checker, so it is honestly ``VeriGrey-inspired,'' not VeriGrey. \textbf{This rung
-  is also the ``no-reasoning, no-intent-layer'' ablation}: it explores by raw
-  tool-sequence novelty, with no episodes, no reasoning-derived guards.
+  VeriGrey's feedback and scheduling \emph{verbatim}: the \emph{novelty of the
+  tool-call sequence} decides which mutants join the seed corpus, and energy is
+  assigned exactly as published ($+1$ each for a new tool, a new transition, a
+  new sequence; energy = offspring count). Mutation is an LLM rewrite of the
+  chosen seed's task/environment conditioned on the tool sequence it produced
+  (VeriGrey's mutation scheme minus its injection-specific context bridge, which
+  has no analogue outside injection testing); its injection oracle is replaced by
+  the shared property checker. One adaptation parameter is genuinely free: the
+  \emph{tool-event label granularity}. VeriGrey labels events by tool name +
+  arguments, which is meaningful over AgentDojo's small argument spaces but
+  degenerates on coding agents, where raw arguments are near-unique and would
+  mark every run novel. We therefore define three schematization levels (name
+  only; name + command head / file extension; name + normalized path), report
+  the sensitivity, and use the \textbf{best-performing level} for the headline
+  comparison---the baseline gets its empirically best configuration.
+  \textbf{This rung is also the ``no-reasoning, no-intent-layer'' ablation}: it
+  explores by raw tool-sequence novelty, with no episodes, no reasoning-derived
+  guards.
   \item \textbf{\tool.} Episodes + reasoning-derived guard mutation + the behavior
   tree.
 \end{enumerate}
@@ -494,5 +547,33 @@ the task VeriGrey was built for; kept secondary to stay on the correctness story
 \emph{feedback idea}, not VeriGrey itself (we removed its injection-specific
 parts), so the comparison speaks to ``tool-sequence feedback vs.\ reasoning-guard
 mutation for correctness testing,'' not to VeriGrey's security performance.
+
+\section{The two claims and their experiments}
+\label{sec:evalplan}
+
+\paragraph{Claim 1 --- finding skill defects.} On the mined skill suite, run the
+three rungs under identical budgets and measure, per skill: distinct violated
+properties per agent-run budget, runs-to-first-violation, wall-clock-to-first-%
+violation, and unique behavioral branches covered. The shared runner and the
+per-case byte-identical checks mean any difference is attributable to test
+generation. Here a ``bug'' in a skill is concretely: guidance that is ambiguous
+or incomplete in a way that lets a faithful agent violate a correctness
+property---each report carries the violated property, the mutated assumption
+that produced the input, and a replayable Docker repro.
+
+\paragraph{Claim 2 --- improving generated skills.} Most skills today are
+LLM-written, which is circular: a model teaching itself what it may or may not
+know. We test whether \tool's feedback breaks the circle. Per skill scenario:
+$x$ \emph{hidden} tests (prompt + environment), each with $y$ runnable
+pass-criteria---authored \textbf{independently} of every improvement loop
+(different model or hand-written; disjoint from anything a tester generates), the
+leakage control. Conditions: the LLM-generated skill zero-shot; the skill
+revised with random-testing feedback; with greybox feedback; with \tool
+feedback (bug reports carrying mutated assumptions + the coverage map of
+unexercised guidance). \textbf{The reviser prompt is identical across
+conditions---only the feedback payload differs}---so a hidden-test pass-rate
+difference is attributable to the feedback quality, i.e.\ to the testing
+method. Report pass rates zero-shot vs.\ each revision, and pass-rate per unit
+of testing spend.
 
 \end{document}

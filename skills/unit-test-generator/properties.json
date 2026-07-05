@@ -1,0 +1,1 @@
+[{"id":"generated-tests-pass","reads":"state","nl":"The generated unit tests run and pass against the provided correct implementation (pytest exits 0)."},{"id":"tests-exercise-target","reads":"state","nl":"The generated tests import and call the target functions with real assertions (a broken implementation would make them fail), not trivial always-true asserts."}]

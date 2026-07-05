@@ -1,0 +1,6 @@
+# Level-2 per-skill base: cli-argparse-fix (cli instance, vendored cuioss).
+FROM skillrace/skillgen-base:latest
+
+COPY repo/    /workspace/
+COPY SKILL.md /skills/cli-argparse-fix/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: cli-argparse-fix" || true

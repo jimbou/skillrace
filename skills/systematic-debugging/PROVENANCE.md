@@ -1,0 +1,3 @@
+# Provenance: systematic-debugging
+- **Source (verbatim):** `obra/superpowers` — https://github.com/obra/superpowers/tree/main/skills/systematic-debugging , fetched verbatim 2026-07-05 via raw URL.
+- **Fidelity:** byte-for-byte vendored (no edits).

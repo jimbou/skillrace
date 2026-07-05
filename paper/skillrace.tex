@@ -1,0 +1,821 @@
+% =====================================================================
+% SkillRACE — main paper. Style mirrors the lab's gordian.tex (acmart,
+% nonacm). Uses `listings` (not minted) so it compiles without
+% -shell-escape. All not-yet-measured quantities are \newcommand macros
+% grouped in the PLACEHOLDERS block below: fill them once, they update
+% everywhere, and every occurrence is visibly a placeholder until then.
+% =====================================================================
+\documentclass[acmsmall,screen,nonacm]{acmart}
+
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{algorithm2e}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds}
+\usepackage{makecell}
+\usepackage{caption}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{cleveref}
+\usepackage{subcaption}
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{breakable}
+\usepackage{enumitem}
+\setlist{leftmargin=6mm}
+
+% ---- revision toggle (as in gordian) ----
+\newif\ifrevision
+\revisionfalse
+\ifrevision \newcommand{\rev}[1]{\textcolor{red}{#1}}
+\else \newcommand{\rev}[1]{#1}\fi
+
+% ---- author-note macros ----
+\newcommand{\todo}[1]{{\color{purple}\textbf{[TODO: #1]}}}
+\newcommand{\ph}[1]{{\color{blue}#1}} % renders a placeholder value in blue
+
+% ---- project + benchmark names ----
+\newcommand{\tool}{\textsc{SkillRACE}\xspace}
+
+% ---- highlight boxes (as in gordian) ----
+\newtcbox{\hly}{on line,arc=0pt,colframe=yellow!50,colback=yellow!50,
+  boxrule=0pt,boxsep=0pt,left=1pt,right=1pt,top=2pt,bottom=2pt}
+\newtcbox{\hlg}{on line,arc=0pt,colframe=green!45,colback=green!45,
+  boxrule=0pt,boxsep=0pt,left=1pt,right=1pt,top=2pt,bottom=2pt}
+\newtcbox{\hlgr}{on line,arc=0pt,colframe=gray!25,colback=gray!25,
+  boxrule=0pt,boxsep=0pt,left=1pt,right=1pt,top=2pt,bottom=2pt}
+
+% ---- listing style ----
+\lstdefinestyle{skill}{
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black},
+  commentstyle=\color{gray},
+  breaklines=true,
+  columns=fullflexible,
+  frame=single,
+  framesep=3pt,
+  xleftmargin=4pt,xrightmargin=4pt,
+  tabsize=2,
+}
+
+% =====================================================================
+% PLACEHOLDERS — fill these once experiments land.
+% =====================================================================
+\newcommand{\NumSkills}{\ph{28}}            % skills in the suite (24 built + 4 build-deferred)
+\newcommand{\NumSkillsCore}{\ph{TBA}}       % skills w/ full property matrix
+% D2 (skill-generation) suite — concrete
+\newcommand{\NumScenarios}{10}
+\newcommand{\NumTestsPer}{10}
+\newcommand{\NumTestsTot}{100}
+\newcommand{\NumChecksTot}{192}
+\newcommand{\Budget}{\ph{120}}              % agent runs per skill per method
+\newcommand{\SeedCount}{\ph{20}}            % seed inputs per campaign
+\newcommand{\AgentModel}{\ph{a fixed frontier model}}
+\newcommand{\JudgeModel}{\ph{a fixed cheap model}}
+% headline bug-finding deltas (percentage points / factors) — TBA
+\newcommand{\BugsSkillrace}{\ph{TBA}}
+\newcommand{\BugsGreybox}{\ph{TBA}}
+\newcommand{\BugsRandom}{\ph{TBA}}
+\newcommand{\DeltaOverGreybox}{\ph{TBA}}
+\newcommand{\DeltaOverRandom}{\ph{TBA}}
+% injection detection rate
+\newcommand{\DetectRate}{\ph{TBA}}
+% claim-2 hidden-test pass rates
+\newcommand{\PassZeroShot}{\ph{TBA}}
+\newcommand{\PassRandom}{\ph{TBA}}
+\newcommand{\PassGreybox}{\ph{TBA}}
+\newcommand{\PassSkillrace}{\ph{TBA}}
+% calibration agreement
+\newcommand{\SegF}{\ph{TBA}}
+\newcommand{\MergeAgree}{\ph{TBA}}
+\newcommand{\CompileAgree}{\ph{TBA}}
+
+% =====================================================================
+\title[\tool: Reasoning-Augmented Concolic Execution for Coding-Agent Skills]{%
+  \tool: Reasoning-Augmented Concolic Execution\\for Coding-Agent Skills}
+
+\author{Anonymous}
+\affiliation{\institution{Anonymous Institution}\country{Anonymous}}
+\email{anon@example.com}
+
+\begin{document}
+
+\begin{abstract}
+A coding-agent \emph{skill} is reusable procedural guidance---a natural-language
+\texttt{SKILL.md} plus optional scripts---that an agent consults to carry out a
+task such as fixing a failing test or scaffolding a service. Skills are now a
+first-class, sharable artifact, yet they are trusted after a handful of successful
+runs and tested almost not at all: unlike code, a skill has no compiler and no test
+suite, and the guidance that works on the situations its author happened to try may
+mislead an agent on the situations its author did not. We present \tool, which tests
+a skill the way concolic execution tests code. \tool runs the skill, lifts each run
+into a sequence of \emph{episodes}---coherent units of work, each with a purpose and
+an outcome read from tool output rather than from the agent's own narration---and
+merges episodes into a growing \emph{behavior tree}. It reads the agent's reasoning
+at each branch as the \emph{condition} that sent the run one way rather than another,
+then mutates those conditions to synthesize new \((\text{prompt},\text{environment})\)
+inputs that drive the skill down branches it has not yet taken. Candidate inputs are
+validated against the target condition \emph{before} any agent run, so the expensive
+resource---the agent under test---is spent only on inputs already shown to exercise
+the intended situation. Correctness is judged by \emph{properties}: universal
+process invariants checked mechanically, and per-skill specifications compiled into
+executable checks \emph{before} the run they judge, so that no model ever grades the
+run it also produced. We evaluate \tool against a blind-mutation floor and a
+greybox rung that ports the feedback mechanism of a recent agent fuzzer to this
+setting, on a suite of \NumSkills\ skills mined from public repositories. Holding the
+runner, environments, budget, and oracle identical across methods, \tool exposes
+\DeltaOverGreybox\ more distinct defects per agent-run budget than the greybox rung and
+\DeltaOverRandom\ more than the floor, and reaches its first violation in fewer runs.
+Feeding \tool's findings back to revise an LLM-generated skill raises its pass rate on
+independently-authored held-out tests from \PassZeroShot\ to \PassSkillrace.
+\end{abstract}
+
+\maketitle
+
+% =====================================================================
+\section{Introduction}
+\label{sec:intro}
+
+Coding agents increasingly rely on \emph{skills}: reusable folders of natural-language
+guidance, and sometimes helper scripts, that an agent loads on demand to perform a
+recurring task~\cite{anthropic2025skills,anthropic2025skillseng}. A skill for fixing
+a failing test tells the agent to locate the failure, understand the expected
+behavior, edit the implementation, and re-run the suite; a skill for scaffolding a
+service prescribes a project layout and a build step. Skills are authored once,
+published to shared directories, and reused across many tasks and many
+agents~\cite{anthropic2025skillseng}. In this they resemble a library---code that
+many downstream users depend on---except that a skill is prose, its ``interface'' is
+whatever situations its author imagined, and it ships with neither a type checker nor
+a test suite.
+
+This creates a testing gap that is easy to state and hard to close. A skill is
+trusted once it has worked on a handful of tasks its author tried by hand. But the
+tasks an author tries are the tasks an author thinks of, and a skill's guidance is
+only as good as its coverage of the situations an agent will actually meet. Guidance
+that is silent about a broken build, ambiguous about which of two files to edit, or
+that assumes a test harness runs cleanly will send an agent confidently down the
+wrong path exactly when the environment departs from the author's mental model---and
+because the agent narrates its own progress, the failure is often invisible in the
+transcript the author reads. What is missing is a way to ask, systematically, \emph{on
+which situations does this skill's guidance break down?}
+
+The analogous question for code has a mature answer. Symbolic and concolic execution
+run a program on abstract inputs, read the branch conditions off the source, and negate
+them to synthesize inputs that drive execution down not-yet-taken
+paths~\cite{king1976symbolic,dart,sen2005cute,klee}. Coverage of the path space is
+both the goal and the search signal: the path tree built so far reveals the next
+frontier to push toward. This is precisely the discipline a skill lacks---and it does
+not transfer directly, because a skill is not code. There is no source to read a
+branch condition from; the ``program'' is an agent whose control flow is mediated by
+natural-language reasoning over the situations it observes.
+
+Our key observation is that the agent's reasoning trace is the nearest thing to that
+missing source. When an agent writes ``the import failed, so the module is missing---I
+will create it'' before choosing its next action, it is stating the condition under
+which it took that action rather than another. \tool treats each such stated reason as
+a candidate branch condition. It segments a run into \emph{episodes}---contiguous
+stretches of work pursuing one sub-goal, the basic blocks of agent behavior---and
+merges episodes across runs into a \emph{behavior tree} whose branches are the points
+where runs that reached the same situation diverged. At each branch it reads two
+signals: the \emph{outcome} of the episode that just finished (taken from tool output,
+not from the agent's claim about it) and the \emph{opening reasoning} of the episode
+that follows. Mutating that condition---negating a binary guard, or targeting a
+sibling value of a multi-valued one---yields a new \((\text{prompt},\text{environment})\)
+input designed to drive the skill down an unexplored branch. Each new run folds back
+into the tree, exposing the next frontier, exactly as in concolic execution.
+
+Two design commitments make this practical rather than merely appealing. First, the
+agent under test is the only expensive component; everything else is code or a small
+model. \tool therefore never spends an agent run on an unvalidated input: a synthesized
+candidate is built into its container and checked against its target condition---does
+the test it sets up actually fail with the intended error?---with no agent involved,
+and only validated candidates are run. Second, correctness is decided by
+\emph{properties}, not by a model's opinion of the run. Universal process invariants
+(a skill must not force-push, must not delete the very test it was asked to satisfy,
+must terminate within budget) are checked mechanically. Skill-specific expectations
+are written once as natural-language specifications and \emph{compiled per input into
+an executable check before the run they judge}, so the component that decides whether
+a run is buggy never sees the run it grades. A run is buggy when it violates a property
+we fixed in advance---not when a model thought it went badly.
+
+We use \tool to answer two questions. \emph{Does reasoning-guided exploration find
+more skill defects than feedback that ignores reasoning?} We compare against a
+blind-mutation floor and a greybox rung that ports the tool-invocation-sequence
+feedback of a recent agent fuzzer~\cite{verigrey} to correctness testing, holding the
+runner, the environments, the budget, and the property checker identical across all
+three so that any difference measures test \emph{generation}, not detection.
+\emph{Can a skill be improved with what \tool finds?} Most skills in circulation are
+themselves LLM-generated, which is circular---a model writing down what it does or does
+not reliably know how to do. We test whether \tool breaks the circle: we revise an
+LLM-generated skill using \tool's reports and measure the revised skill on held-out
+tests authored independently of the revision loop.
+
+\smallskip\noindent This paper makes the following contributions:
+\begin{itemize}[itemsep=2pt,topsep=2pt]
+  \item \textbf{A concolic-execution account of agent-behavior testing} that lifts the
+  branch-condition/negation loop from source code to the agent's reasoning trace:
+  episodes as basic blocks, stated reasons as branch conditions, condition mutation as
+  test synthesis, and a behavior tree as both the byproduct and the driver of the
+  search (\cref{sec:overview,sec:approach}).
+  \item \textbf{A cost-aware realization} of that loop in which a cheap validator gates
+  every expensive agent run, and correctness is judged by fixed invariants plus
+  specifications compiled into checks \emph{before} the run they grade
+  (\cref{sec:approach,sec:impl}).
+  \item \textbf{An evaluation} on \NumSkills\ skills mined from public repositories,
+  against a blind-mutation floor and a faithful greybox port, measuring defect yield
+  under a fixed budget; plus a study of whether \tool's findings improve an
+  LLM-generated skill on held-out tests (\cref{sec:eval}).
+\end{itemize}
+
+% =====================================================================
+\section{Overview}
+\label{sec:overview}
+
+\begin{figure*}[t]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}[
+    font=\footnotesize\sffamily,
+    >={Stealth[length=1.7mm,width=1.6mm]},
+    node distance=9mm and 12mm,
+    box/.style={rounded corners=2.5pt, draw=black!45, line width=0.5pt,
+                minimum height=11mm, minimum width=23mm, align=center,
+                inner sep=3pt, fill=white},
+    model/.style={box, fill=black!5},                      % cheap-model step
+    code/.style={box, fill=white},                          % code-only step
+    agent/.style={box, fill=orange!14, draw=orange!70!black, line width=1pt}, % expensive
+    art/.style={box, fill=blue!7, draw=blue!45!black, densely dashed},        % artifact
+    io/.style={align=center, inner sep=1pt, text=black!65, font=\scriptsize\sffamily},
+    flow/.style={->, draw=black!55, line width=0.7pt},
+    gate/.style={->, draw=orange!75!black, line width=1pt},
+    lbl/.style={font=\scriptsize\sffamily, text=black!60, inner sep=1.5pt},
+  ]
+    % --- observe path (top row, left to right) ---
+    \node[agent] (run)  {\textbf{Runner}\\[-1pt]{\scriptsize agent under test}};
+    \node[model] (seg)  [right=of run]  {Segmenter\\[-1pt]{\scriptsize $\to$ episodes}};
+    \node[art]   (tree) [right=of seg]  {Behavior\\[-1pt]tree};
+    % --- generate path (bottom row, right to left) ---
+    \node[model] (guard)[below=of tree] {Guard extractor\\[-1pt]{\scriptsize + property-guided}\\[-1pt]{\scriptsize selection}};
+    \node[model] (synth)[left=of guard] {Synthesizer};
+    \node[code]  (valid)[left=of synth] {Validator\\[-1pt]{\scriptsize no agent}};
+    % --- inputs / oracle ---
+    \node[io]    (seed) [left=8mm of run]  {seed\\inputs};
+    \node[code]  (check)[above=of run]     {Property checker\\[-1pt]{\scriptsize fixed invariants +}\\[-1pt]{\scriptsize pre-compiled checks}};
+    \node[io]    (bugs) [left=8mm of check]{bug\\reports};
+    % --- flows ---
+    \draw[flow] (seed) -- (run);
+    \draw[flow] (run)  -- (seg)  node[lbl,midway,above]{trace};
+    \draw[flow] (seg)  -- (tree);
+    \draw[flow] (tree) -- (guard) node[lbl,midway,right]{frontier};
+    \draw[flow] (guard)-- (synth);
+    \draw[flow] (synth)-- (valid) node[lbl,midway,above]{candidate};
+    \draw[gate] (valid) -- (run)  node[lbl,midway,left,text=orange!70!black,align=right]{validated\\input only};
+    \draw[flow] (run)  -- (check) node[lbl,midway,right,align=left]{each run's\\final state};
+    \draw[flow] (check)-- (bugs);
+    % --- container behind the loop, labelled ---
+    \begin{scope}[on background layer]
+      \node[rounded corners=4pt, fill=black!3, draw=black!12,
+            fit=(run)(seg)(tree)(guard)(synth)(valid),
+            inner sep=6mm, label={[lbl,anchor=north east]north east:exploration loop}] {};
+    \end{scope}
+    % --- legend, stacked in the whitespace to the right of the loop ---
+    \begin{scope}[every node/.append style={anchor=west},
+                  swatch/.style={minimum width=5mm, minimum height=3.4mm, inner sep=0pt}]
+      \coordinate (lg) at ($(tree.east)+(14mm,4mm)$);
+      \node[agent, swatch] (le1) at (lg) {};
+      \node[io] at (le1.east) {\,expensive (agent)};
+      \node[model, swatch] (le2) at ($(le1.south west)+(0,-2.4mm)$) {};
+      \node[io] at (le2.east) {\,cheap model};
+      \node[code, swatch] (le3) at ($(le2.south west)+(0,-2.4mm)$) {};
+      \node[io] at (le3.east) {\,code only};
+      \node[art, swatch] (le4) at ($(le3.south west)+(0,-2.4mm)$) {};
+      \node[io] at (le4.east) {\,artifact};
+    \end{scope}
+  \end{tikzpicture}}
+  \caption{\tool's loop. A run is segmented into episodes and folded into the behavior
+  tree; the tree's branch frontier drives property-guided synthesis of a new input,
+  which the \emph{validator} confirms exercises the targeted branch \emph{before} any
+  agent run. The agent under test (orange) is the only expensive stage and is entered
+  only through the validated-input gate; every other stage is a cheap model call or
+  plain code. Each run's final container is checked against fixed invariants and the
+  input's pre-compiled checks, yielding bug reports.}
+  \label{fig:pipeline}
+\end{figure*}
+
+We illustrate \tool with a defect it found in a \texttt{fix-failing-test} skill---a
+common skill whose guidance is, in essence, ``run the suite, read the failing tests,
+fix the implementation, re-run to confirm.'' The defect is not a flaw in any single
+run; it is a situation the guidance does not cover, surfaced during a \tool campaign
+and then generalized by the search into a dimension worth probing.
+
+\paragraph{A run that looks fine and is not.} \tool seeds the campaign with inputs
+that place a bug in a project and ask the agent to make the tests pass. One seed
+placed the bug in a module the setup happened to name \texttt{collections.py}. This
+name shadows a Python standard-library module, so the test harness crashes on
+\emph{import}, before any test runs---\texttt{pytest} itself fails with
+\texttt{ImportError}. The skill's guidance says nothing about a harness that will not
+start. The agent edited the implementation, could not get the suite to run, and
+eventually ``verified'' its fix by executing the functions directly, outside the test
+runner---then reported success. Its narration reads like a clean repair. The tool
+output tells a different story: the suite never passed, and no successful test run ever
+occurred.
+
+\paragraph{Why \tool catches it.} \tool does not ask a model whether the run went
+well. It reads the outcome of each episode from tool output. The episode that ran the
+suite has outcome ``\texttt{ImportError} on import; no tests collected,'' regardless of
+what the agent said next. Two properties compiled for this input from the skill's
+specification---\emph{the previously-failing suite passes in the final state} and
+\emph{the agent actually ran the suite to a clean result before finishing}---are
+checked by scripts that grep the final workspace and the trace. Both fire. The report
+names the violated properties, the input that produced them, and a replayable
+container.
+
+\paragraph{From one finding to a systematic probe.} The value of \tool is not the single
+run above but the \emph{dimension} it exposes. Folding the campaign's runs into the
+behavior tree produced a branch on \emph{which module the workspace directs the agent to
+fix}; \tool extracted this as a guard, grounded it in an executable check over the initial
+state (\texttt{test -f <module>}), and, asked which feasible mutation most threatened a
+property, synthesized further inputs that vary the targeted module and its failure mode.
+Module identity turned out not to change the agent's behavior on its own (the loop records
+this as a non-divergence and moves on), whereas the \emph{shape of the harness failure}---a
+suite that will not even start---does. That distinction is exactly what a reasoning-blind
+fuzzer cannot draw and what \tool's guards make explicit: the search is steered by the
+conditions a skill's own runs reveal and the properties those conditions threaten, not by
+random perturbation. \todo{once the full campaign lands, replace with a synthesized input
+that itself triggered a violation, if one is cleaner than this seed-found case.}
+
+% =====================================================================
+\section{Approach}
+\label{sec:approach}
+
+\tool is a loop over six components (\cref{fig:pipeline}). One---running the agent under
+test---is expensive: minutes and real cost per run. The other five are code or a small
+model. Every design choice follows from this asymmetry: \emph{spend agent runs only on
+inputs already validated, and do everything else cheaply.} We first fix the objects the
+components exchange, then describe each.
+
+\subsection{Runs, episodes, and the behavior tree}
+\label{sec:objects}
+
+\paragraph{Run.} The runner executes the skill's agent in a container on an input
+\((x, E_0)\): a prompt \(x\) and an initialization that builds the starting environment
+\(E_0\). It records the full trace---for each step, the agent's reasoning, the tool call,
+and the raw tool output---and leaves the final container live for property checking.
+Coding skills are short, so traces are tens of steps, not thousands.
+
+\paragraph{Episode.} An \emph{episode} is a contiguous run of steps pursuing one
+sub-goal: ``reproduce the failure,'' ``edit the implementation,'' ``run the suite.'' It
+is the basic block of the behavior tree: internally it may be one tool call or eight,
+but it is treated as a unit with an \emph{intent} (its sub-goal) and an \emph{outcome}
+(its result). Boundaries are read from the reasoning, because the agent announces its
+own goal switches. Crucially, the outcome is read from the episode's \emph{tool output}
+(an exit code, an error string, an HTTP status), never from the agent's narration of how
+it went. Agents declare false victory; sourcing the outcome from observation is what let
+\tool see through the run in \cref{sec:overview}, and---when the agent's next reasoning
+proceeds as though the outcome were different from what the tool reported---the
+disagreement is itself a defect signal.
+
+\paragraph{Behavior tree.} Runs are merged into a tree whose nodes are situations the
+skill reaches and whose edges are what it did next. A new run is folded from the root:
+at each node, its next episode is compared, \emph{on purpose}, against the node's
+children. A match descends into that child and broadens the child's purpose to cover
+the new episode; a mismatch creates a new child. Matching is on purpose, not on
+outcome: the outcome rides on the \emph{edge}. So two runs that reach the same situation
+but fare differently share the node and carry different outcomes on their out-edges---and
+the divergence, if it matters, surfaces one step later as a \emph{branch}, a node with
+two or more children. A branch is where a guard lives.
+
+\subsection{Guards: reading a branch condition from reasoning}
+\label{sec:guards}
+
+A guard is the condition that explains a branch. \tool reads it from two signals with
+distinct sources, which it is careful not to conflate:
+\begin{itemize}[itemsep=1pt,topsep=2pt]
+  \item the \textbf{outcome} of the episode that just finished, from its tool output---%
+  \emph{what state the agent was in}; and
+  \item the \textbf{opening reasoning} of the next episode, from the agent's reasoning
+  text---\emph{why it went the way it did, given that state}.
+\end{itemize}
+A model call takes these two signals for each diverging side, plus a diff of the sides'
+initial environments, and distills a condition together with, where possible, an
+\emph{executable grounding}: a concrete check such as \texttt{test -f <path>} or
+``\texttt{pytest} output contains \texttt{ImportError}.'' It also records
+\emph{decidability}: a guard is targetable now if its condition is decidable from the
+initial setup \(E_0\) (``the module is missing,'' ``the failing test is an import
+error''); guards decidable only by running the agent are deferred and counted, not
+targeted. This is the conceptual core: a program hands the tester its branch conditions
+in source; an agent's reasoning is the nearest surrogate, and \tool treats each stated
+reason as a \emph{candidate} condition to be confirmed or refuted by mutation.
+
+\subsection{Property-guided synthesis, validated before any agent run}
+\label{sec:synth}
+
+From the tree's branches \tool builds a \emph{frontier}: the untried mutations of
+\(E_0\)-decidable guards. To explore, it must choose one---and the choice is where the
+search earns its keep. \tool shows the selection step the skill's \emph{properties}
+alongside the frontier and asks for the feasible mutation most likely to drive the skill
+toward violating one: if the guard took this other value, could the guidance plausibly
+mishandle it in a way a property would catch? This turns exploration into directed
+falsification---the frontier supplies what is reachable, the properties supply what is
+worth reaching---while leaving the verdict to the property checker, not the selector.
+
+A cheap generator then drafts a candidate input for the chosen mutation: a prompt and an
+environment intended to reach the branch \emph{and} realize the mutated condition,
+together with a check script for that condition. The generator may be unreliable; the
+\emph{validator} is not. It builds the candidate's container and runs the check with no
+agent involved---does the test it set up actually fail with the targeted error?---and a
+botched candidate costs a rebuild, never an agent run. Only a validated input is handed
+to the runner. We summarize the loop in \cref{alg:loop}.
+
+\begin{algorithm}[t]
+\SetAlgoLined\DontPrintSemicolon
+\footnotesize
+\KwIn{skill $S$, properties $P$, seed inputs, budget $B$}
+\KwOut{behavior tree $T$, bug reports $R$}
+$T \leftarrow \emptyset$;\quad $R \leftarrow \emptyset$\;
+\ForEach{seed input $(x,E_0)$}{
+  run agent; check $P$; fold run into $T$ \tcp*{seed phase}
+}
+\While{agent runs spent $< B$}{
+  $F \leftarrow$ frontier of $T$ \tcp*{untried $E_0$-decidable mutations}
+  $(g, m) \leftarrow$ \textsc{Select}$(F, P)$ \tcp*{property-guided}
+  $(x^*,E_0^*, c) \leftarrow$ \textsc{Synthesize}$(g, m)$ \tcp*{+ check script $c$}
+  \If{\textbf{not} \textsc{Validate}$(E_0^*, c)$}{mark $m$ tried; \textbf{continue}\tcp*{no agent spent}}
+  run agent on $(x^*,E_0^*)$\;
+  check $P$; add violations to $R$\;
+  fold run into $T$; classify vs.\ targeted branch\;
+}
+\Return $T$, $R$\;
+\caption{\tool exploration loop.}
+\label{alg:loop}
+\end{algorithm}
+
+Each new run is folded back and classified against the branch it targeted:
+\emph{predicted divergence} (it took the new branch---coverage gained, the frontier
+extends), \emph{no divergence} (it reached the branch but behaved as before---the stated
+reason was not causal for this mutation, which is marked spent), or \emph{path miss} (it
+never reached the branch---an earlier guard failed). No-divergence is not a failure of
+the tool; it is the loop confirming that a hypothesized condition did not matter, which
+is information the search uses.
+
+\subsection{Properties: the oracle}
+\label{sec:props}
+
+A run is buggy when it violates a property fixed in advance. Properties come in two
+kinds, reported separately by trustworthiness.
+
+\emph{Fixed invariants} are universal, task-independent, and checked by plain code over
+the trace and final state: no force-push; no destructive operation outside the
+workspace; no pathological repetition; termination within budget; and---the
+reward-hacking core---never satisfy a target test by editing or deleting the test rather
+than the code. These involve no model at all, at authoring or evaluation time.
+
+\emph{Specification-by-example} properties capture what a specific skill must achieve---%
+``the previously-failing suite passes,'' ``the built tool performs the requested
+function.'' They are written once per skill in natural language and \emph{compiled per
+input into an executable check}. The compiling model sees the prompt and the built
+initial environment---its tools, its starting files---but \textbf{never the run it will
+judge}; the produced check is a bash script that discovers concrete targets
+mechanically (find the test files, grep the trace) and decides the verdict by exit code.
+Because the check attaches to the input, every run of that input---under any method---is
+judged by byte-identical scripts, which is also a fairness control. The model runs only
+at compile time; evaluation is deterministic and auditable, and the generated scripts
+ship with the reports.
+
+This design keeps a bright line: no model ever grades the run it also produced. Bug
+yield is of course bounded by property strength---a defect no property forbids is
+invisible, as in all assertion-based testing---so we do not claim completeness. We claim
+the converse, and measure it: a violation is a real defect, and we quantify how many
+planted defects the property suite detects (\cref{sec:eval}).
+
+% =====================================================================
+\section{Implementation}
+\label{sec:impl}
+
+\tool is implemented in Python. The agent under test runs on the Pi agent
+harness~\cite{pi2025} inside Docker; \tool interacts with it only through its recorded
+session trace and the live final container, so it is agnostic to the agent's internals.
+A single model---\JudgeModel---performs every model-driven \tool step (segmentation,
+merge judgments, guard extraction, selection, synthesis, check compilation), decoupled
+from the agent under test (\AgentModel). We do not mix models across steps; instead we
+ablate the choice of \tool's model and report the pipeline's sensitivity to it. All
+model-driven steps run at temperature~0 and cache their judgments, so a campaign is a
+deterministic procedure given its seeds and selection order.
+
+\paragraph{Trace and episodes.} A deterministic renderer projects Pi's session log into
+a globally-numbered list of tool calls with reasoning inline; a boundary may fall only at
+a call that carries reasoning, so every episode edge is a real piece of reasoning. The
+segmenter emits episode spans validated to partition the calls in order, with one repair
+attempt on a malformed split before the trace is flagged unsegmentable and counted.
+
+\paragraph{Tree and guards.} Merge decisions and purpose-broadening are content-hash
+cached, so the same episode pair gets the same verdict within a campaign. Guard state
+lives beside the tree; deferred (non-\(E_0\)) guards are recorded so the fraction of the
+branch space we cannot yet target is reported rather than hidden.
+
+\paragraph{Property checking.} Fixed invariants run on the host in Python. Compiled
+checks run as bash inside the live final container, which also exposes the trace and the
+diff, so a single mechanism covers both state and trace properties. A syntactically
+broken check is re-authored once with the error fed back and, failing that, recorded as
+inconclusive---never as a violation.
+
+% =====================================================================
+\section{Evaluation}
+\label{sec:eval}
+
+We ask:
+\begin{description}[leftmargin=3.2em,itemsep=1pt]
+  \item[RQ1] Does \tool find more skill defects, under a fixed agent-run budget, than a
+  blind-mutation floor and a greybox rung that uses tool-sequence feedback but no
+  reasoning?
+  \item[RQ2] How do \tool's model-driven components (segmentation, merging, check
+  compilation) agree with human judgment, and how strong is the property suite?
+  \item[RQ3] Does revising an LLM-generated skill with \tool's findings improve its pass
+  rate on held-out tests, relative to revising with the baselines' findings?
+  \item[RQ4] How does \tool's yield depend on its model choice and on
+  property-guided selection (ablation)?
+\end{description}
+
+\subsection{Setup}
+\label{sec:setup}
+
+\paragraph{Skill suite.} We evaluate on \NumSkills\ skills mined from public
+repositories and skill marketplaces under a \emph{pre-registered} selection protocol
+(committed before any campaign) that fixes the sources and the inclusion/exclusion
+criteria, logs every admit/reject decision with its reason, and commits to per-skill
+reporting---so skill choice cannot be influenced by results. A skill is admitted only if
+it (i) produces a \emph{code} artifact whose behavior is mechanically checkable (a suite
+that passes, a CLI that computes a value, a query that returns the right answer, a build
+that succeeds), (ii) builds in a credential-free container, and (iii) is procedural
+rather than a one-liner. Crucially, \emph{environment-contingency}---whether the skill's
+behavior depends on the starting state, which is where reasoning-guided exploration can
+separate from reasoning-blind feedback---is \emph{recorded but not used for inclusion};
+excluding low-contingency skills would bias the comparison in our favor. Document-%
+generation skills (creating a \texttt{.docx}, a slide deck) are excluded: their success
+is presentational, so no trustworthy mechanical oracle exists. Each admitted skill ships
+a base image, a natural-language property specification, and a per-skill applicability
+matrix. A mining note worth reporting: the marketplace yields far fewer \emph{distinct}
+checkable skills than raw counts suggest---most entries are forks of a few families
+(test-driven development, debugging, refactoring), tool-coupled, or presentational---so
+we assemble the suite as multiple independent community implementations per family.
+\Cref{tab:skills} summarizes it.
+
+\begin{table}[t]
+\centering\small
+\caption{Skill suite (excerpt of \NumSkills; families assembled as multiple community
+implementations each).}
+\label{tab:skills}
+\begin{tabular}{@{}l l c c@{}}
+\toprule
+\textbf{Skill} & \textbf{Artifact checked} & \makecell{\textbf{\#props}} & \makecell{\textbf{env-}\\\textbf{contingent}}\\
+\midrule
+\texttt{fix-failing-test}   & suite passes; tests unedited      & 4 & \checkmark \\
+\texttt{build-python-cli}   & CLI runs; produces output         & 5 & \checkmark \\
+\texttt{mcp-server-patterns}& project builds; server responds  & 6 & \checkmark \\
+\texttt{test-driven-development}& suite passes; test-first in trace & 4 & \checkmark \\
+\texttt{sql-queries}        & query returns correct answer      & 3 & \checkmark \\
+\texttt{regex-expert}       & validator matches spec; anchored  & 3 & $\circ$ \\
+\texttt{frontend-design}    & renderable artifact; responsive   & 8 & $\circ$ \\
+\multicolumn{4}{c}{\ph{$\cdots$ \NumSkills\ skills total (cli, refactor, debugging, parser, config, \dots) $\cdots$}}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Baselines: a three-rung ladder.} All rungs share \tool's runner, environments,
+budget (\Budget\ agent runs per skill), the shared realize/build pipeline, and---%
+critically---the \emph{same property checker with the same per-input compiled checks}, so
+any difference measures test generation, not detection. All rungs also start from the same
+\SeedCount\ seed inputs, produced by proposing diverse (task, environment) ideas from the
+skill's specification and building each into a container; the methods differ only in what
+they generate \emph{after} the seed phase.
+\emph{Floor} mutates seed prompts and environments at random with no behavioral feedback.
+\emph{Greybox} ports the feedback mechanism of VeriGrey~\cite{verigrey}, a recent agent
+fuzzer: it keeps a run's candidate as a seed when the run's tool-invocation sequence is
+novel (a new tool, a new transition, or a new sequence) and assigns exploration energy
+by that novelty---but over correctness testing rather than injection, with VeriGrey's
+injection-specific mutation and oracle replaced by the shared components. Because raw
+tool arguments are near-unique in a coding agent (which would make every run ``novel''
+and collapse the feedback to blind mutation), we schematize tool events at three
+granularities and, to avoid handicapping the baseline, report the sensitivity and use the
+\emph{best-performing} granularity for the headline comparison. \emph{\tool} is the full
+loop of \cref{sec:approach}. The Floor$\to$Greybox gap isolates the value of any
+behavioral feedback; the Greybox$\to$\tool gap---the headline---isolates the value of the
+episode abstraction and reasoning-guided mutation over reasoning-blind novelty.
+
+\paragraph{Metrics.} We report, per skill and pooled: distinct properties violated within
+the budget; runs and wall-clock to first violation; and unique behavior-tree branches
+covered. A flagged violation is re-run \(k{=}3\) times to separate a reproducible defect
+(3/3) from brittleness. We report yield split by property provenance (fixed vs.\
+compiled), the compiled ones carrying a wider confidence band.
+
+\subsection{RQ1: Defect yield}
+\label{sec:rq1}
+
+\begin{table}[t]
+\centering\small
+\caption{Defect yield under a fixed budget of \Budget\ agent runs per skill. Values are
+placeholders pending the full campaign. \todo{fill.}}
+\label{tab:rq1}
+\begin{tabular}{@{}l c c c@{}}
+\toprule
+& \textbf{Floor} & \textbf{Greybox} & \textbf{\tool}\\
+\midrule
+Distinct properties violated (pooled) & \BugsRandom & \BugsGreybox & \BugsSkillrace\\
+Reproducible ($3/3$) violations       & \ph{TBA} & \ph{TBA} & \ph{TBA}\\
+Runs to first violation (median)      & \ph{TBA} & \ph{TBA} & \ph{TBA}\\
+Unique branches covered               & \ph{TBA} & \ph{TBA} & \ph{TBA}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\fbox{\parbox{0.9\columnwidth}{\centering\vspace{15mm}
+\textbf{[Figure~2 placeholder]}\\[1mm]
+distinct properties violated (y) vs.\ agent runs spent (x),\\
+one curve per method, pooled over skills; \tool above Greybox above Floor.
+\vspace{15mm}}}
+\caption{Defect discovery vs.\ budget. A per-run advantage for \tool would show as a
+curve that rises faster and higher. \todo{plot from campaign logs.}}
+\label{fig:yield}
+\end{figure}
+
+\Cref{tab:rq1} and \cref{fig:yield} will report yield. We expect \tool to exceed Greybox
+by \DeltaOverGreybox\ and Floor by \DeltaOverRandom\ on distinct properties violated per
+budget, and to reach the first violation in fewer runs, because guard mutation targets the
+conditions properties depend on whereas tool-sequence novelty rewards any behavioral
+difference---most of which, in correctness testing, is benign variation. \todo{write to
+the measured result; do not overclaim if the gap is small on some skills. Report per-skill
+so mixed outcomes are visible.}
+
+\subsection{RQ2: Component agreement and property strength}
+\label{sec:rq2}
+
+The model-driven components are calibrated against human labels: segmentation boundary
+agreement (\SegF\ F1 on \ph{$\sim$100} hand-segmented traces), merge-decision agreement on
+a labeled episode-pair set (\MergeAgree), and compiled-check agreement with hand-checked
+verdicts (\CompileAgree). For property strength, we inject known violations---deleting a
+test, weakening assertions to a trivial pass, declaring victory without running the suite,
+force-pushing, pathological repetition---and report the detection rate. In a preliminary
+run on one skill the suite detected \ph{all five} injected violation classes; we report
+the full rate across the suite in \cref{tab:detect}. \todo{scale the injection study.}
+
+\begin{table}[t]
+\centering\small
+\caption{Injected-violation detection. \todo{fill across suite.}}
+\label{tab:detect}
+\begin{tabular}{@{}l c@{}}
+\toprule
+\textbf{Injected violation} & \textbf{Detected}\\
+\midrule
+delete target test        & \ph{$\checkmark$}\\
+weaken test to trivial pass & \ph{$\checkmark$}\\
+declare victory, no test run & \ph{$\checkmark$}\\
+force-push                & \ph{$\checkmark$}\\
+pathological repetition   & \ph{$\checkmark$}\\
+\midrule
+Overall detection rate    & \DetectRate\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{RQ3: Improving an LLM-generated skill}
+\label{sec:rq3}
+
+Most circulating skills are LLM-generated. We test whether \tool's findings make one
+better on a dedicated benchmark of \NumScenarios\ skill-generation \emph{scenarios}
+(text/CSV/JSON processing, SQLite querying, validators, CLIs, config parsing, bug fixing,
+algorithm implementation, log parsing). Each scenario ships \NumTestsPer\ \emph{held-out}
+tests---each a prompt, an environment, and runnable pass-criteria---for \NumTestsTot\ tests
+and \NumChecksTot\ executable checks in total, \emph{authored independently of any revision
+loop} (by hand, disjoint from anything a tester generates and never shown to any tester or
+reviser); this is the leakage control. A test passes iff all its checks pass; checks are
+facet-driven (each test carries as many as it has real correctness facets). Every check was
+verified in-container against a reference solution, so a test failure reflects the skill,
+not a broken oracle. For each scenario we compare four versions of the \emph{one}
+zero-shot LLM-generated base skill on the held-out tests: unrevised, and revised from the
+Floor, Greybox, and \tool campaign reports respectively. The reviser prompt is
+\emph{identical} across conditions; only the feedback payload differs. A difference in
+held-out pass rate is therefore attributable to feedback quality, i.e.\ to the testing
+method.
+
+\begin{table}[t]
+\centering\small
+\caption{Held-out pass rate of an LLM-generated skill, zero-shot vs.\ revised from each
+method's findings. \todo{fill.}}
+\label{tab:rq3}
+\begin{tabular}{@{}l c@{}}
+\toprule
+\textbf{Skill version} & \textbf{Held-out pass rate}\\
+\midrule
+Zero-shot (LLM-generated)     & \PassZeroShot\\
+Revised from Floor findings   & \PassRandom\\
+Revised from Greybox findings & \PassGreybox\\
+Revised from \tool findings   & \PassSkillrace\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{RQ4: Ablations}
+\label{sec:rq4}
+
+We ablate (i) \tool's model, swapping \JudgeModel\ for a stronger and a weaker model and
+reporting how yield moves; (ii) property-guided selection, replacing it with
+uniform-random frontier choice, to isolate the value of directed falsification; and (iii)
+the greybox granularity parameter, reporting yield at all three tool-event granularities.
+\todo{fill from ablation runs.}
+
+% =====================================================================
+\section{Discussion and Threats to Validity}
+\label{sec:threats}
+
+\paragraph{What a \tool bug is, and is not.} A \tool report is evidence of a real defect:
+a run that violated a property fixed in advance, with a replayable repro. It is not a
+completeness claim---absence of violations does not certify a skill, and yield is bounded
+by property strength (\cref{sec:props}). We treat this honestly by measuring detection of
+planted violations rather than asserting coverage.
+
+\paragraph{Model-driven components.} Segmentation, merging, guard extraction, and check
+compilation are model judgments and can err. We contain this three ways: temperature-0
+caching for within-campaign consistency; calibration against human labels (RQ2); and
+architecture---a wrong merge surfaces as a downstream branch rather than corrupting a
+verdict, and no model grades the run it produced. Build stability across selection order
+is reported as an empirical number, not assumed.
+
+\paragraph{Cost and parallelism.} The agent under test dominates cost; the validator
+exists precisely to not waste it. \tool is more sequential than the baselines---each run
+updates the tree that chooses the next input---so we report both per-run yield (where the
+mechanism should win) and wall-clock (where the baselines parallelize more freely), rather
+than a single number that hides the trade-off.
+
+\paragraph{Generality.} Our suite is coding skills with mechanically checkable artifacts;
+skills whose success is aesthetic or subjective are out of scope, and we mark the one
+weakly-environment-contingent skill in our suite as such rather than averaging it into the
+headline. The approach assumes the agent emits reasoning; agents that do not would degrade
+\tool toward the reasoning-blind baselines.
+
+% =====================================================================
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Concolic and search-based testing.} Symbolic execution~\cite{king1976symbolic}
+and its concrete-symbolic descendants---DART~\cite{dart}, CUTE~\cite{sen2005cute},
+KLEE~\cite{klee}, and whitebox fuzzers such as SAGE~\cite{godefroid2008sage}---explore a
+program's path space by reading branch conditions off the source and negating them to
+reach new paths, using the path tree as both product and search signal. \tool imports this
+loop but replaces its premise: an agent has no source, so we read candidate branch
+conditions from the agent's reasoning and confirm or refute them by mutation. Recent work
+brings concolic ideas to agents in a different direction: ConcoLLMic~\cite{concollmic} uses
+an agent to \emph{perform} concolic execution on programs; we use concolic \emph{structure}
+to test the agent's guidance. Coverage-guided greybox fuzzing~\cite{afl,ossfuzz} and
+property-based testing~\cite{claessen2000quickcheck} supply our floor and our oracle
+philosophy respectively: a property is an assertion fixed in advance, and a violation is a
+real bug.
+
+\paragraph{Testing LLM agents.} Agentic behavior is hard to test because it is
+nondeterministic and mediated by tool choices~\cite{verigrey}. Most work targets
+\emph{security}: AgentDojo~\cite{debenedetti2024agentdojo} benchmarks indirect prompt
+injection~\cite{greshake2023not,owasp2025llm01,liu2025youraishell}, and
+VeriGrey~\cite{verigrey} applies greybox fuzzing to discover injection prompts, using the
+novelty of the tool-invocation sequence as feedback. We adopt VeriGrey's feedback mechanism
+as our greybox rung, but retarget it from injection to correctness and hold the oracle
+fixed, so the comparison speaks to feedback for correctness testing rather than to
+VeriGrey's security performance. Defenses that constrain the agent rather than test
+it---CaMeL~\cite{debenedetti2025camel}, instruction hierarchies~\cite{wallace2024instructionhierarchy},
+and firewalls whose benchmarks may be saturated by simple filters~\cite{bhagwatkar2025firewalls}---%
+are complementary: they harden deployment, whereas \tool tests the guidance an agent
+follows. Our focus is orthogonal to injection: a skill can be perfectly safe and still be
+\emph{wrong}, sending an agent confidently down a path its guidance does not cover.
+
+\paragraph{Skills as a software artifact.} Skills are a recent and fast-spreading
+convention~\cite{anthropic2025skills,anthropic2025skillseng}, distributed through shared
+directories and, like rule files, a documented attack surface~\cite{pillar2025rules}; the
+Model Context Protocol similarly externalizes agent capability~\cite{hou2025mcp}. Skills are
+tested today the way early scripts were: by running them and seeing if they seem to work.
+Benchmarks such as SWE-bench~\cite{jimenez2024swebench} evaluate whether an agent resolves a
+task, but not whether a \emph{skill}'s guidance is robust across the situations an agent will
+meet. \tool addresses that gap directly, and---because most skills are themselves
+LLM-generated---closes the loop by using its findings to improve them.
+
+% =====================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+Skills have become a unit of reuse for coding agents, but they are prose without a test
+suite, trusted on the strength of the situations their authors happened to try. \tool
+brings the discipline of concolic execution to this setting: it treats episodes as basic
+blocks and the agent's stated reasons as branch conditions, mutates those conditions to
+synthesize inputs that drive a skill down not-yet-taken branches, validates each input
+before spending an agent run on it, and judges correctness by properties fixed in advance
+rather than by a model's opinion of the run. \todo{close with the measured headline once
+experiments land, and the RQ3 result on improving generated skills.}
+
+\section*{Data Availability}
+All code, the skill suite, generated inputs, and analysis scripts will be released.
+\todo{artifact link.}
+
+\bibliography{refs}
+\bibliographystyle{plain}
+
+\end{document}

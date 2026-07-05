@@ -1,0 +1,5 @@
+# Level-2 per-skill base: json-serialization (encode instance, vendored bkywksj). Stdlib.
+FROM skillrace/skillgen-base:latest
+COPY repo/    /workspace/
+COPY SKILL.md /skills/json-serialization/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: json-serialization" || true

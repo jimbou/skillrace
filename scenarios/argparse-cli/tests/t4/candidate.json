@@ -1,0 +1,1 @@
+{"skill": "argparse-cli", "base_image": "skillrace/skillgen-base:latest", "prompt": "Create /workspace/tool.py with `mode --kind K` where K must be one of fast|slow|auto; it prints 'kind=K'. An invalid choice exits non-zero with no traceback. Make `python3 tool.py mode --kind fast` print 'kind=fast'."}

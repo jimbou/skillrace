@@ -1,0 +1,5 @@
+# Level-2 per-skill base: using-git-worktrees (vendored obra/superpowers). git + python + pytest.
+FROM skillrace/skillgen-base:latest
+COPY repo/    /workspace/
+COPY SKILL.md /skills/using-git-worktrees/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: using-git-worktrees workspace" || true

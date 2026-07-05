@@ -1,0 +1,5 @@
+# Level-2 per-skill base: parser-generator (vendored a5c-ai, via skillsmp S5). Stdlib + pytest.
+FROM skillrace/skillgen-base:latest
+COPY repo/    /workspace/
+COPY SKILL.md /skills/parser-generator/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: parser-generator workspace" || true

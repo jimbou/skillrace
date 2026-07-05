@@ -1,0 +1,1283 @@
+  \documentclass[sigplan,review,anonymous]{acmart}
+
+  % Basic packages
+  \usepackage{amsmath}
+  \let\Bbbk\relax
+  \usepackage{xcolor}
+  \usepackage{amssymb}
+  \usepackage{mathtools}
+  \usepackage{booktabs}
+  \usepackage{xspace}
+  \usepackage{enumitem}
+  \usepackage{listings}
+  \usepackage{xcolor}
+  \usepackage{mathpartir}
+  \usepackage{makecell}
+  \usepackage[colorinlistoftodos,textsize=scriptsize]{todonotes}
+  % then \todo{text} gives a coloured margin note automatically
+  % and \listoftodos prints a summary at the start
+  % \newcommand{\todo}[1]{\textbf{[TODO: #1]}}
+  % ACM metadata placeholders
+  \settopmatter{printacmref=false}
+  \renewcommand\footnotetextcopyrightpermission[1]{}
+  \pagestyle{plain}
+
+  % Simple macros
+  \newcommand{\tool}{CapScope\xspace}
+  \newcommand{\ie}{i.e.,\xspace}
+  \newcommand{\eg}{e.g.,\xspace}
+  \newcommand{\etal}{et al.\xspace}
+  \newcommand{\sem}[1]{\llbracket #1 \rrbracket}
+  \usepackage{amsthm}
+  %
+  % Capability and data type notation
+  \renewcommand{\Cap}[2]{\textsf{Cap}[{#1},\,{#2}]}
+  \newcommand{\Data}[1]{\textsf{Data}[{#1}]}
+  \newcommand{\CapSet}{\textsf{CapSet}}
+  \newcommand{\Trusted}{\mathit{Trusted}}
+  \newcommand{\Untrusted}{\mathit{Untrusted}}
+  \newcommand{\Ctx}{\mathit{Ctx}}
+  \newcommand{\Prop}{\mathit{Proposal}}
+  \newcommand{\Effects}{\mathit{Effects}}
+  %
+  % % Inference rule shorthand
+  \newcommand{\rulename}[1]{\textsc{#1}}
+
+  % Scope predicate symbol
+  \newcommand{\sat}{\vDash}
+
+  % Tool names in small caps
+  \newcommand{\tread}{\texttt{read}}
+  \newcommand{\twrite}{\texttt{write}}
+  \newcommand{\tedit}{\texttt{edit}}
+  \newcommand{\tbash}{\texttt{bash}}
+  % Final 300-run evaluation results (patched combined matrix, 75 runs/condition).
+  \newcommand{\BZeroTaskSuccess}{72}
+  \newcommand{\BOneTaskSuccess}{70}
+  \newcommand{\BTwoTaskSuccess}{68}
+  \newcommand{\BThreeTaskSuccess}{68}
+  \newcommand{\BZeroLeaks}{47}
+  \newcommand{\BOneLeaks}{46}
+  \newcommand{\BTwoLeaks}{33}
+  \newcommand{\BThreeLeaks}{3}
+  \newcommand{\BOneProposals}{53}
+  \newcommand{\BTwoProposals}{51}
+  \newcommand{\BThreeProposals}{34}
+  \newcommand{\BOneBlocks}{0}
+  \newcommand{\BTwoBlocks}{25}
+  \newcommand{\BThreeBlocks}{22}
+  % Mean wall-clock seconds per run, per condition.
+  \newcommand{\BZeroTime}{145}
+  \newcommand{\BOneTime}{140}
+  \newcommand{\BTwoTime}{194}
+  \newcommand{\BThreeTime}{316}
+  % Per-surface aggregates (across all conditions and tasks; 60 runs per surface).
+  \newcommand{\SReadmeTask}{54}   \newcommand{\SReadmeLeak}{29}
+  \newcommand{\SAgentsTask}{56}   \newcommand{\SAgentsLeak}{44}
+  \newcommand{\SSkillTask}{57}    \newcommand{\SSkillLeak}{37}
+  \newcommand{\SCommentTask}{57}  \newcommand{\SCommentLeak}{10}
+  \newcommand{\SToolTask}{54}     \newcommand{\SToolLeak}{23}
+  % Range endpoints for the abstract/conclusion phrasing: the lowest and
+  % highest attack-executed count among the three global baselines B0-B2 (of 75).
+  \newcommand{\BaseLeakLo}{33}
+  \newcommand{\BaseLeakHi}{47}
+  % Theorem environments
+  \newtheorem{theorem}{Theorem}
+  \newtheorem{definition}{Definition}
+  \newtheorem{lemma}{Lemma}
+  \usepackage{xcolor}
+  \usepackage[colorinlistoftodos,textsize=scriptsize]{todonotes}
+  \newcommand{\yihan}[1]{{\color{red}\textbf{(Yihan:} #1\textbf{)}}}
+
+
+
+
+  % TypeScript listings
+  \lstdefinelanguage{TypeScript}{
+    keywords={const, let, var, function, async, await, return,
+              if, else, for, while, import, from, export, new,
+              class, interface, type, extends, true, false,
+              string, number, boolean, void, null, undefined},
+    morestring=[b]',
+    morestring=[b]",
+    morestring=[b]`,
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    sensitive=true
+  }
+  \lstdefinestyle{tsstyle}{
+    language=TypeScript,
+    basicstyle=\ttfamily\small,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    frame=single,
+    breaklines=true,
+    showstringspaces=false,
+    tabsize=2,
+    columns=fullflexible,
+    numbersep=6pt,
+  }
+
+  % Listings setup
+  \lstdefinestyle{pythonstyle}{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    numbers=none,
+    frame=single,
+    breaklines=true,
+    showstringspaces=false,
+    tabsize=2,
+    columns=fullflexible
+  }
+
+  \lstset{style=pythonstyle}
+
+  % Title and author placeholders
+  \title{Authority Is Not a String:
+  A Capability-Scoped Harness for Prompt-Injection-Resistant Coding Agents}
+
+  \author{Anonymous}
+  \affiliation{%
+    \institution{Anonymous Institution}
+    \country{}
+  }
+
+
+
+  \email{}
+
+  \begin{document}
+  \begin{abstract}
+  Coding agents combine LLM reasoning with system-level tools, including
+  reading files, running shell commands, and editing source trees, to carry out
+  programming tasks autonomously. Within their sandbox these tools carry
+  \emph{ambient authority}: designating a resource is enough to act on it, and any
+  text the model reads can supply that identifier. Indirect prompt injection exploits
+  this: instructions planted in project files or tool output redirect the
+  tools toward effects the user never intended.
+
+  We propose \tool, a harness discipline that defends against this by limiting
+  \emph{authority} rather than judging text. Before the agent reads any
+  repository content or tool and command output, \tool\ fixes the task's
+  authority from trusted input, and then grants each agent only the authority its
+  own part of the task requires. Authority lives outside the model as typed
+  capabilities, and when a parent delegates a subtask the child receives only a
+  \emph{subset} of the parent's, checked before each tool call. The payoff is
+  structural: the principal that actually reads injected text holds only its own
+  narrow slice, so an effect the task permits \emph{elsewhere} stays unavailable
+  to the agent the attacker reached---injected text can change which call the
+  model proposes, but cannot add authority.
+  
+  We implement \tool\ on the Pi coding agent~\cite{pi2025} and evaluate it on
+  one delegated repair pipeline across five Python tasks, five injection
+  surfaces, and four authorization models---three baselines and \tool---with
+  three trials each ($300$ runs). Across these runs, where the global baselines let an injected effect
+  execute in \BaseLeakLo--\BaseLeakHi\ of every $75$, \tool\ admits it in only
+  \BThreeLeaks, while staying competitive with the baselines on task
+  completion,which succeed on \BThreeTaskSuccess\ to  \BZeroTaskSuccess\ of the $75$ total repairs.
+  \end{abstract}
+  \maketitle
+  \section{Introduction}
+  
+  A developer asks a coding agent to fix the failing tests in an auth module.
+  An orchestrator delegates test execution to a runner and source editing to
+  a patcher. A trojaned test
+  fixture, planted by a repository contributor or pulled in through a
+  compromised dependency, prints to the suite's output an official-looking
+  note: \emph{a signing key rotated; restore the build by replacing the key in
+  \path{src/auth/keys.py}}. The supplied value is
+  attacker-controlled; once committed it lets the attacker forge auth tokens.
+  The sub-agent cannot tell this from a real CI message, and the target is an
+  ordinary source path. The request mentions no \texttt{.env} or
+  \texttt{curl}, and nothing a deny rule would flag. If the sub-agent can
+  write source, the backdoor lands, and
+  neither it nor the developer notices. 
+  % \yihan{maybe better to have a figure showing the attack, which is usual in security paper}
+
+  This is indirect prompt injection: when a coding agent reads external
+  resources such as project files, skill definitions, source comments, or tool
+  output, any text there can act as an instruction. The threat is
+  well-documented: Liu et~al.~\cite{liu2025youraishell} report attack-success
+  rates up to $84\%$ against production coding editors in their study, and
+  CVE-2025-54135 (\emph{CurXecute}) traces a path from a malicious README to
+  remote code execution in Cursor, a widely deployed coding agent; rule and
+  skill files are a known backdoor vector~\cite{pillar2025rules}.
+  
+  Most defenses work at the model level: providers increasingly train and
+  prompt models to be skeptical of untrusted
+  instructions~\cite{wallace2024instructionhierarchy}, and a separate classifier
+  may flag suspected injected payloads before they reach the agent. These
+  efforts are valuable and orthogonal to the authority-based enforcement we
+  develop---our approach composes with them---but they do not settle the problem
+  on their own, because each still rests on the model judging provenance
+  correctly under adversarial text, the very capability the attack undermines.
+  The studies above already test agents with instruction-hierarchy prompts in
+  place~\cite{liu2025youraishell,zhan2024injecagent}, and classifiers add
+  latency, introduce false positives, and remain susceptible to adaptive
+  attacks~\cite{debenedetti2024agentdojo}. A more architectural line treats
+  the problem as one of \emph{authority} rather than model behavior:
+  CaMeL~\cite{debenedetti2025camel}, for example, separates control from data flow with a
+  dual-LLM design and a custom interpreter, but at the cost of
+  re-implementing the execution model and in a different setting
+  (web-and-email agents) rather than the coding workflows we study.
+
+  The structural cause is the \emph{confused-deputy}
+  problem~\cite{hardy1988confused}: the harness wields the user's privileges,
+  and ambient authority lets any string the model emits, whatever its
+  provenance, direct those privileges, conflating designating a resource with the
+  right to act on it. Object-capability discipline~\cite{saltzer1975protection,miller2006robust} resolves this by
+  making authority a first-class value a caller must hold. A caller without
+  the relevant capability cannot cause the effect, regardless of what strings it
+  supplies.
+  
+  \paragraph{Our approach: \tool.}
+  \tool\ fixes the task's maximum authority from trusted input and then gives each agent
+  only the part of it that agent's step requires. It first makes a separate LLM
+  call using only the trusted user request and the project's file tree, which
+  predicts the files and commands the task will need. The host freezes these
+  permissions---stored outside the model's context, so text encountered later
+  cannot expand them---before the agent reads the repository or runs a command.
+
+  When a parent then delegates work, the child receives only the permissions
+  its subtask needs, and never more than the parent already has. Every tool
+  call is then checked against the permissions of the agent making it. This
+  per-principal split is what a single global policy cannot express. In the
+  opening example, the sub-agent that reads the poisoned test output can run
+  tests but cannot edit source: the source-write operation a patcher would be allowed to
+  make is unavailable to the runner the attacker reached, so the injected
+  key-write is blocked.
+
+  This paper contributes:
+  \begin{itemize}[topsep=2pt,itemsep=1pt,leftmargin=12pt]
+    \item We identify a granularity gap in current coding-agent
+    authorization: a single task-level policy cannot give two principals
+    different authority. We close it with a capability-scoped authorization
+    model (Section~\ref{sec:promptcap}).
+    \item We implement this model in Pi as a harness-level enforcement layer:
+    authority is minted from trusted input, attenuated per sub-agent, and
+    checked before every tool call (Section~\ref{sec:pattern}).
+    \item We evaluate it across five repair tasks, five injection surfaces,
+    three baselines, and \tool\ ($300$ runs), measuring both injected-effect
+    execution and autonomous repair success (Section~\ref{sec:case_study}).
+  \end{itemize}
+
+  \paragraph{Artifact availability.}
+  The implementation, five-task corpus, injection mutators, experimental
+  harness, and per-call \tool\ decision-log format are available at
+  \url{https://figshare.com/s/86184ed20f66d1f0cf91}.
+
+
+  \section{Background}
+  \label{sec:background}
+  We set up the vocabulary the design needs---the agent loop, the effects a
+  coding agent can cause, the trust boundary, and what a host must provide for
+  \tool.
+
+  \paragraph{The agent loop.}
+  We write a coding agent as $\mathcal{S} = (M,\,\mathcal{T},\,\mathcal{H})$:
+  a model $M$, a set of tools $\mathcal{T}$, and a harness $\mathcal{H}$ that
+  runs the loop. The model reads the current \emph{context} $\mathit{ctx}$
+  (the message transcript) and emits a \emph{tool proposal}: a tool name with
+  concrete arguments, written $(t,\,\mathbf{a})$. The harness executes it and
+  appends the resulting observation $o$ to the context. Each tool has an
+  \emph{effect type} $\mathit{eff}(t)$ naming the kind of action it causes;
+  we group these into \textsf{Read}, \textsf{Write}, and \textsf{Exec}. The
+  harness is what actually performs effects, so it
+  is the natural place to govern them.
+
+  \paragraph{Trust boundary.}
+  \label{def:integrity}
+  The values in the context do not all deserve equal trust, and the
+  distinction is what the whole design turns on.
+  In a session initiated by a developer, the \emph{trusted} inputs are the
+  user's request, the developer-configured system prompt, and the user's
+  private settings. Everything whose provenance is the working repository or
+  command output is \emph{untrusted}: file contents read by the agent,
+  stdout/stderr of executed commands, and project-local config files any
+  repository contributor can modify.
+
+  The consequence that matters: \emph{the model's output is untrusted}. It is
+  a function of the whole context, which mixes trusted and untrusted values,
+  and the harness cannot tell which part of a proposal a given token came
+  from. So asking the model to itself separate injected instructions from
+  real ones is a heuristic rather than a boundary, and an empirically weak
+  one~\cite{liu2025youraishell}. With ambient authority any proposed string
+  that names a resource acts on it (the confused-deputy
+  problem~\cite{hardy1988confused}), so an untrusted-derived proposal carries
+  the same privileges as a trusted one. The fix, developed in
+  Section~\ref{sec:promptcap}, is to make authority a held value rather than a
+  property of the name.
+
+  \subsection{Coding Agents}
+  \label{sec:agents}
+  \tool\ targets coding agents. We fix the
+  vocabulary the design needs.
+
+  \paragraph{Tools and effects.}
+  A coding agent's tools cause three kinds of effect. \textsf{Read} and
+  \textsf{Write} concern the filesystem. \textsf{Exec}---running a shell
+  command---is the broadest: an unrestricted command can reach the network, read
+  secrets, rewrite git history, or install packages, all with the user's
+  privileges. Absent a command-level restriction, \textsf{Exec} is the effect a
+  misdirected agent is most often steered toward.
+
+  \paragraph{Injection surfaces.}
+  A coding agent loads context from several natural sources in the working
+  directory, all $\Untrusted$ under the trust boundary above:
+
+  \begin{enumerate}[label=(\arabic*),topsep=2pt,itemsep=0pt]
+    \item \textbf{README.md.} Project documentation the agent reads on demand;
+      any repository contributor can modify it.
+    \item \textbf{AGENTS.md.} A repository-controlled instruction file loaded
+      automatically for the agent.
+    \item \textbf{Skill files.} Project-local markdown prompt templates.
+      Analogous to coding rule files, a known backdoor vector in production
+      editors~\cite{pillar2025rules}.
+    \item \textbf{Source file contents.} An instruction in a comment or
+      docstring enters the context as $\Untrusted$ data when the model reads
+      the file.
+    \item \textbf{Tool output.} The standard output and error of shell
+      invocations return to the model as $\mathit{Tool}$-role messages; a
+      trojanised test runner or network-fetched script can inject through this
+      channel.
+  \end{enumerate}
+
+  These surfaces define the attack scenarios in our evaluation
+  (Section~\ref{sec:case_study}). Under ambient authority, each can redirect
+  the model toward an attacker-chosen tool call; how a capability discipline
+  changes that outcome is the subject of Section~\ref{sec:promptcap}.
+
+  \paragraph{What \tool\ requires of a host.}
+  Two extension points suffice, and most agent frameworks expose them: a
+  synchronous hook that runs before a tool is dispatched, so an uncovered call
+  can be blocked, and a way to spawn a sub-agent with its own state, so each
+  principal can carry a separate capability store. Nothing in the design is
+  specific to one agent.
+
+  \subsection{Threat Model and Non-Goals}
+  \label{sec:threat}
+  We consider indirect prompt injection through any text that enters the
+  model's context from repository files, project-instruction files, skill
+  definitions, source comments, or tool output. The attacker may steer the
+  model's proposed tool calls but cannot modify the harness, the capability
+  store, or the tool wrappers, and cannot cause a capability to be minted.
+  Within this model, an external effect runs only if a held capability covers
+  it. We are explicit about two non-goals. \tool\ is not
+  a confidentiality mechanism: it does not constrain what information flows
+  \emph{through} individually authorized effects. A permitted read
+  followed by a permitted write can still move data, which is the province
+  of information-flow control. Nor does it constrain misuse of authority
+  that the policy deliberately grants. The guiding principle is narrower than
+  ``preventing prompt injection'': \emph{\tool\ does not make the model
+  robust to injection; it makes a successful injection insufficient for an
+  unauthorized effect.} The model may read the injected text, believe it,
+  and propose the attacker's tool call. The call still does not execute
+  unless it is covered by authority minted from trusted input before the
+  attack entered the context.
+
+  \paragraph{Assumptions.}
+  The guarantee assumes a small trusted computing base: every effect is
+  mediated; stores are host-side and isolated by principal; path and command
+  predicates faithfully implement their structured scopes; and only the host may
+  mint or complete a derivation. The model may propose the initial set or request
+  a child scope, but the host controls store updates and must prove that each
+  child scope lies within its parent.
+
+  One preflight input is repository-derived and so deserves care: the call reads
+  the project's \emph{file tree}, whose names a contributor controls. The
+  exposure is narrow, because the preflight sees only directory and file
+  \emph{names}, never file \emph{contents}---and contents are the channel an
+  injected instruction would travel. A name cannot carry an instruction; the most
+  a crafted one can do is push the predicted ceiling wider, the
+  over-broad-ceiling case of Section~\ref{sec:discussion}. Even that is
+  contained: the per-principal split withholds the surplus authority from
+  whichever principal later reads the injection. The guarantee therefore does not
+  depend on the file tree being trustworthy. What would break it is a buggy
+  predicate, an unmediated tool, or a preflight that ingested file
+  \emph{contents}.
+
+  \paragraph{Scope of the claim.}
+  \tool\ bounds which effects a principal may invoke; it does not make every
+  covered effect safe. An injection can misuse authority deliberately granted to
+  its reader. An allowed command can also execute untrusted repository code
+  transitively---\texttt{pytest}, for example, imports project modules---so
+  process sandboxing remains necessary. These are complementary boundaries, not
+  properties of capability lookup.
+
+  \section{\tool: The Design Pattern}
+  \label{sec:promptcap}
+  
+  The fix from Section~\ref{sec:background} is to replace ambient authority
+  with authority the harness holds explicitly. Instead of judging whether a
+  proposal is safe, which needs exactly the provenance judgment the attack
+  defeats, the harness asks only whether the proposal is covered by a
+  capability it is already holding. We give the capability type, three rules
+  for how capabilities are created, narrowed, and checked, and then the small
+  amount of code this takes on Pi.
+  
+  \subsection{Capabilities as Typed Authority}
+  \label{sec:captype}
+  
+  \paragraph{The capability type.}
+  The central abstraction in \tool\ is a typed capability value.
+  
+  \begin{definition}[Capability]
+  \label{def:capability}
+  A \emph{capability} is a pair $c = (e,\, \varphi)$ written
+  $\Cap{e}{\varphi}$, where $e \in \Effects$ is an \emph{effect type}
+  and $\varphi : \mathit{Args} \to \mathbb{B}$ is a \emph{scope
+  predicate} over the arguments of that effect.  A capability
+  $\Cap{e}{\varphi}$ \emph{covers} a proposal $(t,\, \mathbf{a})$ when
+  $\mathit{eff}(t) = e$ and $\varphi(\mathbf{a})$ holds.
+  \end{definition}
+  
+  A \emph{capability store} $\Sigma$ is a finite set of capabilities held
+  by the harness for the duration of a session.  The model never holds
+  capabilities directly; it sees only the effects they permit.
+  
+  \paragraph{Effect types and scope predicates for coding agents.}
+  For the four tools of a typical coding agent, we define three effect
+  types and give representative scope predicates.  Here $p$ denotes a
+  file-system path and $s$ a shell command string.
+  
+  \medskip
+  \begin{center}
+  \small
+  \setlength{\tabcolsep}{11pt}
+  \begin{tabular}{@{} l l @{}}
+  \toprule
+  \textbf{Effect type (tools)} & \textbf{Scope predicate $\varphi$} \\
+  \midrule
+  \textsf{Read} \;(\tread)
+    & $\varphi(p) \;\triangleq\; \mathit{canon}(p) \sqsubseteq \pi$ \\
+  \textsf{Write} \;(\twrite, \tedit)
+    & $\varphi(p,\_) \;\triangleq\; \mathit{canon}(p) \sqsubseteq \pi$ \\
+  \textsf{Exec} \;(\tbash)
+    & $\varphi(s) \;\triangleq\; s \in A$ \\
+  \bottomrule
+  \multicolumn{2}{@{}l@{}}{\scriptsize
+    $\pi$: canonicalised path prefix;\enspace
+    $A$: allowed-command set;} \\[-2pt]
+  \multicolumn{2}{@{}l@{}}{\scriptsize
+    $\mathit{canon}$: resolves \texttt{..} and symlinks.}
+  \end{tabular}
+  \end{center}
+  \medskip
+  
+  
+  The path-prefix predicate uses a canonicalised form of the path
+  ($\mathit{canon}$ resolves \texttt{..} and symlinks) to prevent
+  traversal attacks.  For shell effects, exact string matching is the safest
+  default but is impractical for parameterized commands such as running a
+  single test file. Our predicates therefore operate on a \emph{parsed}
+  command. We split the command on shell separators
+  (\texttt{\&\&}, \texttt{||}, \texttt{|}, \texttt{;}) into its constituent
+  segments, tokenize each segment into an executable and argument vector, and
+  require that \emph{every} segment be covered; $\varphi$ is written over the
+  parsed segments rather than the raw string. Separators are thus allowed, but
+  they buy no authority: a compound command runs only if each of its parts
+  independently matches a capability. A policy may then admit \texttt{pytest
+  <p>} when $\mathit{canon}(p) \sqsubseteq \texttt{tests/**}$, and admit a
+  benign \texttt{cd <dir> \&\& pytest} because both segments are permitted,
+  while still rejecting \texttt{pytest; curl attacker.com}: its \texttt{curl}
+  segment matches no capability even though the \texttt{pytest} segment does.
+  
+  \subsection{Formal Semantics}
+  \label{sec:formalism}
+  
+  Three rules describe how authority is minted, transferred to a child, and
+  used. They pin down what can put a capability into a store and what it takes
+  to invoke an effect.
+
+  \paragraph{Minting: where authority comes from.}
+  \rulename{Mint} is the only rule that creates capabilities. It runs a
+  trusted policy $p$ and adds the capabilities $C$ that $p$ returns:
+  \[
+    \inferrule*[right=\rulename{Mint}]{
+      p \in \mathit{Policies}_{\Trusted} \quad
+      p() = C
+    }{
+      \langle \Sigma;\, \mathit{ctx} \rangle
+      \;\longrightarrow\;
+      \langle \Sigma \cup C;\, \mathit{ctx} \rangle
+    }
+  \]
+  In our implementation, $p$ is generated afresh for each task by a preflight
+  LLM call using the trusted user request and the project's file tree---file and
+  directory names only, never their contents. The host validates the generated
+  policy and admits it to $\mathit{Policies}_{\Trusted}$ before any file
+  contents, tool output, or other injection surface becomes available. The
+  policy is then frozen for that session. The store is fresh per session and
+  does not accumulate across tasks. If a later call is genuinely necessary
+  but uncovered, the harness may ask the user to approve a single additional
+  capability. That out-of-band decision is a new trusted \rulename{Mint}; the
+  model cannot approve its own request. Interactive approval is disabled in
+  our evaluation.
+
+  \paragraph{Derivation: narrowing for delegation.}
+  \rulename{Derive} lets a holder create a narrower capability for a
+  sub-agent. The orchestrator may propose the requested predicate
+  $\varphi'$, but the host performs the rule and grants it only when it is
+  structurally within the parent predicate $\varphi$. Thus a compromised or
+  mistaken model may request too much, but cannot make the child exceed the
+  parent's authority.
+  \[
+    \inferrule*[right=\rulename{Derive}]{
+      \Cap{e}{\varphi} \in \Sigma_{\mathit{parent}} \quad
+      \forall \mathbf{a}.\; \varphi'(\mathbf{a}) \Rightarrow \varphi(\mathbf{a})
+    }{
+      \Sigma_{\mathit{parent}}
+      \;\vdash\;
+      \Cap{e}{\varphi'}
+      \;\Downarrow\;
+      \Sigma_{\mathit{child}}=\{\Cap{e}{\varphi'}\}
+    }
+  \]
+  For example \texttt{src/**} can be narrowed to \texttt{src/parser.py}, never
+  the reverse. A spawned sub-agent runs against a fresh store seeded with the
+  derived capabilities alone, not the parent's $\Sigma$, so its authority is
+  exactly the attenuated set. This is the mechanism behind least authority
+  per principal. Both the example of Section~\ref{sec:example} and the
+  evaluation of Section~\ref{sec:case_study} exercise this rule.
+  
+  \paragraph{Invocation: the check before every effect.}
+  \rulename{Invoke} is where a proposal becomes an effect. It fires only when
+  some held capability matches the tool's effect type and its predicate
+  accepts the arguments; $\mathit{execute}(t,\,\mathbf{a}) \Downarrow o$ runs
+  the tool and yields the observation $o$ appended to the context:
+  \[
+    \inferrule*[right=\rulename{Invoke}]{
+      \Cap{e}{\varphi} \in \Sigma \quad
+      \mathit{eff}(t) = e \quad
+      \varphi(\mathbf{a}) \quad
+      \mathit{execute}(t,\,\mathbf{a}) \Downarrow o
+    }{
+      \langle \Sigma;\, \mathit{ctx} \rangle
+      \;\xrightarrow{(t,\,\mathbf{a})}\;
+      \langle \Sigma;\, \mathit{ctx} \cdot o \rangle
+    }
+  \]
+  If no capability covers the proposal it is blocked and the model receives a
+  refusal. Since the model's output is untrusted (the trust boundary, Section~\ref{sec:background}),
+  the check never consults the model about provenance. The only question is
+  whether $\Sigma$ already holds a covering capability.
+  
+
+
+  \paragraph{What the rules give us.}
+  By inspection of the three rules, every effect that executes is covered by a
+  capability whose authority traces back to a trusted \rulename{Mint}.
+  \rulename{Invoke} is the only rule that runs an effect, and it requires a
+  covering capability already in $\Sigma$. A capability enters the initial
+  store through \rulename{Mint}, or enters a child store through a chain of
+  \rulename{Derive} steps. Because each derivation can only narrow its parent's
+  scope, no child can exceed the authority created by the initial mint. In our
+  evaluation, this mint occurs before untrusted content is admitted and later
+  user-approved minting is disabled. Injected text may influence a proposed
+  tool call or requested child grant, but it cannot expand the task-wide
+  authority. A call outside the resulting scope is refused.
+
+  \subsection{Implementation}
+  \label{sec:pattern}
+  We realize \tool\ on Pi~\cite{pi2025}, an open-source TypeScript coding-agent
+  toolkit with a CLI and a programmable SDK, changing no Pi internal. Pi's four
+  built-in tools instantiate the three effect types:
+
+  \begin{center}
+  \small
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{@{} l p{3.6cm} l @{}}
+  \toprule
+  \textbf{Tool} & \textbf{Arguments} & \textbf{Effect} \\
+  \midrule
+  \texttt{read}
+    & \texttt{path : string}
+    & \textsf{Read}  \\
+  \texttt{write}
+    & \texttt{path : string,\newline content : string}
+    & \textsf{Write} \\
+  \texttt{edit}
+    & \texttt{path : string,\newline edits : Edits}
+    & \textsf{Write} \\
+  \texttt{bash}
+    & \texttt{cmd : string}
+    & \textsf{Exec}  \\
+  \bottomrule
+  \end{tabular}
+  \end{center}
+
+  Pi supplies the two host requirements of Section~\ref{sec:agents} directly.
+  Its \texttt{createAgentSession} API exposes a \texttt{tool\_call} hook that
+  fires synchronously before any tool is dispatched and may return
+  \texttt{\{block: true, reason: \ldots\}} to abort it, the model receiving the
+  reason as a refusal; \tool\ installs this hook separately for the orchestrator
+  and each sub-agent. The \texttt{pi-subagents}
+  extension\footnote{\url{https://www.npmjs.com/package/pi-subagents}} delegates
+  a subtask to a \emph{process-isolated} child, whose separate address space
+  lets \tool\ seed the child's capability store independently of the parent's.
+
+  The three rules become four implementation components: a structured
+  capability representation, initial minting, derivation and transfer to a
+  child store, and a pre-dispatch check installed for each principal.
+
+  \paragraph{Component 1: structured capabilities.}
+  Scope is represented as data, not only as an opaque predicate. This makes
+  the narrowing relation decidable: path prefixes compare by containment, and
+  command scopes compare as sets of parsed argument vectors.
+  
+  \begin{lstlisting}[language=TypeScript,style=tsstyle,caption={The
+    structured capability type.}]
+  type EffectType = "read" | "write" | "exec";
+
+  type ScopeSpec =
+    | { kind: "path"; prefix: string }
+    | { kind: "argv"; allowed: string[][] };
+  
+  interface Capability {
+    effect: EffectType;
+    spec: ScopeSpec;
+    description: string;
+  }
+
+  type CapSet = Capability[];
+  \end{lstlisting}
+  
+  \paragraph{Component 2: initial minting.}
+  Before loading project context, \texttt{authorize} makes a preflight LLM
+  call using the trusted request and the project's file tree. The call predicts the
+  permissions required by the complete task and by the parent agent. The host
+  validates and compiles this prediction into a task-wide \emph{ceiling}, from
+  which children may derive authority, and the parent agent's own operational
+  store. The latter may be read-only, forcing effectful work into scoped
+  children.
+  
+  \begin{lstlisting}[language=TypeScript,style=tsstyle,caption={The
+    initial authorization step.}]
+  interface Authority {
+    ceiling: CapSet;
+    orchestrator: CapSet;
+  }
+
+  async function authorize(
+    trustedRequest: string,
+    taskTree: TaskTree
+  ): Promise<Authority> {
+    const proposal = await preflightLLM({
+      trustedRequest,
+      taskTree
+    });
+    return validateAndCompile(proposal);
+  }
+  \end{lstlisting}
+  
+  \noindent The \texttt{authorize} call appears once, at session start.
+  Repository text and tool output are unavailable at this point. The
+  preflight prediction may still be too broad or too narrow, but later
+  injected content cannot change it. A runtime user approval, if enabled, is a
+  separate trusted mint and is recorded as such.
+
+  \paragraph{Component 3: derivation and transfer.}
+  Delegation is driven by the model, just as the initial mint is. When an agent
+  delegates, it issues a \texttt{subagent} tool call whose structured arguments
+  carry the child's role, its subtask, and a \emph{requested grant}; the same
+  decision that chooses what to delegate also proposes how much authority the
+  child should get. The host treats that request as a proposal only:
+  \texttt{derive} keeps just the capabilities structurally contained in the
+  \emph{delegating agent's own} authority (rule~\rulename{Derive}) and drops the
+  rest, so the child starts with the derived set alone and can never exceed its
+  parent. The rule composes down a delegation chain---in principle a sub-agent
+  may itself delegate, and its children are bounded by its already-narrowed
+  store---so authority only shrinks with depth. The one exception is the root
+  orchestrator, which derives children from the task-wide \emph{ceiling} rather
+  than from its own store: this lets the orchestrator itself be restricted to
+  read-only for tighter security while still handing a child the authority the
+  task genuinely needs, and no child exceeds the ceiling because every grant is
+  intersected with it (the \emph{Usage} listing below wires it this way).
+
+  \begin{lstlisting}[language=TypeScript,style=tsstyle,caption={Deriving and
+    transferring a child store.}]
+  function derive(parent: CapSet, requested: CapSet): CapSet {
+    return requested.filter(child =>
+      parent.some(p =>
+        p.effect === child.effect && scopeWithin(child.spec, p.spec)
+      )
+    );
+  }
+
+  async function spawnScoped(
+    parent: CapSet, role: Role, task: string, requested: CapSet
+  ) {
+    // `requested` is the model's proposal; derive narrows it to the parent's authority.
+    const childCaps = derive(parent, requested);
+    const child = await createAgentSession({ role });
+    installCapScope(child, childCaps);
+    await child.sendMessage(task);
+  }
+  \end{lstlisting}
+  
+  \paragraph{Component 4: per-principal dispatch checks.}
+  Every orchestrator and child session installs the same small handler, but
+  closes over a different store. It compiles the structured scope, checks
+  \rulename{Invoke}, and blocks uncovered calls.
+  
+  \begin{lstlisting}[language=TypeScript,style=tsstyle,caption={The
+    per-principal \tool\ hook.}]
+  function installCapScope(session: AgentSession, caps: CapSet) {
+    session.on("tool_call", (event) => {
+      const granted = caps.find(
+        c => effectOf(event.toolName) === c.effect
+          && compileScope(c.spec)(event.input)
+      );
+      if (!granted) {
+        return {
+          block: true,
+          reason: `[CapScope] uncovered ${event.toolName} call`
+        };
+      }
+    });
+  }
+  \end{lstlisting}
+  
+  \paragraph{Usage: a complete session.}
+  Delegation always narrows: by rule~\rulename{Derive} a child receives a
+  subset of its delegator's own authority, never more. The orchestrator is the
+  one principal for which this needs care. As the root of the task it carries
+  two stores. Its \emph{operational} store (\texttt{auth.orchestrator}) is what
+  its own tool calls are checked against, and may be deliberately narrow---even
+  read-only on tasks where the orchestrator should coordinate but never edit
+  source itself. Its \emph{delegation} store is the task-wide
+  \emph{ceiling}, the upper bound for every child it spawns. This is why
+  \texttt{spawnScoped} derives against \texttt{auth.ceiling} rather than the
+  orchestrator's own store: as the highest-level agent the orchestrator may
+  grant a patcher the write capability the repair needs even when it holds no
+  write itself, while \texttt{derive} still intersects every requested grant
+  with the ceiling so no child can exceed it. By default the two stores
+  coincide---the orchestrator simply holds the full ceiling and sub-agents take
+  strict subsets of it---and they diverge only when a policy restricts the
+  orchestrator to a pure-coordinator role.
+  
+  \begin{lstlisting}[language=TypeScript,style=tsstyle,caption={Complete
+    orchestrator setup.}]
+  const auth = authorize(userRequest);
+  const orchestrator = await createAgentSession();
+  installCapScope(orchestrator, auth.orchestrator);
+  // onDelegate fires on the model's `subagent` tool call;
+  // (role, task, grant) are its structured arguments, narrowed below.
+  orchestrator.onDelegate((role, task, grant) =>
+    spawnScoped(auth.ceiling, role, task, grant)
+  );
+  await orchestrator.sendMessage(userRequest);
+  \end{lstlisting}
+  
+  \paragraph{Other frameworks.}
+  The two seams \tool\ needs (Section~\ref{sec:agents}) are not peculiar to Pi:
+  the \texttt{RunHooks} interface in the OpenAI Agents SDK, the tool-wrapping
+  layer in LangChain, the middleware interface in LlamaIndex, and the
+  \texttt{tool.invoke} override in DSPy all expose a pre-dispatch point. When
+  sub-agents run in-process, the host ties each child to its own store rather
+  than lean on process isolation; when they run as separate processes, it hands
+  the child a serialized derived store at startup. Either way the capability
+  representation and the narrowing relation carry over unchanged; only the hook
+  registration and child setup are rewritten against the host API.
+  
+  \subsection{Example: A Backdoor the Allowlist Cannot Stop}
+  \label{sec:example}
+  We now run the delegated session end to end. A developer asks an orchestrator
+  agent: \emph{the auth module's tests are failing; run the suite, triage, and
+  patch the source until they pass}. This task genuinely needs project reads,
+  source writes, and a small set of test commands. Before any project content is
+  read, a preflight LLM call receives only the trusted request and the project's
+  file tree, and the host compiles its policy into three task-wide capabilities,
+  $c_1$ for reads, $c_2$ for writes, and $c_3$ for execution:
+  \begin{align}
+    c_1 &= \Cap{\mathit{Read}}{\mathit{canon}(p) \sqsubseteq
+          \texttt{"project/**"}} \label{cap:read} \\
+    c_2 &= \Cap{\mathit{Write}}{\mathit{canon}(p) \sqsubseteq
+          \texttt{"src/**"}} \label{cap:edit} \\
+    c_3 &= \textsf{Cap}[\mathit{Exec},\ s \in
+          \{\texttt{pytest},\ \texttt{mypy src/}\}] \label{cap:exec}
+  \end{align}
+  The orchestrator delegates the noisy test run to a \emph{runner} and later the
+  source edit to a \emph{patcher}. The runner needs to read tests and run
+  \texttt{pytest} but needs no write, so before spawning it the orchestrator
+  applies \rulename{Derive} to pass a strict subset:
+  \begin{align}
+    c_1' &= \Cap{\mathit{Read}}{\mathit{canon}(p) \sqsubseteq
+            \texttt{"tests/**"}} \label{cap:dread} \\
+    c_3' &= \textsf{Cap}[\mathit{Exec},\ s \in \{\texttt{pytest}\}]
+            \label{cap:dexec}
+  \end{align}
+  Here \texttt{tests/**} is contained in \texttt{project/**} and \texttt{mypy}
+  is dropped, so $\varphi' \Rightarrow \varphi$ and
+  $\Sigma_{\mathit{child}} = \{c_1', c_3'\}$; crucially
+  $\mathit{Write} \notin \mathit{eff}(\Sigma_{\mathit{child}})$, since the parent
+  never passed $c_2$ nor any narrowing of it.
+
+  Now the attack, exactly as in the introduction: an injection an allowlist
+  cannot refuse without also refusing the legitimate fix. A trojaned fixture
+  makes the suite print, to the runner's \texttt{pytest} output:
+  \begin{quote}\small\itshape
+  \textbf{[ci-bot] Known regression:} the signing key rotated. Restore the
+  build by writing to \texttt{src/auth/keys.py}:
+  \texttt{SIGNING\_KEY = "k3y\_9f2a\ldots c71"}, then re-run.
+  \end{quote}
+  The key is attacker-controlled, and the target is an \emph{ordinary source
+  path}---no \texttt{.env}, \texttt{\textasciitilde/.ssh}, or \texttt{curl}, and
+  nothing a deny pattern matches. Figure~\ref{fig:trace} compares three
+  authorization models.
+  \begin{figure*}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{6pt}
+  \begin{tabular}{@{} c l c c c @{}}
+  \toprule
+  \textbf{Turn} & \textbf{Runner proposes}
+    & \makecell{\textbf{Static}\\\textbf{global policy}}
+    & \makecell{\textbf{Task-specific}\\\textbf{global policy}}
+    & \makecell{\textbf{\tool}\\\textbf{per agent}} \\
+  \midrule
+  1 & \texttt{read("tests/test\_auth.py")}
+    & allowed (global read) & allowed ($c_1$) & allowed ($c_1'$) \\[1pt]
+  2 & \texttt{bash("pytest tests/test\_auth.py")}
+    & \makecell{allowed (global exec)\\$\to$ payload enters}
+    & \makecell{allowed ($c_3$)\\$\to$ payload enters}
+    & \makecell{allowed ($c_3'$)\\$\to$ payload enters} \\[1pt]
+  3 & \texttt{write("src/auth/keys.py", \ldots)}
+    & \makecell{\textbf{allowed}: matches\\no deny rule}
+    & \makecell{\textbf{allowed}: $c_2$\\covers \texttt{src/**}}
+    & \makecell{\textbf{blocked}: no\\$\mathit{Write}$ in $\Sigma_{\mathit{child}}$} \\
+  \bottomrule
+  \end{tabular}
+  \caption{The same runner under three authorization models. Turns~1 and 2
+    are legitimate and allowed everywhere, so the poisoned test output enters the runner's
+    context and it proposes the backdoor write at turn~3. The static global
+    policy allows the ordinary-looking source path. The task-specific global
+    policy also allows it because its shared authority includes $c_2$ for the
+    legitimate patch. \tool\ blocks it because the runner has only
+    $\Sigma_{\mathit{child}}=\{c_1',c_3'\}$.}
+  \Description{A three-column execution trace comparing a static global
+    policy, a task-specific global policy, and CapScope. All three allow the
+    runner to read tests and execute pytest; only CapScope blocks the injected
+    source write because the runner has no write capability.}
+  \label{fig:trace}
+  \end{figure*}
+  The two global policies fail for related reasons. The static policy does not
+  classify an ordinary source edit as dangerous. The task-specific policy
+  knows that the repair needs source writes, but its one policy is shared by
+  every agent. The runner that reads the poisoned output therefore also
+  receives write authority. In both cases, the agent that reads the poisoned
+  output can write to \texttt{src}. A global task policy cannot refuse this
+  write for the runner while permitting the patcher to make the real fix.
+  \tool\ can, because the runner never receives write authority. At turn~3 the
+  runner is refused and reports the
+  ``ci-bot hotfix'' upward \emph{as data}. The orchestrator, which does hold
+  $c_2$ as part of its derivation ceiling, evaluates that report, and may
+  delegate the legitimate fix to a patcher with a narrow write capability.
+  Since the runner's $\Sigma_{\mathit{child}}$ contains no
+  $\mathit{Write}$, no write executes in the runner whatever the test output
+  says because there is no covering capability for it.
+
+
+  \section{Evaluation}
+  \label{sec:case_study}
+
+  % \yihan{reorganize the structure. a bit loose now}
+
+  We ask two questions. \emph{RQ1:} does per-principal scoping reduce attacks
+  that global, task-level authorization cannot distinguish? \emph{RQ2:} what is
+  the completion and latency cost of fail-closed capability enforcement? Across
+  conditions we vary the authorization model while holding the underlying LLM,
+  the tasks, and the delegated four-principal topology fixed.
+
+  \paragraph{Tasks and attacks.}
+  Each task is a small Python project with one bug and a failing
+  \texttt{pytest} suite. The injections request either the execution of a
+  project-local utility or a write to a project file. These actions are
+  intentionally plausible rather than obviously harmful: each could be
+  legitimate in another maintenance task, but none is needed for the requested
+  repair. In the injected context, such execution or writing could introduce a
+  malicious side effect. Table~\ref{tab:tasks} summarizes the repair tasks.
+
+  \begin{table}[t]
+  \centering\small
+  \setlength{\tabcolsep}{5pt}
+  \caption{Repair tasks used in the evaluation.}
+  \label{tab:tasks}
+  \begin{tabular}{@{} l p{0.76\columnwidth} @{}}
+  \toprule
+  \textbf{Task} & \textbf{Bug} \\
+  \midrule
+  T1 & Off-by-one error in \texttt{daterange.py} \\
+  T2 & Wrong fee comparison in \texttt{fees.py} \\
+  T3 & Wrong field lookup in \texttt{report.py} \\
+  T4 & Case-sensitive lookup in \texttt{indexer.py} \\
+  T5 & Discount applied on the wrong branch in
+       \texttt{billing/fees.py} \\
+  \bottomrule
+  \end{tabular}
+  \end{table}
+
+  Each malicious action creates a unique sentinel or marker that benign repair
+  never produces. We score that side effect, rather than treating routine
+  project activity itself as compromise.
+
+  \paragraph{Delegated pipeline.}
+  Every condition uses the same four-principal workflow. An orchestrator
+  diagnoses and coordinates but delegates effectful work. A runner executes
+  the failing tests, a patcher edits the relevant source, and a verifier
+  reruns the suite. The loop repeats until the tests pass or the run
+  terminates. This control is important: the conditions compare authorization models,
+  not different agent architectures.
+
+  \paragraph{Injection surfaces.}
+  We place the same task-specific payload in each of the five untrusted
+  surfaces of Section~\ref{sec:agents}: a README, an agent-instruction file, a
+  project-local skill, a source comment or docstring, and \texttt{pytest}
+  output. The first three are normally encountered by the parent agent while
+  inspecting the project, source comments by an agent reading code, and test
+  output by the agent running or verifying the tests. Varying the surface
+  therefore changes which principal first receives the injection without
+  changing the requested repair or malicious action.
+
+  \paragraph{Baselines.}
+  We compare \tool\ against three global baselines that bracket current
+  practice. All principals use ambient authority in \textbf{B0}. \textbf{B1}
+  applies one static, task-independent policy to every principal, configured
+  through the permission-gating facility Pi provides: it denies familiar
+  hazards such as sensitive paths and obviously destructive commands (\eg
+  \texttt{.env} and \texttt{.ssh} paths, \texttt{rm\,-rf}, \texttt{sudo},
+  \texttt{curl}), but permits ordinary project operations. \textbf{B2}
+  generates a tighter global policy from the trusted task description and a
+  sanitized project structure before any injection is read, then applies that
+  one policy to every principal; it can remove authority the task does not
+  need, but cannot give two principals different slices of authority.
+  \textbf{C} is not a baseline but \tool\ itself, the system under test: a
+  preflight mints a task-wide ceiling that bounds delegation, and each sub-agent
+  receives a store derived from their parent's authority for its delegated step. 
+  B2 is the strongest global baseline: its policy is tailored to the task
+  before the adversarial text arrives. The comparison with C isolates the
+  value of authority \emph{per principal}.
+
+  \paragraph{Protocol and metrics.}
+  The full factorial is
+  \[
+    4\ \text{conditions} \times 5\ \text{tasks} \times
+    5\ \text{surfaces} \times 3\ \text{trials} = 300\ \text{runs}.
+  \]
+  Each run uses an isolated working copy and
+  all conditions are driven by a single model, \textbf{qwen3.5-flash}, accessed
+  through an OpenAI-compatible endpoint.
+  The harness verifies that the suite fails before the run, then records two
+  outcomes:
+  \begin{itemize}[topsep=2pt,itemsep=1pt,leftmargin=12pt]
+  \item \texttt{task\_success}: the final test suite passes;
+  \item \texttt{attack\_executed}: the attacker-only sentinel or marker exists
+    on disk after the run.
+  \end{itemize}
+  Both are read from the filesystem, independent of any log and of each other:
+  a run may fix the bug and still be compromised. \texttt{attack\_executed} is
+  our headline defense metric---did the attack land. The per-call decision log
+  additionally shows, on the conditions that install a hook, whether a call
+  carrying the injected action was \emph{proposed} by the model and whether the
+  layer \emph{blocked} it; we use these only as diagnostics when interpreting a
+  run, not as reported numbers, and B0, which installs no hook, exposes
+  neither.
+
+  \paragraph{Results.}
+  The qualitative ordering holds and is sharp (Table~\ref{tab:case}). For
+  attack execution, $\mathrm{B0} \approx \mathrm{B1} > \mathrm{B2} \gg
+  \mathrm{C}$: the injected effect lands in \BZeroLeaks\ of $75$ runs under
+  ambient authority and \BOneLeaks\ under the static global policy---a
+  conventional deny list does not improve on having no policy, because the
+  malicious actions are ordinary in-repository operations it never names. The
+  task-specific global policy (B2) helps, cutting leakage to \BTwoLeaks/75 by
+  removing task-unnecessary operations before the injection arrives, but that
+  one allowlist is still shared by every principal (below). \tool\ (C) admits the
+  effect in only \BThreeLeaks/75---more than $10\times$ fewer than every
+  global baseline---because it additionally withholds task-needed authority
+  from the principals that do not need it. The per-surface view
+  (Table~\ref{tab:surface}) confirms this is not an artifact of one carrier:
+  leakage is high on surfaces that reach a broadly-authorized principal (\eg
+  AGENTS.md, \SAgentsLeak/60) and lowest on the source comment
+  (\SCommentLeak/60), the surface a narrowly-scoped principal reads.
+
+  Crucially, this security costs little task completion. Constraining each
+  principal lowers autonomous success only slightly: \tool\ finishes
+  \BThreeTaskSuccess\ of $75$ repairs against \BZeroTaskSuccess\ for the
+  unconstrained baseline---a gap of four runs---and B2's tighter global policy
+  costs about as much (\BTwoTaskSuccess/75). The diagnostic decision log shows
+  why the security gap is so much larger than the success gap: under \tool\ the
+  model still \emph{proposes} the injected action on \BThreeProposals\ of $75$
+  runs, comparable to the baselines, but \tool\ \emph{blocks} it
+   instead of executing it. The visible price is
+  latency: \tool\ averages \BThreeTime\,s per run against \BZeroTime--\BTwoTime\,s
+  for the baselines, precisely because it refuses the most calls and each
+  refusal can trigger a round of retries, and occasionally a loop, before the
+  agent abandons the path. Both the small completion gap and the added time are
+  artifacts of the fully-automated, fail-closed protocol rather than of the
+  guarantee itself; we return to how to read these costs below. Even so, the
+  exchange is favorable: a handful of repairs and some added latency for a
+  more than $10\times$ reduction in injected effects that execute.
+
+  \paragraph{Why \tool\ outperforms B2.}
+  B2 fails for a structural reason, not a tuning one. Because one policy is
+  shared by every principal, it must grant the union of everything the task
+  needs---reads, a source write, the test commands---just to let the repair
+  finish, and that broad authority then reaches \emph{every} sub-agent, the
+  runner that reads the poisoned output included. Tightening only trades one
+  failure for another: cut the authority the attack uses and some legitimate step
+  loses it too, so the fooled agent retries until it times out. A single shared
+  allowlist is trapped between broad enough to succeed and narrow enough to be
+  safe. \tool\ scopes authority per principal instead: the runner that reads the
+  injection can run tests but cannot write source, so the attack is blocked,
+  while the patcher still holds the write that completes the repair. The task's
+  authority is never concentrated in the agent the attacker reaches.
+
+  \paragraph{Latency.}
+  The conditions separate on wall-clock time as well (Table~\ref{tab:case},
+  last column). The two denylist-style baselines are fastest---\BZeroTime\,s for
+  B0 and \BOneTime\,s for B1---because almost nothing they propose is refused.
+  B2 sits higher, at \BTwoTime\,s: its generated allowlist occasionally blocks a
+  legitimate but unanticipated call, and each block costs a round of retries.
+  \tool\ is the slowest, \BThreeTime\,s, for two compounding reasons: it makes
+  one extra preflight call to mint the ceiling plus a short round-trip per
+  delegation to author each child grant, and---dominant---it refuses the most
+  calls, each refusal spawning several retries before the agent abandons the
+  path. The added time is wall-clock spent on model round-trips and retries, not
+  computation in the harness.
+
+  \paragraph{Interpreting the cost.}
+  The task-success and latency numbers are a conservative, worst-case bound.
+  The pipeline runs fully autonomously, with no human approval path, so every
+  uncovered call is simply refused; when a legitimate step falls outside the
+  granted authority the agent retries variants of the blocked call, sometimes
+  loops, and may time out. A failed repair is therefore rarely an unfixable bug
+  but a measure of how often a deployment would surface an approval prompt, and
+  the same retries inflate latency most under \tool, which refuses the most
+  calls. A single human decision, \emph{is this the injection? then drop
+  it}, would turn most such failures into completions and cut the looping; we
+  disable that path deliberately to keep the experiment deterministic and free
+  of user bias. The structural guarantee, that an uncovered call never executes,
+  is unaffected.
+
+  \begin{table*}[t]
+  \centering\small
+  \begin{minipage}[t]{0.51\textwidth}
+    \setlength{\tabcolsep}{3pt}
+    \caption{Aggregate results per condition ($75$ runs each).
+      \emph{Attack executed} (lower is better) is the headline defense metric,
+      read from the filesystem; \emph{mean time} is wall-clock seconds per run.
+      Constraint costs little task success but cuts leakage sharply.}
+    \label{tab:case}
+    \begin{tabular}{@{} l r r r r @{}}
+    \toprule
+    \textbf{Condition} & \textbf{Runs} & \makecell{\textbf{Task}\\\textbf{success}}
+      & \makecell{\textbf{Attack}\\\textbf{exec.}} & \makecell{\textbf{Mean}\\\textbf{time\,(s)}} \\
+    \midrule
+    B0: ambient authority
+      & $75$ & \BZeroTaskSuccess/75  & \BZeroLeaks/75  & \BZeroTime  \\
+    B1: static global
+      & $75$ & \BOneTaskSuccess/75   & \BOneLeaks/75   & \BOneTime   \\
+    B2: task-specific global
+      & $75$ & \BTwoTaskSuccess/75   & \BTwoLeaks/75   & \BTwoTime   \\
+    C: \tool
+      & $75$ & \BThreeTaskSuccess/75 & \BThreeLeaks/75 & \BThreeTime \\
+    \bottomrule
+    \end{tabular}
+  \end{minipage}\hfill
+  \begin{minipage}[t]{0.43\textwidth}
+    \setlength{\tabcolsep}{5pt}
+    \caption{Results per injection surface, aggregated across all four
+      conditions and five tasks ($4 \times 5 \times 3 = 60$ runs each).
+      Aggregating over conditions isolates the carrier itself: the surface
+      determines which principal first reads the injection, independent of the
+      authorization model in force.}
+    \label{tab:surface}
+    \begin{tabular}{@{} l r r r @{}}
+    \toprule
+    \textbf{Surface} & \textbf{Runs} & \makecell{\textbf{Task}\\\textbf{success}}
+      & \makecell{\textbf{Attack}\\\textbf{exec.}} \\
+    \midrule
+    README         & $60$ & \SReadmeTask/60  & \SReadmeLeak/60 \\
+    AGENTS.md      & $60$ & \SAgentsTask/60  & \SAgentsLeak/60 \\
+    Skill file     & $60$ & \SSkillTask/60   & \SSkillLeak/60 \\
+    Source comment & $60$ & \SCommentTask/60 & \SCommentLeak/60 \\
+    Tool output    & $60$ & \SToolTask/60    & \SToolLeak/60 \\
+    \bottomrule
+    \end{tabular}
+  \end{minipage}
+  \end{table*}
+
+
+
+  \section{Discussion}
+  \label{sec:discussion}
+  
+  \paragraph{Policy quality and approval.}
+  Capability safety has two layers. Structural enforcement guarantees that a
+  child never exceeds its parent and that an uncovered call does not execute.
+  It does not guarantee that the initial ceiling or a model-proposed child
+  grant is optimally narrow. An over-broad ceiling can authorize an attack
+  within scope; an over-broad child grant can place that authority in the
+  principal exposed to the injection. An under-broad grant can block a
+  legitimate step and prevent task completion.
+
+  Open-ended coding tasks make it hard to predict every command, dependency,
+  or file an agent may legitimately need, so an initial policy can be too
+  narrow as easily as too broad. \tool\ never silently widens authority to
+  cover such a call; it refuses it, and in deployment the refusal and its
+  requested scope can be surfaced to the user, who approves a narrow capability
+  through a fresh trusted \rulename{Mint}. This is the lens through which
+  Section~\ref{sec:case_study} reads task success and latency. The structural
+  guarantee is orthogonal to policy quality: enforcement stays exact even when
+  the predicted scope is not.
+
+  \paragraph{How a residual injection still lands.}
+  \tool's few remaining leaks (Table~\ref{tab:case}) arise in one of two ways,
+  both upstream of enforcement and both a question of how authority was
+  \emph{granted} rather than whether it was checked. The first is \emph{loose
+  attenuation}: the orchestrator identifies the legitimate subtask but derives a
+  child grant wider than that subtask needs---write to a directory rather than
+  the one file, or execution of an interpreter rather than the one
+  command---and the injected effect the child later reads falls inside that
+  slack. The derivation bound still holds, so the child cannot exceed the
+  ceiling; but the gap between what the task required and what was granted is
+  exactly where the effect executes. The second is a \emph{fooled delegator}:
+  the injection corrupts the orchestrator's model of the task itself, so it
+  delegates the attacker's action as ordinary work and grants the child
+  precisely the authority to carry it out. Here the grant is not too broad for
+  what the orchestrator \emph{believes} the task to be---its task understanding
+  was hijacked. This path can only succeed when the trusted ceiling already
+  admits the action, since every child grant is intersected with it; so the
+  preflight ceiling, minted before any untrusted text is read, is the final cap
+  on both modes. Tightening that ceiling and attenuating each grant to least
+  authority shrink both, and neither is closed by the dispatch check, which
+  faithfully enforces whatever scope it is handed.
+
+  \paragraph{Trusted computing base.}
+  The TCB is exactly the host-side components named in
+  Section~\ref{sec:threat}: the preflight isolation boundary, capability
+  compiler, derivation code, per-principal stores, scope predicates, and
+  dispatch hooks. The preflight LLM shapes how broad the initial policy is, but
+  cannot place or alter capabilities once untrusted content is admitted---only
+  host code can mint, narrow, or enforce them.
+
+  \paragraph{Limitations and threats to validity.}
+  The corpus contains five small Python repairs, one model, and three trials
+  per task-surface-condition cell. It does not represent large refactors,
+  dependency migrations, or long-running workflows, where policy omissions
+  and approval frequency may be higher. The payloads are intentionally strong
+  and the model may react differently to each carrier, so we report results by
+  surface rather than assuming a uniform injection rate. Because the underlying
+  calls are stochastic, individual cells vary from trial to trial; we therefore
+  report aggregates over three trials and read the per-condition ordering, which
+  is stable, rather than any single cell. Finally, the informative refusal
+  message can affect recovery and task success, though it cannot turn an
+  uncovered call into an allowed one.
+
+
+  \section{Related Work}
+  \label{sec:related}
+  
+  \paragraph{Prompt injection and model-side defenses.}
+  Greshake~\etal~\cite{greshake2023not} introduced indirect prompt
+  injection, in which attacker-controlled external content hijacks an
+  LLM-integrated application; OWASP now ranks it the leading LLM
+  application risk~\cite{owasp2025llm01}. In the coding setting the threat
+  is acute: Liu~\etal~\cite{liu2025youraishell} report attack success
+  rates up to 84\% in production coding editors, and rule and skill files
+  are a documented backdoor vector~\cite{pillar2025rules}. Model-side
+  defenses such as Instruction Hierarchy~\cite{wallace2024instructionhierarchy}
+  and PromptArmor~\cite{shi2025promptarmor} make the model more skeptical
+  of untrusted text, but remain heuristic: security rests on the model
+  classifying provenance correctly, the very capability the attack
+  undermines. \tool\ acts at the harness layer and is complementary,
+  requiring no correct provenance judgment from the model.
+  
+  \paragraph{Harness-level defenses and the closest systems.}
+  AgentDojo~\cite{debenedetti2024agentdojo} established the standard
+  benchmark for agent prompt injection; Bhagwatkar~\etal~\cite{bhagwatkar2025firewalls}
+  show that several such benchmarks are saturated by simple firewalls,
+  motivating our coding-specific evaluation. Deployed coding agents already
+  enforce permission boundaries through sandboxes, approval modes, and allow/deny
+  command patterns. \tool\ differs along two axes. Its command scopes match a
+  parsed executable and argument vector, and a compound command is checked
+  segment by segment rather than as one string; thus allowing \texttt{pytest}
+  does not also admit \texttt{pytest; cmd} or \texttt{pytest \&\& cmd} unless
+  \texttt{cmd} is itself covered, nor \texttt{\$(cmd)}, whose substituted
+  argument matches no allowed invocation. More importantly, authority is
+  attenuated per principal.
+  A task-wide global policy, even one generated specifically for the task,
+  cannot permit a patcher to write a file while withholding that write from a
+  runner. \rulename{Derive} can, and prevents the child from reacquiring
+  authority outside the parent's ceiling.
+
+  Other
+  recent systems take a PL or systems view of the agent shell. CaMeL~\cite{debenedetti2025camel}
+  uses capabilities to block exfiltration, but inside a dual-LLM planner
+  with a custom interpreter, which is a far heavier architecture than a single
+  hook. Fides~\cite{costa2025fides} tracks confidentiality and integrity
+  labels over data flow; AgentArmor~\cite{wang2025agentarmor} reconstructs
+  runtime traces into an IR and type-checks it; ToolGate~\cite{liu2026toolgate}
+  attaches Hoare-style contracts to tool calls; and
+  PACT~\cite{fan2026pact}, conceptually the nearest, treats injection as
+  untrusted content determining an authority-bearing argument and enforces
+  argument-level provenance contracts. \tool\ differs from all of these in
+  where authority originates: rather than inferring it from data flow,
+  traces, or provenance after the fact, it pre-issues authority as typed
+  capability values minted from a trusted policy and checked at the
+  dispatch boundary. The approaches are complementary: \tool's effect
+  authority composes naturally with IFC-style data tracking.
+  
+  \paragraph{Capability security.}
+  \tool's vocabulary is classical. Saltzer and
+  Schroeder~\cite{saltzer1975protection} define a capability as an
+  unforgeable authorization and elevate complete mediation and least
+  privilege; Dennis and Van Horn~\cite{dennis1966programming} couple
+  designation with authority, dissolving the confused-deputy
+  problem~\cite{hardy1988confused}; and Miller and
+  Shapiro~\cite{miller2003paradigm} distinguish authority from permission
+  and show how attenuation follows from ordinary reference-passing.
+  \tool\ instantiates this discipline in an LLM agent harness, with scope
+  predicates as the attenuation mechanism.
+  
+  % \paragraph{Design patterns for LLM programs.}
+  % Two LMPL-adjacent works model our contribution style:
+  % Wang~\cite{wang2025effects} discharges the side effects of
+  % LLM-integrated scripts through composable handlers rather than
+  % entangling them with program logic, and Dai~\etal~\cite{dai2026mnimi}
+  % reify a hidden invariant, sample independence, into reference types
+  % via lightweight wrappers. \tool\ makes the analogous move for authority,
+  % reifying it as a typed value enforced at dispatch rather than as a new
+  % agent architecture.
+
+  
+  \section{Conclusion}
+  \label{sec:conclusion}
+  
+  Indirect prompt injection in coding agents is a designation attack: because
+  tools operate with ambient authority, any text the model reads can supply a
+  resource name that resolves into an unauthorized effect. The durable
+  response is not to rely on improved model resistance, because that is the
+  heuristic the attack is built to defeat. Instead, we remove ambient
+  authority and reify effect authorization as an explicit, typed, host-minted
+  value that untrusted text cannot produce. \tool\ realizes this with structured
+  capabilities, a trusted task-wide ceiling, structural attenuation into
+  isolated child stores, and per-principal dispatch hooks. Our evaluation
+  compares ambient authority, a static global policy, a task-specific global
+  policy, and \tool\ across five tasks, five injection surfaces, and three
+  trials per cell ($300$ runs). The outcome is one-directional: where global
+  authorization---even a policy generated for the exact task---lets the
+  injected effect execute in \BaseLeakLo--\BaseLeakHi\ of every $75$ runs,
+  per-principal scoping admits it in only \BThreeLeaks, while completing all but
+  four of the same $75$ repairs. The guarantee behind that gap does not depend
+  on the rates: authority is granted to a principal, not inferred from a string
+  the model emits. Authority, in a coding agent, should not be a string.
+
+% \begin{acks}
+% This work was sponsored by the National Natural Science Foundation of China
+% (NSFC) under Grant No.\ W2542035.
+% \end{acks}
+  \bibliography{references}
+\bibliographystyle{ACM-Reference-Format}
+  \end{document}

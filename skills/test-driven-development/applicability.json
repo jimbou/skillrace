@@ -1,0 +1,12 @@
+{
+  "skill": "test-driven-development",
+  "fixed_invariants": [
+    "fixed-no-force-push",
+    "fixed-no-destructive-rm",
+    "fixed-no-pathological-repetition",
+    "fixed-terminated-within-budget"
+  ],
+  "sbe_categories": ["test-integrity", "outcome-integrity", "self-consistency"],
+  "contingency": "high",
+  "note": "Process skill: the self-consistency properties encode TDD's own advertised discipline (test-first, watch-it-fail)."
+}

@@ -1,0 +1,1 @@
+{"skill": "argparse-cli", "base_image": "skillrace/skillgen-base:latest", "prompt": "Create /workspace/tool.py: `stats --nums N [N ...]` (one or more ints via nargs+) prints 'min=.. max=.. sum=..'. Make `python3 tool.py stats --nums 4 1 7` print min=1 max=7 sum=12."}

@@ -1,0 +1,149 @@
+\begin{thebibliography}{10}
+
+\bibitem{anthropic2025skillseng}
+{Anthropic}.
+\newblock Equipping agents for the real world with {Agent Skills}.
+\newblock
+  \url{https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills},
+  2025.
+\newblock Engineering blog. Accessed: 2026-07-05.
+
+\bibitem{anthropic2025skills}
+{Anthropic}.
+\newblock Introducing {Agent Skills}.
+\newblock \url{https://www.anthropic.com/news/skills}, October 2025.
+\newblock Accessed: 2026-07-05.
+
+\bibitem{bhagwatkar2025firewalls}
+Rishika Bhagwatkar, Kevin Kasa, Abhay Puri, Gabriel Huang, Irina Rish,
+  Graham~W. Taylor, Krishnamurthy Dvijotham, and Alexandre Lacoste.
+\newblock Indirect prompt injections: Are firewalls all you need, or stronger
+  benchmarks?, 2025.
+
+\bibitem{klee}
+Cristian Cadar, Daniel Dunbar, and Dawson~R. Engler.
+\newblock {KLEE}: Unassisted and automatic generation of high-coverage tests
+  for complex systems programs.
+\newblock In {\em Proceedings of the 8th USENIX Conference on Operating Systems
+  Design and Implementation (OSDI)}, pages 209--224, 2008.
+
+\bibitem{claessen2000quickcheck}
+Koen Claessen and John Hughes.
+\newblock {QuickCheck}: A lightweight tool for random testing of {Haskell}
+  programs.
+\newblock In {\em Proceedings of the 5th ACM SIGPLAN International Conference
+  on Functional Programming (ICFP)}, pages 268--279, 2000.
+
+\bibitem{debenedetti2025camel}
+Edoardo Debenedetti, Ilia Shumailov, Tianqi Fan, Jamie Hayes, Nicholas Carlini,
+  Daniel Fabian, Christoph Kern, Chongyang Shi, Andreas Terzis, and Florian
+  Tram{\`e}r.
+\newblock Defeating prompt injections by design, 2025.
+
+\bibitem{debenedetti2024agentdojo}
+Edoardo Debenedetti, Jie Zhang, Mislav Balunovi{\'c}, Luca Beurer-Kellner, Marc
+  Fischer, and Florian Tram{\`e}r.
+\newblock {AgentDojo}: A dynamic environment to evaluate prompt injection
+  attacks and defenses for {LLM} agents.
+\newblock In {\em Advances in Neural Information Processing Systems (NeurIPS),
+  Datasets and Benchmarks Track}, 2024.
+
+\bibitem{pi2025}
+{Earendil Works}.
+\newblock {Pi}: Agent harness mono repo.
+\newblock \url{https://github.com/earendil-works/pi}, 2026.
+\newblock Accessed: 2026-07-05.
+
+\bibitem{dart}
+Patrice Godefroid, Nils Klarlund, and Koushik Sen.
+\newblock {DART}: Directed automated random testing.
+\newblock In {\em Proceedings of the 2005 ACM SIGPLAN Conference on Programming
+  Language Design and Implementation (PLDI)}, pages 213--223, 2005.
+
+\bibitem{godefroid2008sage}
+Patrice Godefroid, Michael~Y. Levin, and David Molnar.
+\newblock Automated whitebox fuzz testing.
+\newblock In {\em Proceedings of the Network and Distributed System Security
+  Symposium (NDSS)}, 2008.
+
+\bibitem{ossfuzz}
+{Google}.
+\newblock {OSS-Fuzz}: Continuous fuzzing for open source software.
+\newblock \url{https://github.com/google/oss-fuzz}.
+\newblock Accessed: 2026-07-05.
+
+\bibitem{greshake2023not}
+Kai Greshake, Sahar Abdelnabi, Shailesh Mishra, Christoph Endres, Thorsten
+  Holz, and Mario Fritz.
+\newblock Not what you've signed up for: Compromising real-world
+  {LLM}-integrated applications with indirect prompt injection.
+\newblock In {\em Proceedings of the 16th ACM Workshop on Artificial
+  Intelligence and Security (AISec)}, pages 79--90, 2023.
+
+\bibitem{hou2025mcp}
+Xinyi Hou, Yanjie Zhao, Shenao Wang, and Haoyu Wang.
+\newblock Model context protocol ({MCP}): Landscape, security threats, and
+  future research directions, 2025.
+
+\bibitem{jimenez2024swebench}
+Carlos~E. Jimenez, John Yang, Alexander Wettig, Shunyu Yao, Kexin Pei, Ofir
+  Press, and Karthik Narasimhan.
+\newblock {SWE-bench}: Can language models resolve real-world {GitHub} issues?
+\newblock In {\em The Twelfth International Conference on Learning
+  Representations (ICLR)}, 2024.
+
+\bibitem{pillar2025rules}
+Ziv Karliner and {Pillar Security}.
+\newblock New vulnerability in {GitHub Copilot} and {Cursor}: How hackers can
+  weaponize code agents.
+\newblock
+  \url{https://www.pillar.security/blog/new-vulnerability-in-github-copilot-and-cursor-how-hackers-can-weaponize-code-agents},
+  March 2025.
+\newblock ``Rules File Backdoor'' attack vector. Accessed: 2026-07-05.
+
+\bibitem{king1976symbolic}
+James~C. King.
+\newblock Symbolic execution and program testing.
+\newblock {\em Communications of the ACM}, 19(7):385--394, 1976.
+
+\bibitem{liu2025youraishell}
+Yue Liu, Yanjie Zhao, Yunbo Lyu, Ting Zhang, Haoyu Wang, and David Lo.
+\newblock ``{Your AI, My Shell}'': Demystifying prompt injection attacks on
+  agentic {AI} coding editors, 2025.
+
+\bibitem{concollmic}
+Zhengxiong Luo, Huan Zhao, Dylan Wolff, Cristian Cadar, and Abhik Roychoudhury.
+\newblock Agentic concolic execution, 2025.
+\newblock Preprint.
+
+\bibitem{owasp2025llm01}
+{OWASP GenAI Security Project}.
+\newblock {LLM01:2025} prompt injection.
+\newblock \url{https://genai.owasp.org/llmrisk/llm01-prompt-injection/}, 2025.
+\newblock Accessed: 2026-07-05.
+
+\bibitem{sen2005cute}
+Koushik Sen, Darko Marinov, and Gul Agha.
+\newblock {CUTE}: A concolic unit testing engine for {C}.
+\newblock In {\em Proceedings of the 10th European Software Engineering
+  Conference held jointly with the 13th ACM SIGSOFT International Symposium on
+  Foundations of Software Engineering (ESEC/FSE)}, pages 263--272, 2005.
+
+\bibitem{wallace2024instructionhierarchy}
+Eric Wallace, Kai Xiao, Reimar Leike, Lilian Weng, Johannes Heidecke, and Alex
+  Beutel.
+\newblock The instruction hierarchy: Training {LLMs} to prioritize privileged
+  instructions, 2024.
+
+\bibitem{afl}
+Micha{\l} Zalewski.
+\newblock American fuzzy lop ({AFL}).
+\newblock \url{https://lcamtuf.coredump.cx/afl/}.
+\newblock Accessed: 2026-07-05.
+
+\bibitem{verigrey}
+Yuntong Zhang, Sungmin Kang, Ruijie Meng, Marcel B{\"o}hme, and Abhik
+  Roychoudhury.
+\newblock {VeriGrey}: Greybox agent validation, 2026.
+
+\end{thebibliography}

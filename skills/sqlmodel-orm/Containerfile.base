@@ -1,0 +1,6 @@
+# Level-2 per-skill base: sqlmodel-orm (sql instance, vendored fastapi). NETWORK-GATED build.
+FROM skillrace/skillgen-base:latest
+RUN pip install --no-cache-dir sqlmodel
+COPY repo/    /workspace/
+COPY SKILL.md /skills/sqlmodel-orm/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: sqlmodel-orm" || true

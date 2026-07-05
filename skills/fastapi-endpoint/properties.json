@@ -1,0 +1,1 @@
+[{"id":"endpoint-responds","reads":"state","nl":"The built endpoint starts and responds to a request with the expected status and payload for a concrete example (verify by invoking it), not merely that route code exists."},{"id":"builds-clean","reads":"state","nl":"The project imports/starts without error (dependencies resolve, no import/syntax error)."}]

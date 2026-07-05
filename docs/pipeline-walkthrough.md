@@ -228,8 +228,35 @@ out/skillrace/<skill>/tree.json, tree.cache.json     # Step 5
 ~/.skillrace/cost_ledger.jsonl                        # every model call, all steps
 ```
 
-## Not yet wired (designed, not built)
+## The assembled loop (one command per campaign)
 
-The guard extractor / test synthesizer (turn a tree branch back into a new candidate),
-the selection frontier, and the orchestrated `campaign` loop. Today the loop is **manual**:
-generate → run → check → segment → fold, repeated by hand. See `docs/build-plan.md`.
+Everything above is now orchestrated by `skillrace.loop` — one method, one skill,
+one budget of agent runs. All three rungs share the seed generator, the runner,
+and the property checks; only test generation differs:
+
+```bash
+python -m skillrace.loop --method skillrace \
+    --skill fix-failing-test --skill-dir skills/fix-failing-test \
+    --base skillrace/fix-failing-test:base \
+    --props skills/fix-failing-test/properties.json \
+    --budget 20 --seed-count 6 --out out/campaign/skillrace/fix-failing-test
+# --method random | greybox (--greybox-level L0|L1|L2) | skillrace
+```
+
+New / changed components:
+
+| Piece | Module | What it does |
+|-------|--------|--------------|
+| pre-run checks | `skillrace.compile_checks` | authors each property's bash check per CASE from (prompt + built-E0 probe) **before any agent run**; stored at `<case>/checks/`; byte-identical across methods |
+| fixed core | `skillrace.fixed_checks` | universal invariants (force-push, destructive rm, repetition, budget) — pure Python, zero model |
+| checker | `skillrace.check_properties` | now EXECUTES precompiled checks + fixed core; post-hoc authoring only behind `--author-post-hoc` |
+| guards (C5) | `skillrace.guards` | branch → guard (outcome + opening-reasoning signals, disagreement flags) → property-guided frontier selection → synthesis → **agent-free validation** in the built container |
+| greybox rung | `skillrace.greybox` | VeriGrey feedback/energy/scheduling verbatim over schematized tool events (L0/L1/L2); see `docs/design/greybox-verigrey-adaptation.md` |
+| loop | `skillrace.loop` | seed phase + explore phase; per-iteration record in `campaign.json` incl. violations and (skillrace) divergence classification |
+| skill eval | `skillrace.skill_eval` / `skillrace.revise_skill` | hidden-test scenario harness + the condition-blind skill reviser (claim 2) |
+
+## Not yet wired (recorded, not silently dropped)
+
+k=3 reproducibility regrade of flagged violations; the injected-violation
+detection-rate harness; segmentation/merge calibration sets; cross-prefix tree
+merge measurement. See `docs/build-plan.md`.

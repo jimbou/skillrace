@@ -1,0 +1,1 @@
+[{"id":"valid-config-accepted","reads":"state","nl":"On a valid config the tool parses it and reports/normalizes the expected values."},{"id":"malformed-rejected","reads":"state","nl":"On a missing required key or bad value type the tool exits non-zero and names the problem (no traceback, no silent accept)."}]

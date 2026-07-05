@@ -1,0 +1,6 @@
+# Level-2 per-skill base: fastapi-endpoint (api instance, vendored davila7). NETWORK-GATED build.
+FROM skillrace/skillgen-base:latest
+RUN pip install --no-cache-dir fastapi uvicorn httpx
+COPY repo/    /workspace/
+COPY SKILL.md /skills/fastapi-endpoint/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: fastapi-endpoint" || true

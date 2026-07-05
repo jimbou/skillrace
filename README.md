@@ -29,10 +29,14 @@ The agent under test runs on the [Pi agent framework](https://pi.dev/docs/latest
 how SkillRACE uses Pi is documented exhaustively (with citations and open questions)
 in **[docs/pi-integration.md](./docs/pi-integration.md)**.
 
-> This repository currently contains the **developer documentation and build plan**.
-> The design source of truth is `skillrace-implementation.tex`; this doc set
-> translates it into exact contracts, per-component specs, and an implementation
-> order for a developer who has not read the tex.
+> **The pipeline is now implemented and live-verified end to end** (all three
+> method rungs, the pre-run property oracle, and the injection detection study).
+> Component status, verification results, locked-in design decisions, and the
+> prioritized remaining work:
+> **[docs/implementation-status.md](./docs/implementation-status.md)**.
+> Hands-on commands: [docs/pipeline-walkthrough.md](./docs/pipeline-walkthrough.md).
+> The design source of truth is `skillrace-implementation.tex`; the doc set under
+> `docs/` translates it into exact contracts and per-component specs.
 
 ---
 

@@ -157,7 +157,7 @@ def main():
     if container_alive:
         print(f"  container LEFT RUNNING for the property checker: {run_id}")
         print(f"  (timebomb: auto-removed in {args.cleanup_grace}s if the checker doesn't)")
-        print(f"  → run: python -m skillrace.check_properties --run {out} --props skills/{skill}/properties.json")
+        print(f"  → run: python -m skillrace.check_properties --run {out}")
     else:
         print("  (container destroyed — run did not complete; state checks unavailable)")
 

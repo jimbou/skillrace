@@ -1,0 +1,1 @@
+{"skill": "argparse-cli", "base_image": "skillrace/skillgen-base:latest", "prompt": "Create /workspace/tool.py with a subcommand `scale --factor F --value V` printing F*V (floats). A non-numeric --factor must exit non-zero with no traceback. Make `python3 tool.py scale --factor 2.5 --value 4` print 10.0."}

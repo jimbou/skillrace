@@ -1,0 +1,1 @@
+{"skill": "argparse-cli", "base_image": "skillrace/skillgen-base:latest", "prompt": "Create /workspace/tool.py: `repeat --text T --times N` prints T on N separate lines (N a positive int). N<=0 or non-int exits non-zero. Make `python3 tool.py repeat --text hi --times 3` print hi three times."}

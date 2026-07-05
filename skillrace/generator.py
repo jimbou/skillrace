@@ -46,7 +46,13 @@ PROPOSER_SYS = (
     "finds (illustrative: 'an empty project', 'a repo using <framework> version X', 'a "
     "project with this specific structure', 'a repo with <thing> in a broken state'). "
     "Each environment must be a GENUINE, UNSOLVED starting point — the task must still "
-    "need doing. Explore VARIETY of tasks, tools, framework/versions, and structures."
+    "need doing. Explore VARIETY of tasks, tools, framework/versions, and structures. "
+    "PREFER environments realizable with the TOOLCHAIN the base image already provides "
+    "(you are shown its workspace); an idea may add small quick-to-install packages, "
+    "but do NOT propose stacks that need a whole new language runtime or heavyweight "
+    "framework install unless the skill's purpose demands it. Interesting variation "
+    "comes from the STARTING STATE (what is broken and HOW, what is missing, what is "
+    "misleading, partial prior work), not from exotic stacks."
 )
 
 REALIZER_SYS = (
@@ -193,15 +199,20 @@ _DOCKER_INSTR = ("RUN", "COPY", "ADD", "ENV", "WORKDIR", "ARG", "CMD", "ENTRYPOI
 
 def normalize_tail(tail):
     """Deterministically prefix `RUN` to bare shell lines at instruction position
-    (heredoc-aware), so a tail like `cat > f <<'EOF' ... EOF` becomes a valid
-    Dockerfile. Lines already starting with a Dockerfile instruction, heredoc bodies,
-    blanks, and comments are left untouched."""
-    out, inside = [], None
+    (heredoc- AND backslash-continuation-aware), so a tail like
+    `cat > f <<'EOF' ... EOF` becomes a valid Dockerfile. Heredoc bodies,
+    `\\`-continuation lines of a previous instruction, blanks, comments, and lines
+    already starting with a Dockerfile instruction are left untouched."""
+    out, inside, continuing = [], None, False
     for raw in tail.splitlines():
         if inside is not None:
             out.append(raw)
             if raw.strip() == inside:
                 inside = None
+            continue
+        if continuing:                 # body of a multi-line instruction: keep verbatim
+            out.append(raw)
+            continuing = raw.rstrip().endswith("\\")
             continue
         s = raw.strip()
         is_instr = (not s) or s.startswith("#") or any(
@@ -210,6 +221,8 @@ def normalize_tail(tail):
         m = re.search(r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)'?\"?", raw)
         if m:
             inside = m.group(1)
+        elif s and not s.startswith("#"):
+            continuing = raw.rstrip().endswith("\\")
     return "\n".join(out)
 
 

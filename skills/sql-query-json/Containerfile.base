@@ -1,0 +1,5 @@
+# Level-2 per-skill base: sql-query-json (sql instance, vendored scalyclaw). Stdlib + pytest.
+FROM skillrace/skillgen-base:latest
+COPY repo/    /workspace/
+COPY SKILL.md /skills/sql-query-json/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: sql-query-json" || true

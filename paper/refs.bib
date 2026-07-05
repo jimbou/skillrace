@@ -1,0 +1,246 @@
+% =====================================================================
+% SkillRACE bibliography.
+% Every entry is either (a) reused verbatim from a lab-vetted bib
+% (CapScope references.bib / Gordian refs.bib), or (b) web-verified
+% during drafting (Anthropic Agent Skills, CUTE, SAGE, SWE-bench, MCP).
+% No entry is fabricated; uncertain fields are omitted rather than guessed.
+% =====================================================================
+
+% ---------- Concolic / symbolic execution lineage ----------
+
+@article{king1976symbolic,
+  title     = {Symbolic execution and program testing},
+  author    = {King, James C.},
+  journal   = {Communications of the ACM},
+  volume    = {19},
+  number    = {7},
+  pages     = {385--394},
+  year      = {1976},
+  publisher = {ACM New York, NY, USA}
+}
+
+@inproceedings{klee,
+  title     = {{KLEE}: Unassisted and Automatic Generation of High-Coverage
+               Tests for Complex Systems Programs},
+  author    = {Cadar, Cristian and Dunbar, Daniel and Engler, Dawson R.},
+  booktitle = {Proceedings of the 8th USENIX Conference on Operating Systems
+               Design and Implementation (OSDI)},
+  pages     = {209--224},
+  year      = {2008}
+}
+
+@inproceedings{dart,
+  author    = {Godefroid, Patrice and Klarlund, Nils and Sen, Koushik},
+  title     = {{DART}: Directed Automated Random Testing},
+  booktitle = {Proceedings of the 2005 ACM SIGPLAN Conference on Programming
+               Language Design and Implementation (PLDI)},
+  pages     = {213--223},
+  year      = {2005},
+  doi       = {10.1145/1065010.1065036}
+}
+
+@inproceedings{sen2005cute,
+  author    = {Sen, Koushik and Marinov, Darko and Agha, Gul},
+  title     = {{CUTE}: A Concolic Unit Testing Engine for {C}},
+  booktitle = {Proceedings of the 10th European Software Engineering Conference
+               held jointly with the 13th ACM SIGSOFT International Symposium on
+               Foundations of Software Engineering (ESEC/FSE)},
+  pages     = {263--272},
+  year      = {2005},
+  doi       = {10.1145/1081706.1081750}
+}
+
+@inproceedings{godefroid2008sage,
+  author    = {Godefroid, Patrice and Levin, Michael Y. and Molnar, David},
+  title     = {Automated Whitebox Fuzz Testing},
+  booktitle = {Proceedings of the Network and Distributed System Security
+               Symposium (NDSS)},
+  year      = {2008}
+}
+
+@misc{concollmic,
+  title  = {Agentic Concolic Execution},
+  author = {Luo, Zhengxiong and Zhao, Huan and Wolff, Dylan and Cadar, Cristian
+            and Roychoudhury, Abhik},
+  year   = {2025},
+  note   = {Preprint}
+}
+
+% ---------- Fuzzing / search-based test generation ----------
+
+@misc{afl,
+  author       = {Zalewski, Micha{\l}},
+  title        = {American Fuzzy Lop ({AFL})},
+  howpublished = {\url{https://lcamtuf.coredump.cx/afl/}},
+  note         = {Accessed: 2026-07-05}
+}
+
+@misc{ossfuzz,
+  author       = {{Google}},
+  title        = {{OSS-Fuzz}: Continuous Fuzzing for Open Source Software},
+  howpublished = {\url{https://github.com/google/oss-fuzz}},
+  note         = {Accessed: 2026-07-05}
+}
+
+@inproceedings{claessen2000quickcheck,
+  author    = {Claessen, Koen and Hughes, John},
+  title     = {{QuickCheck}: A Lightweight Tool for Random Testing of {Haskell}
+               Programs},
+  booktitle = {Proceedings of the 5th ACM SIGPLAN International Conference on
+               Functional Programming (ICFP)},
+  pages     = {268--279},
+  year      = {2000},
+  doi       = {10.1145/351240.351266}
+}
+
+% ---------- Agents, skills, MCP ----------
+
+@misc{anthropic2025skills,
+  author       = {{Anthropic}},
+  title        = {Introducing {Agent Skills}},
+  year         = {2025},
+  month        = oct,
+  howpublished = {\url{https://www.anthropic.com/news/skills}},
+  note         = {Accessed: 2026-07-05}
+}
+
+@misc{anthropic2025skillseng,
+  author       = {{Anthropic}},
+  title        = {Equipping Agents for the Real World with {Agent Skills}},
+  year         = {2025},
+  howpublished = {\url{https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills}},
+  note         = {Engineering blog. Accessed: 2026-07-05}
+}
+
+@misc{pi2025,
+  author       = {{Earendil Works}},
+  title        = {{Pi}: Agent Harness Mono Repo},
+  year         = {2026},
+  howpublished = {\url{https://github.com/earendil-works/pi}},
+  note         = {Accessed: 2026-07-05}
+}
+
+@misc{hou2025mcp,
+  author        = {Hou, Xinyi and Zhao, Yanjie and Wang, Shenao and Wang, Haoyu},
+  title         = {Model Context Protocol ({MCP}): Landscape, Security Threats,
+                   and Future Research Directions},
+  year          = {2025},
+  eprint        = {2503.23278},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CR},
+  doi           = {10.48550/arXiv.2503.23278}
+}
+
+@inproceedings{jimenez2024swebench,
+  author    = {Jimenez, Carlos E. and Yang, John and Wettig, Alexander and
+               Yao, Shunyu and Pei, Kexin and Press, Ofir and Narasimhan, Karthik},
+  title     = {{SWE-bench}: Can Language Models Resolve Real-World {GitHub}
+               Issues?},
+  booktitle = {The Twelfth International Conference on Learning Representations
+               (ICLR)},
+  year      = {2024},
+  url       = {https://openreview.net/forum?id=VTF8yNQM66}
+}
+
+% ---------- Prompt injection / agent security / agent testing ----------
+
+@inproceedings{greshake2023not,
+  author    = {Greshake, Kai and Abdelnabi, Sahar and Mishra, Shailesh and
+               Endres, Christoph and Holz, Thorsten and Fritz, Mario},
+  title     = {Not What You've Signed Up For: Compromising Real-World
+               {LLM}-Integrated Applications with Indirect Prompt Injection},
+  booktitle = {Proceedings of the 16th ACM Workshop on Artificial Intelligence
+               and Security (AISec)},
+  pages     = {79--90},
+  year      = {2023},
+  doi       = {10.1145/3605764.3623985}
+}
+
+@misc{owasp2025llm01,
+  author       = {{OWASP GenAI Security Project}},
+  title        = {{LLM01:2025} Prompt Injection},
+  year         = {2025},
+  howpublished = {\url{https://genai.owasp.org/llmrisk/llm01-prompt-injection/}},
+  note         = {Accessed: 2026-07-05}
+}
+
+@inproceedings{debenedetti2024agentdojo,
+  author    = {Debenedetti, Edoardo and Zhang, Jie and Balunovi{\'c}, Mislav and
+               Beurer-Kellner, Luca and Fischer, Marc and Tram{\`e}r, Florian},
+  title     = {{AgentDojo}: A Dynamic Environment to Evaluate Prompt Injection
+               Attacks and Defenses for {LLM} Agents},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS),
+               Datasets and Benchmarks Track},
+  year      = {2024},
+  url       = {https://openreview.net/forum?id=m1YYAQjO3w}
+}
+
+@misc{verigrey,
+  author        = {Zhang, Yuntong and Kang, Sungmin and Meng, Ruijie and
+                   B{\"o}hme, Marcel and Roychoudhury, Abhik},
+  title         = {{VeriGrey}: Greybox Agent Validation},
+  year          = {2026},
+  eprint        = {2603.17639},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI}
+}
+
+@misc{liu2025youraishell,
+  author        = {Liu, Yue and Zhao, Yanjie and Lyu, Yunbo and Zhang, Ting and
+                   Wang, Haoyu and Lo, David},
+  title         = {``{Your AI, My Shell}'': Demystifying Prompt Injection Attacks
+                   on Agentic {AI} Coding Editors},
+  year          = {2025},
+  eprint        = {2509.22040},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CR},
+  doi           = {10.48550/arXiv.2509.22040}
+}
+
+@misc{bhagwatkar2025firewalls,
+  author        = {Bhagwatkar, Rishika and Kasa, Kevin and Puri, Abhay and
+                   Huang, Gabriel and Rish, Irina and Taylor, Graham W. and
+                   Dvijotham, Krishnamurthy and Lacoste, Alexandre},
+  title         = {Indirect Prompt Injections: Are Firewalls All You Need, or
+                   Stronger Benchmarks?},
+  year          = {2025},
+  eprint        = {2510.05244},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CR},
+  doi           = {10.48550/arXiv.2510.05244}
+}
+
+@misc{debenedetti2025camel,
+  author        = {Debenedetti, Edoardo and Shumailov, Ilia and Fan, Tianqi and
+                   Hayes, Jamie and Carlini, Nicholas and Fabian, Daniel and
+                   Kern, Christoph and Shi, Chongyang and Terzis, Andreas and
+                   Tram{\`e}r, Florian},
+  title         = {Defeating Prompt Injections by Design},
+  year          = {2025},
+  eprint        = {2503.18813},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CR},
+  doi           = {10.48550/arXiv.2503.18813}
+}
+
+@misc{wallace2024instructionhierarchy,
+  author        = {Wallace, Eric and Xiao, Kai and Leike, Reimar and Weng, Lilian
+                   and Heidecke, Johannes and Beutel, Alex},
+  title         = {The Instruction Hierarchy: Training {LLMs} to Prioritize
+                   Privileged Instructions},
+  year          = {2024},
+  eprint        = {2404.13208},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  doi           = {10.48550/arXiv.2404.13208}
+}
+
+@misc{pillar2025rules,
+  author       = {Karliner, Ziv and {Pillar Security}},
+  title        = {New Vulnerability in {GitHub Copilot} and {Cursor}: How Hackers
+                  Can Weaponize Code Agents},
+  year         = {2025},
+  month        = mar,
+  howpublished = {\url{https://www.pillar.security/blog/new-vulnerability-in-github-copilot-and-cursor-how-hackers-can-weaponize-code-agents}},
+  note         = {``Rules File Backdoor'' attack vector. Accessed: 2026-07-05}
+}

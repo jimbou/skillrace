@@ -1,24 +1,26 @@
 """Property checker — a SEPARATE command, run after a test executes.
 
-Given a run dir (from run_case) and a skill's NL properties, for each property the
-model writes a BASH SCRIPT that mechanically checks it, grounded in a SNAPSHOT of the
-finished run (file tree + changed files + tool-call trace + the tools that actually
-exist in the container). The script RUNS INSIDE the run's live container and decides
-the verdict by its EXIT CODE: exit 0 = the property HOLDS, non-zero = VIOLATED. The
-model runs ONLY to author the script; the script itself runs mechanically.
+Verdicts come from three provenances, most trustworthy first:
+  1. FIXED core (fixed_checks.py): universal invariants, pure Python on the host,
+     zero model involvement. Always run.
+  2. COMPILED-PRE-RUN checks (compile_checks.py): per-case bash scripts authored
+     from (prompt, initial env) BEFORE any agent run — the authoring model never
+     saw the run it judges. Stored with the CASE, so every method's runs of that
+     case are judged by byte-identical scripts. This is the default path.
+  3. AUTHORED-POST-RUN (legacy, --author-post-hoc): the model writes the script
+     while looking at a snapshot of the finished run. Weaker oracle-integrity
+     claim; kept for ad-hoc debugging of old runs only.
 
-The script can test the property ANY way it sees fit, because the container exposes:
+Every bash script RUNS INSIDE the run's live container and decides the verdict by
+EXIT CODE: exit 0 = the property HOLDS, non-zero = VIOLATED. The container exposes:
   - /workspace            the final project state (the agent's result), a git repo
   - /check/trace.jsonl    the agent's full session trace (JSONL)
   - /check/workspace.diff  the git diff of everything the agent changed
-So a single mechanism (bash in the container) covers BOTH final-state properties and
-trace/diff properties — there is no separate "state" vs "trace" check kind anymore.
-The authored scripts are saved under <run>/checks/<property_id>.sh as inspectable
-artifacts.
 
 Usage:
-  python -m skillrace.check_properties --run runs/ftt-case2 \
-      --props skills/fix-failing-test/properties.json
+  python -m skillrace.check_properties --run runs/ftt-case2          # precompiled
+  python -m skillrace.check_properties --run runs/old-run \
+      --props skills/fix-failing-test/properties.json --author-post-hoc
 """
 from __future__ import annotations
 import argparse
@@ -28,6 +30,7 @@ import re
 import subprocess
 
 from .closeai import chat
+from .fixed_checks import run_fixed_checks
 
 SCRIPT_SYS = (
     "You write a BASH SCRIPT that mechanically checks ONE natural-language property "
@@ -171,9 +174,13 @@ def run_script(script_path, container):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Author + run bash property checks over a finished run")
+    ap = argparse.ArgumentParser(description="Run property checks over a finished run")
     ap.add_argument("--run", required=True, help="run dir from run_case")
-    ap.add_argument("--props", required=True, help="skill properties.json (NL)")
+    ap.add_argument("--props", help="skill properties.json (NL) — needed only for --author-post-hoc")
+    ap.add_argument("--checks", help="dir of precompiled check scripts "
+                                     "(default: <case>/checks from run.json)")
+    ap.add_argument("--author-post-hoc", action="store_true",
+                    help="LEGACY: author scripts from a post-run snapshot (weaker oracle)")
     ap.add_argument("--model", default="qwen3.6-flash")
     ap.add_argument("--keep-container", action="store_true",
                     help="do not destroy the run's container after checking (for debugging)")
@@ -181,8 +188,18 @@ def main():
 
     run_dir = pathlib.Path(args.run)
     manifest = json.loads((run_dir / "run.json").read_text())
-    props = json.loads(pathlib.Path(args.props).read_text())
     container = manifest.get("container")
+
+    # resolve the precompiled checks dir: explicit flag, else alongside the case
+    precompiled = pathlib.Path(args.checks) if args.checks else None
+    if precompiled is None and manifest.get("case"):
+        cand = pathlib.Path(manifest["case"]) / "checks"
+        if cand.is_dir():
+            precompiled = cand
+    if precompiled is None and not args.author_post_hoc:
+        raise SystemExit("no precompiled checks found for this run's case — run "
+                         "`python -m skillrace.compile_checks --case <case> --props <props>` "
+                         "first, or pass --author-post-hoc (legacy).")
 
     # Stage the trace + diff INSIDE the container at /check so scripts can read them
     # alongside /workspace (one unified mechanism for state- and trace-based checks).
@@ -196,56 +213,82 @@ def main():
                 subprocess.run(["docker", "cp", str(hp), f"{container}:{dst}"],
                                capture_output=True)
 
-    snapshot = {
-        "skill": manifest.get("skill"), "prompt": manifest.get("prompt"),
-        "container": container,
-        "tools": _available_tools(container),
-        "file_tree": _file_tree(container),
-        "changed": _changed_files(run_dir),
-        "tool_calls": _load_trace(run_dir),
-    }
+    # 1) FIXED core — pure code on the host, zero model, always runs.
+    verdicts = run_fixed_checks(run_dir)
+    cost = 0.0
 
-    checks_dir = run_dir / "checks"
-    checks_dir.mkdir(exist_ok=True)
-    verdicts, cost = [], 0.0
-    for prop in props:
-        # One flaky model call (e.g. an API read timeout) must NOT abort the whole
-        # checker — record an inconclusive verdict for that property and continue.
-        try:
-            script, c = author_script(prop, snapshot, args.model)
-            cost += c
-        except Exception as e:  # noqa: BLE001 — degrade, don't crash
-            print(f"  [author failed] {prop['id']}: {type(e).__name__}: {e}")
-            verdicts.append({"property_id": prop["id"], "holds": None,
-                             "violated": False, "detail": f"author failed: {type(e).__name__}",
-                             "script": None})
-            continue
-        sp = checks_dir / f"{prop['id']}.sh"
-        sp.write_text(script)
-        # A SYNTAX-BROKEN script must NEVER masquerade as a violation: validate with
-        # `bash -n`, and if it doesn't parse, re-author ONCE with the error fed back
-        # (a temp-0 plain retry would reproduce the same broken script). If it still
-        # won't parse, record INCONCLUSIVE rather than a false violation.
-        ok, serr = _syntax_ok(sp)
-        if not ok:
+    if precompiled is not None:
+        # 2) COMPILED-PRE-RUN — execute the case's byte-identical scripts.
+        man_path = precompiled / "manifest.json"
+        entries = (json.loads(man_path.read_text())["checks"] if man_path.exists()
+                   else [{"property_id": p.stem, "script": p.name, "syntax_ok": True}
+                         for p in sorted(precompiled.glob("*.sh"))])
+        for e in entries:
+            base = {"property_id": e["property_id"], "provenance": "compiled-pre-run",
+                    "script": str(precompiled / e["script"])}
+            if not e.get("syntax_ok", True):
+                verdicts.append({**base, "holds": None, "violated": False,
+                                 "detail": f"compiled script failed bash -n (inconclusive): "
+                                           f"{e.get('error', '')}"})
+                continue
+            holds, detail = run_script(precompiled / e["script"], container)
+            verdicts.append({**base, "holds": holds, "violated": (holds is False),
+                             "detail": detail})
+    else:
+        # 3) LEGACY post-hoc authoring — the model sees the finished run.
+        if not args.props:
+            raise SystemExit("--author-post-hoc requires --props")
+        props = json.loads(pathlib.Path(args.props).read_text())
+        snapshot = {
+            "skill": manifest.get("skill"), "prompt": manifest.get("prompt"),
+            "container": container,
+            "tools": _available_tools(container),
+            "file_tree": _file_tree(container),
+            "changed": _changed_files(run_dir),
+            "tool_calls": _load_trace(run_dir),
+        }
+        checks_dir = run_dir / "checks"
+        checks_dir.mkdir(exist_ok=True)
+        for prop in props:
+            # One flaky model call (e.g. an API read timeout) must NOT abort the whole
+            # checker — record an inconclusive verdict for that property and continue.
             try:
-                script, c2 = author_script(prop, snapshot, args.model, fix=(script, serr))
-                cost += c2
-                sp.write_text(script)
-                ok, serr = _syntax_ok(sp)
-            except Exception as e:  # noqa: BLE001
-                serr = f"{serr} | re-author failed: {type(e).__name__}"
-        if not ok:
-            print(f"  [syntax broken] {prop['id']}: {serr[:120]}")
-            verdicts.append({"property_id": prop["id"], "holds": None,
-                             "violated": False,
-                             "detail": f"script failed bash -n (inconclusive): {serr[:120]}",
-                             "script": f"checks/{prop['id']}.sh"})
-            continue
-        holds, detail = run_script(sp, container)
-        verdicts.append({"property_id": prop["id"], "holds": holds,
-                         "violated": (holds is False), "detail": detail,
-                         "script": f"checks/{prop['id']}.sh"})
+                script, c = author_script(prop, snapshot, args.model)
+                cost += c
+            except Exception as e:  # noqa: BLE001 — degrade, don't crash
+                print(f"  [author failed] {prop['id']}: {type(e).__name__}: {e}")
+                verdicts.append({"property_id": prop["id"], "holds": None,
+                                 "violated": False, "detail": f"author failed: {type(e).__name__}",
+                                 "script": None, "provenance": "authored-post-run"})
+                continue
+            sp = checks_dir / f"{prop['id']}.sh"
+            sp.write_text(script)
+            # A SYNTAX-BROKEN script must NEVER masquerade as a violation: validate with
+            # `bash -n`, and if it doesn't parse, re-author ONCE with the error fed back
+            # (a temp-0 plain retry would reproduce the same broken script). If it still
+            # won't parse, record INCONCLUSIVE rather than a false violation.
+            ok, serr = _syntax_ok(sp)
+            if not ok:
+                try:
+                    script, c2 = author_script(prop, snapshot, args.model, fix=(script, serr))
+                    cost += c2
+                    sp.write_text(script)
+                    ok, serr = _syntax_ok(sp)
+                except Exception as e:  # noqa: BLE001
+                    serr = f"{serr} | re-author failed: {type(e).__name__}"
+            if not ok:
+                print(f"  [syntax broken] {prop['id']}: {serr[:120]}")
+                verdicts.append({"property_id": prop["id"], "holds": None,
+                                 "violated": False,
+                                 "detail": f"script failed bash -n (inconclusive): {serr[:120]}",
+                                 "script": f"checks/{prop['id']}.sh",
+                                 "provenance": "authored-post-run"})
+                continue
+            holds, detail = run_script(sp, container)
+            verdicts.append({"property_id": prop["id"], "holds": holds,
+                             "violated": (holds is False), "detail": detail,
+                             "script": f"checks/{prop['id']}.sh",
+                             "provenance": "authored-post-run"})
 
     (run_dir / "verdicts.json").write_text(json.dumps(verdicts, indent=2))
 

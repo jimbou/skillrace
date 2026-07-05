@@ -1,0 +1,5 @@
+# Level-2 per-skill base: sql-queries. Portable, stdlib-only (python3 `sqlite3`).
+FROM skillrace/skillgen-base:latest
+COPY repo/    /workspace/
+COPY SKILL.md /skills/sql-queries/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: empty sql workspace" || true

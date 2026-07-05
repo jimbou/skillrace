@@ -1,0 +1,5 @@
+# Level-2 per-skill base: unit-test-generation (vendored rmyndharis, via skillsmp S5). Stdlib + pytest.
+FROM skillrace/skillgen-base:latest
+COPY repo/    /workspace/
+COPY SKILL.md /skills/unit-test-generation/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: unit-test-generation workspace" || true

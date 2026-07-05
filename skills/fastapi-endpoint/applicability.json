@@ -1,0 +1,1 @@
+{"skill":"fastapi-endpoint","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","build-static"],"contingency":"high","family":"api"}

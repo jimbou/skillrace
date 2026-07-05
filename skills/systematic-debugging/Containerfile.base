@@ -1,0 +1,5 @@
+# Level-2 per-skill base: systematic-debugging (vendored obra/superpowers). git + python + pytest.
+FROM skillrace/skillgen-base:latest
+COPY repo/    /workspace/
+COPY SKILL.md /skills/systematic-debugging/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: systematic-debugging workspace" || true

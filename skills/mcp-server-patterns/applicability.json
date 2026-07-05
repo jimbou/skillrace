@@ -1,0 +1,1 @@
+{"skill":"mcp-server-patterns","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["build-static","outcome-integrity","self-consistency"],"contingency":"high"}
