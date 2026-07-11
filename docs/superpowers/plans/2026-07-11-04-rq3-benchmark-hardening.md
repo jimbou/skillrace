@@ -10,6 +10,10 @@
 
 ---
 
+> **Lean-protocol override:** Four artifact groups are required; `expert_skill/` is not.
+> Every hidden test needs one passing reference and at least one negative implementation.
+> Targeted mutants are required for the identified weak checks, not every criterion.
+
 ## File map
 
 - Create `skillrace/scenario_contract.py`: schemas, hashing, manifest loading, static validation.

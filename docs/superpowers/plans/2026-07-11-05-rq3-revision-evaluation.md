@@ -10,6 +10,10 @@
 
 ---
 
+> **Lean-protocol override:** The active evaluation has four conditions—zero-shot,
+> random-feedback, VeriGrey-feedback, and SkillRACE-feedback—and executes every hidden
+> test once. `no-skill`, `expert`, and three-repeat probability estimation are deferred.
+
 ## File map
 
 - Create `skillrace/feedback.py`: fixed-schema, token-bounded feedback envelopes.

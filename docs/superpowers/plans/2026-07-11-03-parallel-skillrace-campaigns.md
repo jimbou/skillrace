@@ -10,6 +10,10 @@
 
 ---
 
+> **Lean-protocol override:** Implement full SkillRACE and the outcomes-only strategy
+> boundary, but do not schedule uniform-frontier, direct-property, seeded-black-box, or
+> model-sweep experiments. At most the outcomes-only arm runs on five frozen skills.
+
 ## File map
 
 - Create `skillrace/resource_pool.py`: explicit API, build, and agent semaphores.

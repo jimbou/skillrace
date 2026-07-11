@@ -10,6 +10,13 @@
 
 ---
 
+> **Lean-protocol override (approved 2026-07-11):** The active build is
+> `2026-07-11-07-lean-agentic-build.md`. It fixes 30 executions per method-skill pair,
+> uses 10 bootstrap + 20 guided executions for adaptive methods, evaluates only the
+> zero-shot skill and three feedback revisions once per hidden test, and excludes the
+> earlier broad baseline/ablation matrix. The older plans remain detailed engineering
+> references, but their extra arms and repeats are not current experiment scope.
+
 ## Plan set and dependency order
 
 | Order | Plan | Shippable result | Blocks |
@@ -18,7 +25,7 @@
 | 2 | `2026-07-11-02-fair-baseline-campaigns.md` | Seedless random, correctly initialized VeriGrey-inspired search, controlled no-feedback ablation, resumable equal-budget campaigns | RQ1 pilot |
 | 3 | `2026-07-11-03-parallel-skillrace-campaigns.md` | Bounded parallel workers with deterministic reducers and opportunistic SkillRACE epochs | scaled RQ1/RQ3 |
 | 4 | `2026-07-11-04-rq3-benchmark-hardening.md` | Auditable ten-scenario hidden benchmark with strong executable conditions and stored oracle evidence | RQ3 pilot |
-| 5 | `2026-07-11-05-rq3-revision-evaluation.md` | Leakage-safe feedback normalization, six-condition evaluation, three repeats, and linked manifests | RQ3 results |
+| 5 | `2026-07-11-05-rq3-revision-evaluation.md` | Detailed RQ3 engineering reference; lean scope is defined by Plan 07 | RQ3 results |
 | 6 | `2026-07-11-06-analysis-artifact-freeze.md` | Confirmed-defect grouping, discovery/survival analyses, protocol freeze, and paper-ready artifacts | headline runs |
 
 The plans are intentionally separate. Plans 1 and 2 produce a correct sequential pilot even if parallel work is delayed. Plan 4 can be implemented alongside Plans 2–3 because it changes only `scenarios/` and its audit harness, but no RQ3 result is admissible until Plans 1, 2, 4, and 5 are complete.

@@ -10,6 +10,10 @@
 
 ---
 
+> **Lean-protocol override:** The full experiment has exactly two baselines plus
+> SkillRACE. The only permitted small ablation is outcomes-only SkillRACE on five frozen
+> skills. Confirmation is one rerun per deduplicated suspected defect.
+
 ## File map
 
 - Create `skillrace/defect_triage.py`: confirmation and method-blind cause packets.

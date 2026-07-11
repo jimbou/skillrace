@@ -10,6 +10,10 @@
 
 ---
 
+> **Lean-protocol override:** Execute the three headline methods only. The
+> `seeded-blackbox` task is deferred outside the current paper scope. The production
+> protocol uses budget 30 and bootstrap count 10; see Plan 07.
+
 ## File map
 
 - Create `skillrace/campaign_protocol.py`: validated protocol and method semantics.
@@ -17,7 +21,7 @@
 - Create `skillrace/sanity.py`: shared schema, build-state, invocability, and unsolved-task gate.
 - Create `skillrace/seeded_blackbox.py`: matched no-feedback VeriGrey ablation.
 - Create `experiments/protocols/pilot.json`: inexpensive development protocol.
-- Create `experiments/protocols/issta-main.draft.json`: reviewable 120/20 protocol, not yet frozen.
+- Create `experiments/protocols/issta-main.draft.json`: reviewable 30/10 protocol, not yet frozen.
 - Create `scripts/run_experiment.py`: replication/method/skill driver with isolated outputs.
 - Create `tests/test_campaign_protocol.py`: validation and method allocation.
 - Create `tests/test_candidate_sanity.py`: identical pre-agent gate and no-run-on-rejection tests.
@@ -198,7 +202,7 @@ class CampaignProtocol:
 }
 ```
 
-`experiments/protocols/issta-main.draft.json` uses the same fields with `protocol_id: "skillrace-issta-main-v1-draft"`, `budget: 120`, `bootstrap_count: 20`, `batch_size: 5`, `build_retries: 4`, and `max_generation_attempts_per_execution: 5`. It remains explicitly `draft` until Plan 6 hashes the selected model, datasets, and analysis.
+`experiments/protocols/issta-main.draft.json` uses the same fields with `protocol_id: "skillrace-issta-main-v1-draft"`, `budget: 30`, `bootstrap_count: 10`, `batch_size: 5`, `build_retries: 4`, and `max_generation_attempts_per_execution: 5`. It remains explicitly `draft` until Plan 6 hashes the selected model, datasets, and analysis.
 
 The single `model` value is passed to the agent, proposer, realizer, repair, segmentation, merging, guard extraction, selection, synthesis, check compilation, and revision adapters. Remove production CLI paths that allow one role to override it independently. The model-strength ablation changes this one value for the whole pipeline.
 
