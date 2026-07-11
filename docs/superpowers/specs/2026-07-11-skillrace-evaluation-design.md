@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** Approved direction; implementation requires a separate plan.
+**Status:** Approved lean protocol; implementation follows the staged plans.
 
 ## Goal
 
@@ -45,10 +45,11 @@ For each skill and campaign replication:
 7. Report model tokens, cost, wall time, invalid candidates, fallbacks, timeouts, and
    inconclusive checks in addition to the agent-run-normalized headline metric.
 
-A default campaign has 120 agent executions per method. Independent random generates 120
-fresh tests. VeriGrey-inspired and SkillRACE each spend 20 executions bootstrapping their
-method-specific adaptive state and 100 executions on feedback-guided generation. All 120
-executions can discover defects and are included in every discovery curve. Pilot studies
+A campaign has 30 agent executions per method-skill combination. Independent random
+generates 30 fresh tests. VeriGrey-inspired and SkillRACE each spend 10 executions
+bootstrapping their method-specific adaptive state and 20 executions on feedback-guided
+generation. All 30 executions can discover defects and are included in every discovery
+curve. Pilot studies
 may use smaller budgets, but the total budget and bootstrap count are fixed before
 comparing methods. Campaign replications generate new initialization sets from the same
 frozen protocol so results do not rely on one favorable corpus.
@@ -135,23 +136,18 @@ Each generated case records its motivating guard, intended mutation, targeted pr
 validation result, actual branch classification when available, and whether a discovered
 violation was targeted or serendipitous.
 
-## Ablations
+## Experiment Scope and One Small Ablation
 
-The headline comparison contains random, VeriGrey-inspired, and full SkillRACE. The
-following mechanism ablations run on a preregistered representative subset:
+The only full comparisons are random, VeriGrey-inspired, and full SkillRACE. No direct-
+property baseline, seeded black-box arm, per-component model sweep, or uniform-selection
+arm is added to the full experiment.
 
-- SkillRACE with uniform-random frontier selection;
-- SkillRACE without reasoning, using observable outcomes only;
-- direct property-guided LLM generation without episodes or a tree;
-- VeriGrey's seeded no-feedback black-box ablation: start from the identical initial
-  corpus and use the identical seed-selection and mutation pipeline as the greybox arm,
-  but add every mutant to the corpus, mutate each selected seed once, and never use tool
-  feedback or energy;
-- a model-strength ablation that swaps the single shared model consistently across the
-  agent and every model-driven pipeline role.
-
-These ablations test which component explains yield without turning every ablation into
-a full-suite cost burden.
+One preregistered small ablation may be run if the fixed compute allocation includes it:
+SkillRACE without reasoning, using observable outcomes only, on five skills selected
+before results to cover debugging, CLI, parser, SQL, and low-contingency behavior. It
+uses the same 30-run budget. This is the most direct affordable test of the paper's
+reasoning contribution. It is secondary and is never substituted for a weak headline
+result.
 
 ## Correctness Repairs Required Before Campaigns
 
@@ -180,15 +176,14 @@ same runner, methods, sanity gate, and oracle infrastructure as RQ1.
 
 ### Scenario package
 
-Each of the ten scenarios contains five disjoint artifact groups:
+Each of the ten scenarios contains four disjoint artifact groups:
 
 1. `scenario.md`: the target skill purpose and public task contract;
 2. `base_skill/`: the zero-shot generated skill plus generation provenance;
 3. `campaign/`: properties and environment-generation configuration visible to the
    testing methods;
 4. `tests/`: hidden prompts, starting environments, and executable pass criteria visible
-   only to the final evaluator;
-5. `expert_skill/`: an independently authored upper-bound skill used only for evaluation.
+   only to the final evaluator.
 
 The zero-shot base skill is generated once from the scenario purpose using the shared
 model. Its exact generation prompt, response, model configuration, timestamp, and content
@@ -206,8 +201,10 @@ For every scenario and campaign replication:
 3. Generate each adaptive method's initial set independently with the same frozen
    initialization protocol.
 4. Run the scenario's campaign properties on every generated case.
-5. Regrade property violations and preserve replayable cases, checks, traces, and method
-   search summaries.
+5. Preserve replayable cases, checks, traces, and method search summaries. After the
+   campaign, mechanically deduplicate suspected defects by skill, property, and failure
+   signature, then rerun one representative case once for confirmation. Confirmation
+   runs are reported separately and do not change the 30-run search budget.
 
 The campaign process cannot read `scenarios/<name>/tests/`. Filesystem-level tests assert
 that neither the generators nor the reviser receive a path or copied content from the
@@ -231,25 +228,26 @@ greybox-feedback, and SkillRACE-feedback. The zero-shot skill is not revised.
 
 ### Phase 3: Hidden evaluation
 
-The evaluator runs six conditions on all ten hidden tests for the scenario:
+The evaluator runs four conditions on all ten hidden tests for the scenario:
 
-- no skill, measuring the agent's native capability;
 - the zero-shot base skill;
 - the random-feedback revision;
 - the VeriGrey-feedback revision;
-- the SkillRACE-feedback revision;
-- the expert skill as a separately reported upper bound.
+- the SkillRACE-feedback revision.
 
 Every condition receives byte-identical hidden prompts, containers, checks, agent model,
-and wall-clock budget. Each hidden test is repeated three times to measure stochastic
-pass probability. A run passes a hidden test only when every functional criterion holds;
-fixed-invariant violations are reported both separately and in a strict all-properties
-pass metric.
+and wall-clock budget. Each hidden test is executed once in the main experiment. A run
+passes a hidden test only when every functional criterion holds; fixed-invariant
+violations are reported both separately and in a strict all-properties pass metric.
 
-The primary RQ3 outcome is the change in hidden-test pass probability from the zero-shot
-skill to each revised skill. Secondary outcomes are stable 3/3 pass rate, strict
-all-properties pass rate, testing-plus-revision cost, and improvement by scenario.
-Analysis is paired by hidden test and clustered by scenario and campaign replication.
+The primary RQ3 outcome is the change in hidden-test pass rate from the zero-shot skill
+to each revised skill. Secondary outcomes are strict all-properties pass rate, testing-
+plus-revision cost, and improvement by scenario. Analysis is paired by hidden test and
+clustered by scenario and campaign replication.
+
+The hidden tests are the equivalent of a final exam: campaign cases produce revision
+feedback, while hidden cases determine whether the revision generalizes rather than
+memorizing the feedback cases. They are an evaluation set, not additional baselines.
 
 ### Required benchmark repairs
 
@@ -262,8 +260,9 @@ Before the skill-generation study:
 - strengthen fix-failing-test integrity checks with initial hashes and detection of
   deletion, rename, skip, harness override, and assertion weakening;
 - store reference solutions, validation logs, image digests, and a machine-readable
-  manifest proving that every check accepts its reference and each test rejects an empty
-  or deliberately incorrect implementation where applicable.
+  manifest proving that every hidden test accepts its reference and rejects at least one
+  empty or deliberately incorrect implementation. Add targeted mutants for the known
+  weak checks above rather than manufacturing a mutant for every individual criterion.
 
 The RQ3 orchestrator writes one manifest linking the base-skill hash, campaign allocation,
 feedback-envelope hash, revised-skill hash, hidden-test hashes, run IDs, and aggregate
@@ -281,7 +280,7 @@ Secondary metrics are:
 - discovery curve and area under that curve;
 - agent executions to first confirmed defect, with right censoring;
 - runs containing any violation;
-- reproducibility frequency over three reruns of the same case;
+- confirmation success on one rerun of each deduplicated suspected defect;
 - unique behavioral branches;
 - intended-branch, different-new-branch, no-divergence, and path-miss rates;
 - targeted versus serendipitous defects;
@@ -297,7 +296,7 @@ and refactoring skills are not treated as independent observations.
 
 Parallelism is allowed where it does not create shared mutable search state:
 
-- skills, methods, model ablations, and replications run concurrently;
+- skills, methods, the one small reasoning ablation, and replications run concurrently;
 - independent property checks compile concurrently;
 - D2 test/skill-version/replication combinations run concurrently;
 - random and greybox candidate runs may be queued independently within resource limits;
@@ -328,8 +327,9 @@ Full campaigns do not begin until:
    two adaptive methods use equal-size recorded bootstrap sets generated by the same
    frozen initialization protocol;
 3. random and greybox tests prove they cannot access reasoning, properties, or tree data;
-4. all D2 checks pass syntax, reference-solution, empty-solution, and targeted mutation
-   tests;
+4. all D2 tests pass syntax and reference-solution validation, reject at least one
+   negative implementation, and the identified weak checks reject their targeted
+   mutants;
 5. a pilot covering at least one debugging, CLI, parser, SQL, and low-contingency skill
    completes without missing artifacts or unrecoverable infrastructure failures;
 6. the pilot reports branch-classification, fallback, oracle-inconclusive, cost, and
