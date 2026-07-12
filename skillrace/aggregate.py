@@ -3,8 +3,9 @@
 Reads `out/campaign/<method>/<skill>/campaign.json` for all methods and skills, and
 prints (and writes) the per-method and per-skill numbers the paper's RQ1 table and
 discovery-vs-budget figure need: distinct properties violated, runs-with-violation,
-median runs-to-first-violation, unique branches (for skillrace), reproducible-violation
-counts if a k-regrade was run, and the LaTeX macro values to paste into the tex.
+one-based observed/right-censored discovery records, unique branches (for
+skillrace), reproducible-violation counts if a k-regrade was run, and the LaTeX
+macro values to paste into the tex.
 
 Pure post-processing — no Docker, no model. Run after campaigns finish.
 
@@ -15,7 +16,6 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-import statistics
 
 
 def load_campaigns(root):
@@ -31,18 +31,52 @@ def load_campaigns(root):
     return out
 
 
-def _first_violation_run(camp):
-    for r in camp.get("iterations", []):
-        if r.get("violated"):
-            return r["i"]
-    return None
+def _counted_records(camp):
+    """Return agent executions, excluding pre-agent attempts in new artifacts."""
+    if isinstance(camp.get("attempts"), list):
+        return [record for record in camp["attempts"]
+                if record.get("consume_budget") is True]
+    return [record for record in camp.get("iterations", [])
+            if record.get("consume_budget", True) is True]
+
+
+def _first_violation(camp):
+    records = _counted_records(camp)
+    for ordinal, record in enumerate(records, start=1):
+        if record.get("violated"):
+            return ordinal, True
+    return len(records), False
+
+
+def _completion(camp, counted_runs):
+    """Return experiment completeness without reinterpreting legacy artifacts."""
+    if isinstance(camp.get("attempts"), list):
+        status = camp.get("status")
+        budget = camp.get("budget")
+        budget_complete = (
+            isinstance(budget, int) and budget >= 0 and counted_runs == budget
+        )
+        complete = status == "completed" and budget_complete
+        if complete:
+            return True, "completed exact budget"
+        expected = str(budget) if isinstance(budget, int) else "unknown"
+        return False, f"status={status or 'missing'}; counted={counted_runs}/{expected}"
+
+    if "complete" in camp:
+        complete = camp.get("complete") is True
+        return complete, "legacy explicit complete flag"
+    if "status" in camp:
+        complete = camp.get("status") == "completed"
+        return complete, f"legacy status={camp.get('status')}"
+    return True, "legacy status absent"
 
 
 def summarize_campaign(camp):
-    its = camp.get("iterations", [])
+    its = _counted_records(camp)
+    complete, completion_reason = _completion(camp, len(its))
     distinct = sorted({p for r in its for p in r.get("violated", [])})
     with_viol = sum(1 for r in its if r.get("violated"))
-    fv = _first_violation_run(camp)
+    first_runs, first_observed = _first_violation(camp)
     reproducible = sorted({p for r in its for p in r.get("reproducible", [])})
     # unique tree branches only meaningful for skillrace; count classifications
     classes = {}
@@ -55,7 +89,14 @@ def summarize_campaign(camp):
         "runs": len(its),
         "distinct_violated": distinct, "n_distinct_violated": len(distinct),
         "runs_with_violation": with_viol,
-        "first_violation_run": fv,
+        "runs_to_first_violation": first_runs,
+        "first_violation_observed": first_observed,
+        "right_censored": complete and not first_observed,
+        "complete": complete,
+        "headline_eligible": complete,
+        "completion_reason": completion_reason,
+        "status": camp.get("status"),
+        "budget": camp.get("budget"),
         "reproducible": reproducible, "n_reproducible": len(reproducible),
         "classifications": classes,
         "greybox_level": camp.get("greybox_level"),
@@ -67,30 +108,58 @@ def aggregate(root):
     per_campaign = [summarize_campaign(c) for c in camps]
     # pool by method
     by_method = {}
+    incomplete_campaigns = []
     for s in per_campaign:
-        m = by_method.setdefault(s["method"], {"skills": 0, "distinct_props": set(),
+        m = by_method.setdefault(s["method"], {"skills": 0,
+                                               "campaigns_total": 0,
+                                               "campaigns_incomplete": 0,
+                                               "distinct_props": set(),
                                                "runs_with_violation": 0, "runs": 0,
-                                               "first_violation_runs": [],
+                                               "first_violation_records": [],
                                                "n_reproducible": 0})
+        m["campaigns_total"] += 1
+        if not s["headline_eligible"]:
+            m["campaigns_incomplete"] += 1
+            incomplete_campaigns.append({
+                "method": s["method"],
+                "skill": s["skill"],
+                "status": s["status"],
+                "runs": s["runs"],
+                "budget": s["budget"],
+                "completion_reason": s["completion_reason"],
+            })
+            continue
         m["skills"] += 1
         m["distinct_props"].update(f"{s['skill']}:{p}" for p in s["distinct_violated"])
         m["runs_with_violation"] += s["runs_with_violation"]
         m["runs"] += s["runs"]
         m["n_reproducible"] += s["n_reproducible"]
-        if s["first_violation_run"] is not None:
-            m["first_violation_runs"].append(s["first_violation_run"])
+        m["first_violation_records"].append({
+            "skill": s["skill"],
+            "runs": s["runs_to_first_violation"],
+            "observed": s["first_violation_observed"],
+        })
     pooled = {}
     for m, d in by_method.items():
-        fvr = d["first_violation_runs"]
+        survival = d["first_violation_records"]
         pooled[m] = {
             "skills": d["skills"], "runs": d["runs"],
+            "campaigns_total": d["campaigns_total"],
+            "campaigns_eligible": d["skills"],
+            "campaigns_incomplete": d["campaigns_incomplete"],
             "distinct_violated_pooled": len(d["distinct_props"]),
             "runs_with_violation": d["runs_with_violation"],
-            "median_runs_to_first_violation": (statistics.median(fvr) if fvr else None),
-            "skills_with_any_violation": len(fvr),
+            "first_violation_records": survival,
+            "skills_with_any_violation": sum(
+                1 for record in survival if record["observed"]
+            ),
             "reproducible_violations": d["n_reproducible"],
         }
-    return {"per_campaign": per_campaign, "pooled_by_method": pooled}
+    return {
+        "per_campaign": per_campaign,
+        "pooled_by_method": pooled,
+        "incomplete_campaigns": incomplete_campaigns,
+    }
 
 
 def latex_macros(pooled):
@@ -115,7 +184,7 @@ def main():
         print(f"  {m:>10}: skills={d['skills']} runs={d['runs']} "
               f"distinct_props={d['distinct_violated_pooled']} "
               f"runs_w_viol={d['runs_with_violation']} "
-              f"median_runs_to_first={d['median_runs_to_first_violation']} "
+              f"discovery_records={len(d['first_violation_records'])} "
               f"reproducible={d['reproducible_violations']}")
     print("\nPer skill (distinct properties violated):")
     for s in summary["per_campaign"]:

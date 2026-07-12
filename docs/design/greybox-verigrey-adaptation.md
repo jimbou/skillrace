@@ -7,9 +7,8 @@
 > design choice in our port is traceable to their paper. Goal: an adaptation no
 > reviewer can call a strawman — each mechanism is either (a) their mechanism
 > verbatim, (b) their mechanism with the injection-specific part swapped for the
-> shared correctness component, or (c) a declared free parameter for which we
-> report a sensitivity ablation and use the **best-performing** setting in the
-> headline comparison.
+> shared correctness component, or (c) a declared free parameter for which the
+> headline protocol is fixed before any campaign.
 
 ---
 
@@ -57,10 +56,8 @@ port; this is a genuine adaptation decision, so we treat it the way one should:
   (`write:src/*.ts`, `bash:pytest tests/*`).
 
 Novelty (sequence / transition / tool) is computed over the chosen label alphabet.
-**We run the granularity ablation on a subset of skills, report all three, and use
-the best-performing level for the headline greybox numbers.** This is the strongest
-possible answer to an unfairness objection: the baseline got its best
-configuration, chosen empirically, and the sensitivity is in the paper.
+**The headline protocol uses a single fixed global L1 label schema**, not a per-skill
+best-value sweep. This keeps the comparison focused on one protocol-level choice.
 
 ---
 
@@ -100,8 +97,7 @@ same temperature as the floor's proposer.
    meaningless outside prompt-injection testing). The comparison therefore reads:
    *tool-sequence-novelty feedback vs. reasoning-guard mutation, for correctness
    testing* — not a claim about VeriGrey's security performance.
-2. Label granularity is an adaptation parameter; we report the sensitivity and use
-   the baseline's best setting.
+2. Label granularity is fixed at global L1 for headline reporting.
 3. Structural expectation (to be tested, not assumed): tool-sequence novelty
    rewards *any* behavioral difference, property-relevant or not; in correctness
    testing most novel sequences are benign variation, whereas guard mutation

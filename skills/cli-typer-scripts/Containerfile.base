@@ -1,6 +1,0 @@
-# Level-2 per-skill base: cli-typer-scripts (cli instance, vendored tatsukamijo). NETWORK-GATED build.
-FROM skillrace/skillgen-base:latest
-RUN pip install --no-cache-dir typer
-COPY repo/    /workspace/
-COPY SKILL.md /skills/cli-typer-scripts/SKILL.md
-RUN cd /workspace && git add -A && git commit -q -m "base: cli-typer-scripts" || true

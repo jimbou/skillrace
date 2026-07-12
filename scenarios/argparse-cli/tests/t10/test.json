@@ -1,0 +1,55 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "argparse-cli/t10",
+  "candidate_sha256": "ce8d0e85201d068aeb8725f956d53bf52880478d1fcc46a3628bdceb64859aa6",
+  "dockerfile_sha256": "ba69408f061de14235f7f6678d509fb3b6644f447f0bd58d24de9cc614d6f08d",
+  "content_identity_sha256": "999af9c68fe8483ff5b3833bdb669ff9ed9cd949ce1b41ed2b271b293d0ca6b0",
+  "duplicate_justification": null,
+  "entrypoint": "python3 tool.py <subcommand>",
+  "criteria": [
+    {
+      "id": "exit-zero",
+      "script": "checks/exit-zero.sh",
+      "script_sha256": "cf537187e9268a8a1999d2579a13f108304488faa2043e7ebd7abc1bc0391a97",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    },
+    {
+      "id": "unknown-flag-nonzero",
+      "script": "checks/unknown-flag-nonzero.sh",
+      "script_sha256": "bb7699cb73aefa3f7523e052228efdcf785abb81e7ccf883668e516183ad4194",
+      "kind": "error",
+      "expected": {
+        "status": "zero",
+        "output": "the declared invalid input is rejected with a named, traceback-free diagnostic"
+      },
+      "negative_ids": [
+        "accepts-invalid"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "crash",
+      "overlay": "oracle/negative/crash",
+      "fault": "all valid commands exit non-zero",
+      "overlay_sha256": "0c942dc899e5ffeab7768c6e190050a492a60b4c5c44400bda4bc4d848d5c06f"
+    },
+    {
+      "id": "accepts-invalid",
+      "overlay": "oracle/negative/accepts-invalid",
+      "fault": "invalid commands exit zero",
+      "overlay_sha256": "1a293ef36f7e5428f661ae7680f163e79e2dcd26d509ef561e1583ce67de4869"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "5f52205d629fe20275e3f61370d4d53ffe2e5dd950c8c567371b7c5d9ba2f2d2",
+  "contract_identity_sha256": "eb0ad7a4197a4141bbebe40fca3250fa0656b4e95bc5cca1fc07b83cff67c167"
+}

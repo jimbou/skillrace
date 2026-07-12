@@ -1,4 +1,0 @@
-[
-  {"id":"roundtrip-preserves-values","reads":"state","nl":"Serializing the specified data and then deserializing it reproduces the original values for the required types (round-trip fidelity) — verify on a concrete example, not merely that a serializer function exists."},
-  {"id":"valid-serialized-output","reads":"state","nl":"The serialized output is syntactically valid for its format (e.g. valid JSON that parses), not malformed text."}
-]

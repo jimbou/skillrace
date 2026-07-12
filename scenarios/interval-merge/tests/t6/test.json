@@ -1,0 +1,36 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "interval-merge/t6",
+  "candidate_sha256": "8ed7753849ffe822b6f233c49d72d66e444e7ee70e42967aaa89900e16242250",
+  "dockerfile_sha256": "ba69408f061de14235f7f6678d509fb3b6644f447f0bd58d24de9cc614d6f08d",
+  "content_identity_sha256": "51755a742cd08695a6b2d348323fc8464b72576950d377838f4389f3875130a6",
+  "duplicate_justification": null,
+  "entrypoint": "python3 -c 'from intervals import merge'",
+  "criteria": [
+    {
+      "id": "no-mutation",
+      "script": "checks/no-mutation.sh",
+      "script_sha256": "2a5413e27aab90192fc242c5422b79a571289d812d28d35c2495d92a841f0822",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "mutates-input"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "mutates-input",
+      "overlay": "oracle/negative/mutates-input",
+      "fault": "returns the expected value while mutating the input",
+      "overlay_sha256": "ea44a22322889416c521e3aef8567d9ae3cae4e71f7cd5ee1f6aabc57ef10f98"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "522c262873aef9cbea2c476b2a9d23ada71da0facdd91856cf54f4eaea34f49c",
+  "contract_identity_sha256": "8b773699a551658870592d74f3e72ae090cacb8ca0ea97ceb3b7475a90fc2e25"
+}

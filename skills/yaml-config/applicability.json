@@ -1,1 +1,1 @@
-{"skill":"yaml-config","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","build-static"],"contingency":"high","family":"config"}
+{"skill":"yaml-config","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","build-static"],"property_ids":["valid-config-accepted","malformed-rejected"],"contingency":"high","family":"config"}

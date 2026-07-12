@@ -1,0 +1,37 @@
+{
+  "schema": "skillrace-scenario/1",
+  "scenario_id": "interval-merge",
+  "purpose_sha256": "c571b3856dc5ce07a4b2efcc63c823c2c94b778e4a98639289df0837dc6dd836",
+  "base_skill_sha256": "b5d09a687c6b6900d7701b61925fc7ac00bce1a0a29f91a4928c9e836f2ebbbf",
+  "public_paths": [
+    "scenario.md",
+    "base_skill",
+    "campaign"
+  ],
+  "hidden_tests": {
+    "path": "tests",
+    "count": 10,
+    "ids": [
+      "interval-merge/t1",
+      "interval-merge/t2",
+      "interval-merge/t3",
+      "interval-merge/t4",
+      "interval-merge/t5",
+      "interval-merge/t6",
+      "interval-merge/t7",
+      "interval-merge/t8",
+      "interval-merge/t9",
+      "interval-merge/t10"
+    ]
+  },
+  "boundary": {
+    "public_can_read": [
+      "scenario.md",
+      "base_skill",
+      "campaign"
+    ],
+    "forbidden_to_campaign": [
+      "tests"
+    ]
+  }
+}

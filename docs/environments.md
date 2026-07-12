@@ -249,20 +249,21 @@ RUNNER  (run_case — leaves the container alive; runs NO checks):
               TIMEBOMB that removes it after --cleanup-grace if the checker doesn't.
 
 PROPERTY CHECKER  (check_properties — separate command, runs after; owns teardown):
-  7. compile NL properties → checks; run STATE checks via `docker exec` IN the live
-     container (the exact one the agent left), TRACE checks over the session/diff.
-  8. emit verdicts; then `docker rm -f` the container (+ env image).
+  7. stage trace/diff, snapshot the final filesystem once, then run every precompiled
+     check in a fresh networkless, capability-dropped child with a host timeout.
+  8. emit verdicts; remove every child/snapshot, then `docker rm -f` the original
+     container (+ env image).
 ```
 
-**Why the live container (not a `docker commit` + fresh run):** running the state
-checks in the **exact container the agent finished in** is faithful — a `docker
-commit` only captures the filesystem, losing `/tmp`, running services, and session
-env, so a fresh container could behave differently. **Verified:** the agent's CSV fix
-gave `pytest` passing in the live container, and `workspace.diff` showed only the
-implementation file changed (test-integrity).
+The checker deliberately judges a frozen filesystem snapshot of the exact finished
+container. This captures final `/workspace` and staged evidence while giving each
+property an uncontaminated child. Ephemeral processes and non-filesystem runtime state
+are outside the state-oracle claim and are recorded as a limitation rather than shared
+between checks.
 
-Trace-structural property checks need *episodes*, not the container, so they run
-later, after segmentation ([property-checker.md](./design/property-checker.md)).
+Trace-oriented property checks parse exact `toolCall` blocks from the frozen JSONL
+trace staged in each child; they do not depend on episode segmentation
+([property-checker.md](./design/property-checker.md)).
 
 ### How this preserves composability
 
@@ -271,8 +272,9 @@ The Runner and Property Checker are **separate commands** sharing one live conta
 
 - The **Runner (Component 1)** owns build → run → **leave the container alive** (+
   the timebomb). It runs no checks and does no `docker commit`.
-- The **Property Checker (Component 6)** runs **after**, `exec`s its state checks
-  into `run.json.container`, emits verdicts, and **owns teardown** (`docker rm -f`).
+- The **Property Checker (Component 6)** runs **after**, snapshots
+  `run.json.container`, executes isolated children, emits verdicts, and **owns
+  teardown** (`docker rm -f`).
 - The (optional) **Validator (Component 5c)** — for the directed loop only — `exec`s
   a guard check before the agent; if it fails, no agent run is spent.
 
@@ -291,10 +293,9 @@ run — never reused** — so no state leaks between runs.
 - **No host filesystem mount.** The target repo lives *inside* the image (baked into
   the base), so the host working directory is **not** mounted. Nothing on the host
   changes; the environment is fully captured by the Containerfile + base digest.
-- This is what makes the **optional k-fold reproduction grading** (Component 6;
-  configurable, default off) and the **"same input → same behavior"** claims
-  meaningful: each regrade run starts from an identical, freshly-built container with
-  zero carryover.
+- This is what makes one post-campaign representative confirmation meaningful: the
+  confirmation starts from the identical case definition in a freshly built container
+  with zero carryover and remains outside the 30-run search budget.
 
 ---
 

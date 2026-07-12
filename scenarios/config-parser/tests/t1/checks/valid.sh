@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+# skillrace-oracle-v1
 set -u
 cd /workspace
-o=$(python3 loadcfg.py app.ini 2>/dev/null); echo "$o"|grep -q 'host=' && echo "$o"|grep -q 'port=' && echo ok || { echo "FAIL=$o"; exit 1; }
+[ -f loadcfg.py ] || { echo 'FAIL loadcfg.py missing'; exit 1; }
+stdout=$(mktemp); stderr=$(mktemp)
+trap 'rm -f "$stdout" "$stderr"' EXIT
+python3 loadcfg.py app.ini >"$stdout" 2>"$stderr"
+rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL expected exit 0: rc=$rc"; cat "$stderr"; exit 1; }
+[ ! -s "$stderr" ] || { echo 'FAIL unexpected stderr'; cat "$stderr"; exit 1; }
+got=$(cat "$stdout")
+[[ "$got" =~ ^host=[^[:space:]]+[[:space:]]port=[0-9]+$ ]] || { echo "FAIL format=[$got]"; exit 1; }
+echo ok

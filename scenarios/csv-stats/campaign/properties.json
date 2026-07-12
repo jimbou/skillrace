@@ -1,0 +1,17 @@
+[
+  {
+    "id": "csv-stats-public-contract",
+    "reads": "state",
+    "nl": "The program computes the operation requested by the generated public task on the named CSV column and prints the correct result."
+  },
+  {
+    "id": "csv-robust-parsing",
+    "reads": "state",
+    "nl": "CSV quoting, missing values, numeric conversion, and requested missing-file or missing-column errors are handled with a real CSV parser and clean exit behavior."
+  },
+  {
+    "id": "csv-stats-verification",
+    "reads": "trace",
+    "nl": "The agent runs representative inputs and checks the computed output before finishing."
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "interval-public-contract",
+    "reads": "state",
+    "nl": "The merge function implements every interval rule in the generated public task and returns results in the requested representation and order."
+  },
+  {
+    "id": "interval-boundaries",
+    "reads": "state",
+    "nl": "The implementation handles overlapping, touching, disjoint, empty, nested, duplicate, and unsorted intervals consistently with the public specification."
+  },
+  {
+    "id": "interval-input-integrity",
+    "reads": "state",
+    "nl": "The implementation does not mutate its input when the generated public task requires input preservation."
+  }
+]

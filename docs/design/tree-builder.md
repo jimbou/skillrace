@@ -220,7 +220,7 @@ branch points are where outcomes/decisions differ — the fuel for guard synthes
   cache (read/write).
 - Config:
   ```json
-  { "model": {"provider":"anthropic","id":"claude-opus-4-8","temperature":0},
+  { "model": {"provider":"closeai","id":"qwen3.6-flash","temperature":0},
     "merge_threshold": 0.5, "use_embedding_prefilter": true }
   ```
 
@@ -409,8 +409,8 @@ conditions at that node**, and the synthesizer is asked for a **new, diverse** o
 - **Output format:** strict JSON → a `MergeDecision`. `verdict` is the only
   load-bearing field; `confidence`/`rationale` are for audit.
 
-Per the global rule, this is the *same* model as every other judgment step; model
-choice is the ablation axis, not a per-component decision.
+Per the global rule, this is the *same frozen model* as every other judgment step;
+there is no per-component model choice or headline model sweep.
 
 ---
 

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "template-public-contract",
+    "reads": "state",
+    "nl": "The renderer replaces every placeholder form specified by the generated public task and writes the exact requested output."
+  },
+  {
+    "id": "template-literal-preservation",
+    "reads": "state",
+    "nl": "Missing keys and brace forms that are not placeholders remain byte-for-byte as required instead of being deleted or partially rewritten."
+  },
+  {
+    "id": "template-special-values",
+    "reads": "state",
+    "nl": "Repeated or adjacent placeholders and values containing spaces or punctuation are rendered without corrupting surrounding text."
+  }
+]

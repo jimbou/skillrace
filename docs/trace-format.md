@@ -142,7 +142,7 @@ Carries everything about the run that is *not* per-step. Frozen contract.
 | `model`          | `object` | The **agent-under-test** model: `{ "provider": str, "id": str, "thinking_level": str, "temperature": number|null }`. `temperature` is `null` if not settable (see [pi-integration OQ-1](./pi-integration.md#oq-1-temperature)). |
 | `runner`         | `object` | `{ "pi_version": str, "built_image": str, "network": str, "wall_clock_cap_s": int, "token_cap_usd": number|null }`. `built_image` = per-test image (base cache + cheap tail); `network` = container network mode (`"host"`); `wall_clock_cap_s` is the **timeout** (no step cap — [D-RUN-1](./environments.md#termination--budget)); `token_cap_usd` is the optional budget-extension hard cap. |
 | `termination`    | `object` | `{ "reason": "completed"|"timeout"|"token_budget"|"error", "steps": int, "detail": str|null }`. |
-| `container`      | `object` | The **live container left for the Property Checker** — `{ "name": str, "alive": bool, "cleanup_grace_s": int }`. The checker `docker exec`s state checks into it then destroys it; the Runner's timebomb reclaims it after `cleanup_grace_s` if the checker never runs (§6). |
+| `container`      | `object` | The **live container left for the Property Checker** — `{ "name": str, "alive": bool, "cleanup_grace_s": int }`. The checker stages trace/diff evidence, snapshots its final filesystem once, runs each check in a fresh isolated child, then destroys it; the Runner's timebomb reclaims it after `cleanup_grace_s` if checking never starts (§6). |
 | `seed`           | `int`    | Selection/mutation seed in effect when this input was produced (campaign reproducibility). |
 | `created_at`     | `string` | ISO8601. |
 
@@ -159,7 +159,7 @@ Carries everything about the run that is *not* per-step. Frozen contract.
     "base_image": "skillrace/fix-failing-test:base@sha256:9f2c…",
     "candidate_id": null
   },
-  "model": { "provider": "anthropic", "id": "claude-opus-4-8", "thinking_level": "medium", "temperature": null },
+  "model": { "provider": "closeai", "id": "qwen3.6-flash", "thinking_level": "medium", "temperature": null },
   "runner": { "pi_version": "0.x.y", "built_image": "skillrace/run-01JZ8Q2example:built", "network": "host", "wall_clock_cap_s": 900, "token_cap_usd": 2.0 },
   "termination": { "reason": "completed", "steps": 6, "detail": null },
   "container": { "name": "run-01JZ8Q2example", "alive": true, "cleanup_grace_s": 300 },
@@ -233,26 +233,29 @@ Pi sessions (see [runner.md](./design/runner.md)). All rules below are
 
 ---
 
-## 6. Final container state (live container, checked then destroyed)
+## 6. Final container state (snapshotted, isolated checks, then destroyed)
 
 Per the tex, SkillRACE does **not** snapshot the environment at each step. Instead the
 **Runner leaves the final container running** and the **separate Property Checker**
 ([environments.md, per-run flow](./environments.md#per-run-flow-validate-then-run-in-the-same-container)):
 
-- **State-based property checks `docker exec` into the *live* container the Runner
-  left** — the exact container the agent finished in, not a `docker commit` + fresh
-  run (a commit captures only the filesystem, losing `/tmp`, services, session env).
-  No agent involved.
+- The checker stages trace/diff evidence and makes one filesystem snapshot of the exact
+  final container. Every state/trace script then runs in a fresh networkless,
+  capability-dropped child with a host timeout. No agent or model is involved, and one
+  script cannot mutate evidence for another. Ephemeral non-filesystem state is outside
+  this oracle boundary and is reported as a limitation.
 - **A `workspace_snapshot/` is copied out** (`docker cp`: git diff + changed/created
   files) for debugging and bug-report evidence.
 - The **Property Checker owns teardown**: after its checks it `docker rm -f`s the
   container (+ env image). A **detached timebomb** armed by the Runner reclaims the
   container if the checker never runs.
-- **Repro / k-fold regrade rebuild from `input.containerfile`** and re-run.
+- **Post-campaign confirmation** rebuilds the representative `input.containerfile`
+  and reruns it once outside the 30-execution search budget.
 
 `run.json.container` is the **live container name** (plus `container_alive` and
-`cleanup_grace_s`). There is no persistent committed-image dependency — only the
-Containerfile text (in `run.json.input`) and the copied-out snapshot.
+`cleanup_grace_s`). The temporary check snapshot is deleted after verdicts; the durable
+reproduction inputs are the Containerfile text (in `run.json.input`), trace/diff, and
+copied-out workspace evidence.
 
 ---
 

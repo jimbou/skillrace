@@ -1,1 +1,1 @@
-{"skill":"refactor","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","test-integrity","self-consistency"],"contingency":"high"}
+{"skill":"refactor","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","test-integrity","self-consistency"],"property_ids":["behavior-preserved","tests-unedited","actually-changed"],"contingency":"high"}

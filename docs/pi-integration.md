@@ -181,9 +181,11 @@ not a base-image-plus-init-script — the full design is in
 - After the agent exits, the Runner `docker cp`s a `workspace_snapshot/` out (and
   `raw/session.jsonl`), then **leaves the container running** (no `docker commit`) and
   arms a detached timebomb to reclaim it after a grace period.
-- The **separate Property Checker** later `docker exec`s its state checks into that
-  **live container** ([trace-format.md §6](./trace-format.md#6-final-container-state-live-container-checked-then-destroyed)),
-  then **destroys** it. (Repro/regrade rebuild from `run.json.input.containerfile`.)
+- The **separate Property Checker** later stages trace/diff evidence in that live
+  container, snapshots its final filesystem once, and runs each check in a fresh
+  networkless child ([property-checker.md](./property-checker.md)), then destroys the
+  original container. Post-campaign confirmation rebuilds the representative
+  `run.json.input.containerfile` once outside the search budget.
 
 The Gondolin micro-VM extension mentioned on the same page is **not** used in v1
 (plain Docker with host networking is sufficient and simpler to reproduce).

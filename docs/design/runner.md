@@ -21,8 +21,8 @@ step cap), records the run as a **frozen trace** plus a **run manifest** plus a
 copied-out **workspace snapshot**, and **leaves the container running** (with a
 detached timebomb that removes it after a grace period). **The Runner does NOT check
 properties** — that is the separate [Property Checker](../property-checker.md), which
-runs *after* the run, `docker exec`s its state checks into the **live container the
-Runner left**, and then destroys it.
+runs *after* the run, stages evidence and snapshots the **live container the Runner
+left**, executes each check in a fresh isolated child, and then destroys it.
 It is a thin wrapper around Pi + Docker; its only non-trivial logic is normalizing
 Pi's session into the [frozen trace format](../trace-format.md), which is the
 contract every downstream component reads.
@@ -59,7 +59,7 @@ Runner config (`--config`, defaults shown):
   "wall_clock_cap_s": 900,
   "token_cap_usd": 2.0,
   "network": "host",
-  "model": { "provider": "anthropic", "id": "claude-opus-4-8", "thinking_level": "medium" },
+  "model": { "provider": "closeai", "id": "qwen3.6-flash", "thinking_level": "medium" },
   "obs_max_bytes": 65536,
   "pi_flags_extra": [],
   "skills_root": "skills",
@@ -193,8 +193,9 @@ deterministic, scripted sequence (or use a recorded `pi` replay). Assert:
 - **container left alive + timebomb:** the container stays running after the agent
   (recorded as `run.json.container`); `workspace_snapshot/` is `docker cp`-ed out; a
   detached timebomb removes the container after `--cleanup-grace` if the checker
-  doesn't. The separate Property Checker `exec`s into the live container *afterward*
-  and tears it down (the Runner runs no checks itself).
+  doesn't. The separate Property Checker snapshots the live container *afterward*,
+  executes isolated check children, and tears everything down (the Runner runs no
+  checks itself).
 
 A `--dry-run` mode builds the Containerfile and runs the validation gate **without**
 launching the agent — this is exactly the standalone Validator path (Component 5c)

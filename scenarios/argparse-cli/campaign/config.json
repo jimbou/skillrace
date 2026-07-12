@@ -1,0 +1,9 @@
+{
+  "schema": "skillrace-rq3-campaign-config/1",
+  "scenario_id": "argparse-cli",
+  "skill_name": "argparse-cli",
+  "base_image": "skillrace/rq3-argparse-cli:base",
+  "properties": "properties.json",
+  "applicability": "applicability.json",
+  "containerfile": "Containerfile.base"
+}

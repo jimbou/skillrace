@@ -1,1 +1,1 @@
-{"skill":"parser-generator","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","test-integrity","self-consistency"],"contingency":"medium"}
+{"skill":"parser-generator","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","test-integrity","self-consistency"],"property_ids":["parses-valid","rejects-invalid"],"contingency":"medium"}

@@ -90,6 +90,9 @@ logged.
   fixed command.
 - **I4 — Short-horizon.** A typical task completes in tens of tool calls under our step
   cap, not hundreds.
+- **I5 — Redistributable artifact input.** The exact public skill snapshot carries a
+  clear license grant that permits distribution in a research artifact. Public access
+  to a GitHub repository is not treated as a license.
 
 **Exclusion (any triggers removal):**
 - **X1 — Subjective success.** Success is aesthetic or open-ended with no checkable
@@ -99,14 +102,19 @@ logged.
 - **X3 — Trivial or duplicate.** Guidance is a single command, or the skill duplicates
   one already admitted (same task family, same structure).
 - **X4 — Unsafe to run** even sandboxed (e.g. requires disabling the sandbox).
+- **X5 — Unsafe or unclear redistribution rights.** The source has no license grant,
+  uses incompatible proprietary terms, or references license terms that are absent.
+  Such content is removed from the artifact; a commit-pinned URL and SHA-256 remain so
+  the exclusion is auditable.
 
 **Note on environment-contingency.** Whether a skill's behavior depends on the starting
 state (the property that favors reasoning-guided search) is **recorded but is NOT an
-inclusion criterion.** We deliberately admit skills across the contingency spectrum and
-label each `high` / `medium` / `low`. Reporting is stratified by this label so that a
-reader sees \tool's performance on low-contingency skills too, rather than only where it
-is expected to shine. Excluding low-contingency skills would be the gerrymandering we
-are trying to avoid.
+inclusion criterion.** We label every candidate `high` / `medium` / `low` before any
+campaign. The current redistributable suite contains 18 high- and 4 medium-contingency
+skills; no low-contingency candidate survived the independent code-behavior,
+reproducibility, distinctness, and licensing gates. Reporting retains all four medium
+cases rather than silently narrowing the suite to where reasoning guidance is expected
+to shine.
 
 ---
 
@@ -114,7 +122,7 @@ are trying to avoid.
 
 1. **Enumerate** candidates from S1–S4 until the candidate pool is exhausted or reaches
    ~2–3× the target suite size (target: \~30 admitted skills).
-2. For each candidate, in the order discovered, **apply I1–I4 and X1–X4** and record the
+2. For each candidate, in the order discovered, **apply I1–I5 and X1–X5** and record the
    verdict + one-line reason in the decision log (`candidates/skill-suite-candidates.md`).
    The decision is made from the `SKILL.md` and repo contents **before** any \tool run.
 3. For each **admitted** skill, author: a `Containerfile.base`, a natural-language
@@ -122,10 +130,12 @@ are trying to avoid.
    matrix** (which of the fixed invariants apply — a rebasing skill cares about
    force-push; a fix-test skill cares about test integrity). The applicability matrix is
    derived from the fixed invariant catalog by a simple relevance rule, also logged.
-4. **Freeze** the admitted set. Any skill that fails to Dockerize during setup is removed
-   with reason `build-failed` and **the removal is logged**; it is not silently dropped,
-   and we report the count.
-5. Run all three methods on the frozen set under identical budget.
+4. **Freeze** the admitted set. Any skill that fails to Dockerize or the redistribution
+   audit during setup is removed with a mechanical reason (`build-failed` or
+   `license-excluded`); the removal is logged and reported, never silent.
+5. Run all three methods on the frozen public set under identical budget. Original
+   in-repository skills used during tool development remain development-only and cannot
+   enter the quantitative headline.
 
 The decision log is append-only and committed; the frozen set is tagged.
 
@@ -157,8 +167,8 @@ feedback used to revise that one starting skill.
 - Results are reported **per skill**, not only pooled, with the contingency label shown.
 - Every excluded/removed candidate appears in the decision log with its reason; we report
   the funnel (candidates → admitted → built → analyzed).
-- The greybox granularity sweep is reported for all three levels; the headline uses the
-  best level (§ greybox adaptation doc), and the sweep table is shown.
+- The VeriGrey-inspired baseline uses one globally frozen L1 event granularity for
+  every skill. It is not selected per skill or after observing headline outcomes.
 - No skill is added or dropped after results are seen. If a skill must be dropped for a
   mechanical reason (build breaks under a dependency change), it is dropped for **all**
   methods and the drop is logged.

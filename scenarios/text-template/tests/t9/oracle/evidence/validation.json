@@ -1,0 +1,69 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "text-template/t9",
+  "state": "validated",
+  "contract_identity_sha256": "cf2da7038cfc17fe90d1829d4e4ed692d8437396eb9e911944b2c0d2dbf6a1b9",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T00:16:09.293759+00:00",
+  "image_digest": "sha256:04adf1f2f52ed798399a176659a41cf977897ae71399782938d04f3dfdebbfae",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "2bcf4051358e0ba9b3150068d623534870f12fd7efafdc1c651ce6fbdbd64fe5",
+    "criteria": {
+      "zero-value": {
+        "command": [
+          "bash",
+          "/check/oracle/zero-value.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.117647,
+        "script_sha256": "9437699766908c6edc24cc36501c040d8a190fbbeaf5d736cde24023773706bd",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "zero-value": {
+        "command": [
+          "bash",
+          "/check/oracle/zero-value.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL render.py missing",
+        "duration_seconds": 0.08901,
+        "script_sha256": "9437699766908c6edc24cc36501c040d8a190fbbeaf5d736cde24023773706bd",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "no-output": {
+      "overlay_sha256": "d0bc0edd39b8dcb7deb1f748b1fbb80e3eb4f7ae405aa772d9429a4323590c67",
+      "criteria": {
+        "zero-value": {
+          "command": [
+            "bash",
+            "/check/oracle/zero-value.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL out.txt missing",
+          "duration_seconds": 0.105842,
+          "script_sha256": "9437699766908c6edc24cc36501c040d8a190fbbeaf5d736cde24023773706bd",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "zero-value"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

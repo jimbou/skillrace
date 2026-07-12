@@ -1,0 +1,41 @@
+{
+  "schema": "d1-suite/1",
+  "suite_id": "skillrace-d1-public-v1-draft",
+  "status": "draft",
+  "selection_rule": "All externally sourced code-behavior skills prepared before headline runs and carrying clear artifact-redistribution permission; public skills with unsafe or missing license grants and original in-repo development skills are excluded regardless of observed outcome. The current 22 headline skills are the first 22 that satisfy this fixed protocol in popularity order, and the same ordered mining protocol remains active to add 8 additional qualifying public skills.",
+  "headline_skills": [
+    {"id": "fastapi-endpoint", "family": "api", "contingency": "high", "base_image": "skillrace/fastapi-endpoint:base"},
+    {"id": "cli-argparse-fix", "family": "cli", "contingency": "high", "base_image": "skillrace/cli-argparse-fix:base"},
+    {"id": "cli-subcommand-validator", "family": "cli", "contingency": "high", "base_image": "skillrace/cli-subcommand-validator:base"},
+    {"id": "code-refactor-fowler", "family": "refactor", "contingency": "high", "base_image": "skillrace/code-refactor-fowler:base"},
+    {"id": "condition-based-waiting", "family": "async-testing", "contingency": "medium", "base_image": "skillrace/condition-based-waiting:base"},
+    {"id": "debugging-difficult-bugs", "family": "debugging", "contingency": "high", "base_image": "skillrace/debugging-difficult-bugs:base"},
+    {"id": "finishing-a-development-branch", "family": "git-workflow", "contingency": "high", "base_image": "skillrace/finishing-a-development-branch:base"},
+    {"id": "json-parser", "family": "parser", "contingency": "high", "base_image": "skillrace/json-parser:base"},
+    {"id": "parser-generator", "family": "parser", "contingency": "medium", "base_image": "skillrace/parser-generator:base"},
+    {"id": "refactor", "family": "refactor", "contingency": "high", "base_image": "skillrace/refactor:base"},
+    {"id": "refactor-complexity-reduce", "family": "refactor", "contingency": "high", "base_image": "skillrace/refactor-complexity-reduce:base"},
+    {"id": "regex-expert", "family": "regex", "contingency": "medium", "base_image": "skillrace/regex-expert:base"},
+    {"id": "sql-queries", "family": "sql", "contingency": "high", "base_image": "skillrace/sql-queries:base"},
+    {"id": "sql-query-generator", "family": "sql", "contingency": "high", "base_image": "skillrace/sql-query-generator:base"},
+    {"id": "sql-query-json", "family": "sql", "contingency": "high", "base_image": "skillrace/sql-query-json:base"},
+    {"id": "sqlmodel-orm", "family": "sql", "contingency": "high", "base_image": "skillrace/sqlmodel-orm:base"},
+    {"id": "systematic-debugging", "family": "debugging", "contingency": "high", "base_image": "skillrace/systematic-debugging:base"},
+    {"id": "test-driven-development", "family": "testing-process", "contingency": "high", "base_image": "skillrace/test-driven-development:base"},
+    {"id": "unit-test-generation", "family": "unit-test", "contingency": "high", "base_image": "skillrace/unit-test-generation:base"},
+    {"id": "unit-test-generator", "family": "unit-test", "contingency": "high", "base_image": "skillrace/unit-test-generator:base"},
+    {"id": "using-git-worktrees", "family": "git-workflow", "contingency": "medium", "base_image": "skillrace/using-git-worktrees:base"},
+    {"id": "yaml-config", "family": "config", "contingency": "high", "base_image": "skillrace/yaml-config:base"}
+  ],
+  "excluded_public": [
+    {"id": "cli-typer-scripts", "reason": "upstream repository publishes no license grant, so artifact redistribution is not authorized", "license": "NOASSERTION"},
+    {"id": "json-serialization", "reason": "upstream repository uses a proprietary commercial license that does not clearly permit artifact redistribution", "license": "proprietary"},
+    {"id": "json-tools", "reason": "the skill declares proprietary terms but its referenced LICENSE.txt is absent, leaving redistribution rights unclear", "license": "proprietary"}
+  ],
+  "development_only": [
+    {"id": "build-python-cli", "reason": "original in-repo skill used during implementation development"},
+    {"id": "fix-failing-test", "reason": "original in-repo skill used for live prompt and pipeline pilots"},
+    {"id": "frontent-design", "reason": "original development skill with presentational success outside the code-behavior headline boundary"},
+    {"id": "mcp-server-patterns", "reason": "original in-repo skill used during implementation development"}
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "sqlite-query/t5",
+  "candidate_sha256": "01e9f34ae581d22d96714100408e3a22732ecc40c45be8d2e25d1e9e18da9d9d",
+  "dockerfile_sha256": "a78283d1388608849d8a9066df43030d8338304f5747b8570acbd4b946d46c99",
+  "content_identity_sha256": "9f6af4bb461a2d9a123092cb62812959a3c77e8e79d8e16bc1714b6a8a63bf39",
+  "duplicate_justification": null,
+  "entrypoint": "python3 answer.py",
+  "criteria": [
+    {
+      "id": "answer",
+      "script": "checks/answer.sh",
+      "script_sha256": "42c27d1c611dae788cc0dc5fcae269c5b75cda63329dbb56010e1d11cf558e77",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    },
+    {
+      "id": "clean",
+      "script": "checks/clean.sh",
+      "script_sha256": "b586469a288109089c242e5059f652c27d9aeb75902fc7767cf48af48b380ea7",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "hardcoded-answer"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "crash",
+      "overlay": "oracle/negative/crash",
+      "fault": "query command exits non-zero",
+      "overlay_sha256": "b7c7ed6b1bd00698b13ecec1d97308352bdea1659abca79192cdfb60cf16cd35"
+    },
+    {
+      "id": "hardcoded-answer",
+      "overlay": "oracle/negative/hardcoded-answer",
+      "fault": "prints only the disclosed initial answer and ignores database changes",
+      "overlay_sha256": "016ab6fb280a01201af0ecc34c16185554f46055488e55e39c90c4569a62e4ea"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "4bc0ca91e149570483265690da4f8743b5542c8f129bd8f1db97c66412069f7b",
+  "contract_identity_sha256": "07ab83cf675f56e5ae2c6e282dab2c80ca4fc7cdebe17d3b74e2edfda7411bd6"
+}

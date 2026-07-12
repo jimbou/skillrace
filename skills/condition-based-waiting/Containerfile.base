@@ -1,0 +1,5 @@
+# Level-2 per-skill base: condition-based-waiting (vendored obra/superpowers). Python + pytest.
+FROM skillrace/skillgen-base:latest
+COPY repo/ /workspace/
+COPY SKILL.md example.ts /skills/condition-based-waiting/
+RUN cd /workspace && git add -A && git commit -q -m "base: condition-based-waiting workspace" || true

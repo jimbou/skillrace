@@ -1,0 +1,43 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "json-csv/t5",
+  "candidate_sha256": "15f950fccb5581464cf5c66dd23b25e8649d8f2beca46871eafdec0727a3ca4b",
+  "dockerfile_sha256": "f79c29bb0bec0b9f6eaabdc674abda14f03cd2f2187a05bb73ebec8a01b3547b",
+  "content_identity_sha256": "fc47b9041660e93aae68ae84d164774a2d89d02309b1dcf39ec5ab13b390cc68",
+  "duplicate_justification": null,
+  "entrypoint": "python3 convert.py <in.json> <out.csv>",
+  "criteria": [
+    {
+      "id": "empty-array-valid-csv",
+      "script": "checks/no-crash.sh",
+      "script_sha256": "7d5f3a2499f2667a5fd632a1180a66c10e58bef8699e880e77b850b24f6eef10",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the command creates a newly created, syntactically valid empty CSV with no unexpected rows"
+      },
+      "negative_ids": [
+        "no-output",
+        "invalid-csv"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "no-output",
+      "overlay": "oracle/negative/no-output",
+      "fault": "exits zero without creating output",
+      "overlay_sha256": "c8038bd5d873f3b4fb762c2531703706ac7082c3d04cd7664f08d3cc94d20e54"
+    },
+    {
+      "id": "invalid-csv",
+      "overlay": "oracle/negative/invalid-csv",
+      "fault": "creates syntactically invalid CSV",
+      "overlay_sha256": "5001ff63190b074e007bf4646ad4b8e49d871129199990382d4670798c596d8c"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "62741d6f2d55b59a93f85be4641ea15337f9ead8897fc5a4c491a4c5d86fdf85",
+  "contract_identity_sha256": "ea615d2e8655e61d789fec4ed3ed0c5eb4e17134ccabbf0c15b24965b1bfb113"
+}

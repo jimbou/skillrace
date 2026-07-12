@@ -1,0 +1,9 @@
+{
+  "schema": "skillrace-rq3-campaign-config/1",
+  "scenario_id": "interval-merge",
+  "skill_name": "interval-merge",
+  "base_image": "skillrace/rq3-interval-merge:base",
+  "properties": "properties.json",
+  "applicability": "applicability.json",
+  "containerfile": "Containerfile.base"
+}

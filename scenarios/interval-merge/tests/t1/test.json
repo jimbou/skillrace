@@ -1,0 +1,36 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "interval-merge/t1",
+  "candidate_sha256": "bfc89e7835a8f46aa137ab13977da3144364bc2c592ac72efa16595303997894",
+  "dockerfile_sha256": "ba69408f061de14235f7f6678d509fb3b6644f447f0bd58d24de9cc614d6f08d",
+  "content_identity_sha256": "ecff0f1c168faa74fb1ffd2d994dd479919b950ac6071fee897e911c99fb4b2c",
+  "duplicate_justification": null,
+  "entrypoint": "python3 -c 'from intervals import merge'",
+  "criteria": [
+    {
+      "id": "basic",
+      "script": "checks/basic.sh",
+      "script_sha256": "4ab1179bf52534e429376949623868c1bec55c3bb79484e39949f80322c01fa9",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "crash",
+      "overlay": "oracle/negative/crash",
+      "fault": "implementation crashes before producing the required behavior",
+      "overlay_sha256": "629a6db3c4eb4d0b71d4756819334b31deb7524aded80231565211dc4ce350ac"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "522c262873aef9cbea2c476b2a9d23ada71da0facdd91856cf54f4eaea34f49c",
+  "contract_identity_sha256": "a285721830801eed1c885c3c4d85871d8e79071bb6e14487ed321ba24a88f38c"
+}

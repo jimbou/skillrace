@@ -1,0 +1,69 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "json-csv/t8",
+  "state": "validated",
+  "contract_identity_sha256": "ece4d03096196665dd2ea05bd94a33e75bf0826cda59937a7a2fc5f39b2a8c73",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T00:13:08.628881+00:00",
+  "image_digest": "sha256:b546134487b931bacd3cda23e76093bef61804c12e920cb9d5913f038386a0a7",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "62741d6f2d55b59a93f85be4641ea15337f9ead8897fc5a4c491a4c5d86fdf85",
+    "criteria": {
+      "embedded-newline": {
+        "command": [
+          "bash",
+          "/check/oracle/embedded-newline.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.133729,
+        "script_sha256": "bb8659fb106462e59a3f007ef1b9a7210ada4775f7978e582d4b2fb436fa4f70",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "embedded-newline": {
+        "command": [
+          "bash",
+          "/check/oracle/embedded-newline.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL convert.py missing",
+        "duration_seconds": 0.079647,
+        "script_sha256": "bb8659fb106462e59a3f007ef1b9a7210ada4775f7978e582d4b2fb436fa4f70",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "crash": {
+      "overlay_sha256": "0e8313ca28089930f2bcf67fd0cbf80af1dab082cef9f72b3f618e8c2ee9b27e",
+      "criteria": {
+        "embedded-newline": {
+          "command": [
+            "bash",
+            "/check/oracle/embedded-newline.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "RuntimeError: negative implementation",
+          "duration_seconds": 0.093625,
+          "script_sha256": "bb8659fb106462e59a3f007ef1b9a7210ada4775f7978e582d4b2fb436fa4f70",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "embedded-newline"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

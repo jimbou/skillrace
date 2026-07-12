@@ -1,0 +1,15 @@
+{
+  "skill": "sqlite-query",
+  "fixed_invariants": [
+    "fixed-no-force-push",
+    "fixed-no-destructive-rm",
+    "fixed-no-pathological-repetition",
+    "fixed-terminated-within-budget"
+  ],
+  "property_ids": [
+    "sqlite-answer-correct",
+    "sqlite-schema-aware",
+    "sqlite-verification"
+  ],
+  "contingency": "high"
+}

@@ -6,7 +6,17 @@
 
 **Architecture:** Phase 1 runs only inside a public staged scenario. A method-neutral projector converts campaign artifacts into the same bounded JSON envelope. A condition-blind reviser produces three skills. Hidden evaluation is a separate process that receives one condition at a time and writes immutable per-test/per-repeat records; an RQ3 reducer links hashes and computes paired outcomes.
 
-**Tech Stack:** Python 3.12, pytest, Docker, Pi/CloseAI, JSON, SHA-256, deterministic accounting tokenizer.
+**Tech Stack:** Python 3.12, pytest, Docker, Pi/CloseAI, JSON, SHA-256, deterministic canonical-JSON UTF-8 byte accounting.
+
+> **Implemented protocol clarification (2026-07-11).** The earlier `cl100k_base`
+> plan below is superseded: using an OpenAI tokenizer to describe a Qwen prompt would
+> be scientifically misleading. Feedback envelopes now record
+> `budget_unit=canonical-json-utf8-bytes/1`, `max_bytes`, and `used_bytes`. Actual Qwen
+> provider tokens remain separate revision-call cost fields. The primary RQ3 outcome
+> is each revision's paired change from zero-shot; SkillRACE-versus-baseline contrasts
+> are secondary. Errors, timeouts, inconclusive, and missing hidden executions are
+> conservative non-passes in the all-scheduled-tests headline, with available-case
+> sensitivity reported separately.
 
 ---
 
@@ -22,7 +32,7 @@
 - Create `tests/test_feedback.py`: schema/order/budget tests.
 - Create `tests/test_rq3_leakage.py`: public staging and forbidden-path tests.
 - Create `tests/test_rq3_manifest.py`: six-condition/three-repeat linkage tests.
-- Modify `pyproject.toml`: pin the accounting tokenizer.
+- Keep envelope accounting dependency-free by using exact canonical-JSON UTF-8 bytes.
 - Modify `skillrace/revise_skill.py`: consume envelopes and record complete revision identity.
 - Modify `skillrace/skill_eval.py`: no-skill condition, repeats, strict metric, immutable outputs.
 - Modify `skillrace/run_case.py`: omit Pi's `--skill` flag for the native-agent condition.
@@ -128,14 +138,16 @@ git commit -m "feat: stage public-only RQ3 campaigns"
 - Create: `tests/test_feedback.py`
 - Modify: `pyproject.toml`
 
-- [ ] **Step 1: Pin the accounting tokenizer**
+- [x] **Step 1: Freeze exact byte accounting**
 
-Add `tiktoken>=0.12,<0.13` to project dependencies. Use the fixed `cl100k_base` encoding only as a reproducible envelope-accounting tokenizer; record that choice in every envelope. The reviser model may tokenize differently, so also record actual API input tokens after revision.
+Do not add a tokenizer dependency. Canonically serialize the envelope as UTF-8 and
+record its exact byte length under `canonical-json-utf8-bytes/1`. The Qwen provider's
+actual API input/output tokens are recorded separately after revision.
 
 - [ ] **Step 2: Write schema and budget tests**
 
 ```python
-from skillrace.feedback import build_feedback_envelope, envelope_token_count
+from skillrace.feedback import build_feedback_envelope, envelope_byte_count
 
 
 def campaign(method):
@@ -154,7 +166,7 @@ def campaign(method):
 
 
 def test_all_methods_emit_identical_top_level_schema():
-    envelopes = [build_feedback_envelope(campaign(method), max_tokens=500)
+    envelopes = [build_feedback_envelope(campaign(method), max_bytes=2000)
                  for method in ("random", "greybox", "skillrace")]
     assert [list(value) for value in envelopes] == [list(envelopes[0])] * 3
     assert "method" not in envelopes[0]
@@ -163,15 +175,15 @@ def test_all_methods_emit_identical_top_level_schema():
 def test_envelope_respects_accounting_token_cap():
     value = campaign("skillrace")
     value["iterations"] *= 100
-    envelope = build_feedback_envelope(value, max_tokens=220)
-    assert envelope_token_count(envelope) <= 220
+    envelope = build_feedback_envelope(value, max_bytes=880)
+    assert envelope_byte_count(envelope) <= 880
 
 
 def test_confirmed_and_inconclusive_findings_are_separate():
     value = campaign("random")
     value["iterations"][0]["reproducible"] = []
     value["iterations"][0]["inconclusive"] = ["p2"]
-    envelope = build_feedback_envelope(value, max_tokens=500)
+    envelope = build_feedback_envelope(value, max_bytes=2000)
     assert envelope["confirmed_findings"] == []
     assert envelope["inconclusive_findings"]
 ```
@@ -188,9 +200,9 @@ Every envelope has this ordered schema:
     "method_evidence": {"tool_novelty": [], "guard_mutations": [], "branch_outcomes": []},
     "inconclusive_findings": [],
     "accounting": {
-        "tokenizer": "cl100k_base",
-        "max_tokens": max_tokens,
-        "used_tokens": 0,
+        "budget_unit": "canonical-json-utf8-bytes/1",
+        "max_bytes": max_bytes,
+        "used_bytes": 0,
         "source_campaign_hash": "",
     },
 }
@@ -198,7 +210,7 @@ Every envelope has this ordered schema:
 
 Confirmed findings require the frozen reproduction threshold and include property, task, environment, reproduction count, replay case hash, and a method-neutral failure summary. Explored situations include candidate summaries for every counted execution. Method evidence populates only fields available to that method; unavailable fields stay empty. Inconclusive findings never appear as confirmed.
 
-Sort by execution ordinal then stable hashes. Add items in priority order: confirmed findings, one explored-situation record per execution until its quota is full, method evidence, inconclusive findings. After each addition, canonical-serialize and count tokens; reject the addition if it exceeds the cap. Finally set `used_tokens` and verify the final object remains within the cap.
+Sort by execution ordinal then stable hashes. Add items in priority order: confirmed findings, one explored-situation record per execution until its quota is full, method evidence, inconclusive findings. After each addition, canonical-serialize and count UTF-8 bytes; reject the addition if it exceeds the cap. Finally set `used_bytes` and verify the final object remains within the cap.
 
 - [ ] **Step 4: Run and commit**
 
@@ -230,8 +242,8 @@ def envelope(evidence):
         "explored_situations": [],
         "method_evidence": {"tool_novelty": [], "guard_mutations": [], "branch_outcomes": []},
         "inconclusive_findings": [],
-        "accounting": {"tokenizer": "cl100k_base", "max_tokens": 6000,
-                       "used_tokens": 100, "source_campaign_hash": "abc"},
+        "accounting": {"budget_unit": "canonical-json-utf8-bytes/1", "max_bytes": 24000,
+                       "used_bytes": 400, "source_campaign_hash": "abc"},
     }
 
 

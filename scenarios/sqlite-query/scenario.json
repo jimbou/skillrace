@@ -1,0 +1,37 @@
+{
+  "schema": "skillrace-scenario/1",
+  "scenario_id": "sqlite-query",
+  "purpose_sha256": "608e4117b178589ff60f909f3fc67e29c9ad9c162ef852f1d05037bb2a75f9d6",
+  "base_skill_sha256": "237f4fb83e0accbedee31ff8fbd1044f6bdf87fe3f1f5b9bf4a74bb9962257dd",
+  "public_paths": [
+    "scenario.md",
+    "base_skill",
+    "campaign"
+  ],
+  "hidden_tests": {
+    "path": "tests",
+    "count": 10,
+    "ids": [
+      "sqlite-query/t1",
+      "sqlite-query/t2",
+      "sqlite-query/t3",
+      "sqlite-query/t4",
+      "sqlite-query/t5",
+      "sqlite-query/t6",
+      "sqlite-query/t7",
+      "sqlite-query/t8",
+      "sqlite-query/t9",
+      "sqlite-query/t10"
+    ]
+  },
+  "boundary": {
+    "public_can_read": [
+      "scenario.md",
+      "base_skill",
+      "campaign"
+    ],
+    "forbidden_to_campaign": [
+      "tests"
+    ]
+  }
+}

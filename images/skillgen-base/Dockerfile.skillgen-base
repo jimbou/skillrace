@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1.7
+# Rebuildable Python/pytest workspace shared by D1 and D2 environments.
+FROM skillrace/pi-base:0.62.0
+
+LABEL org.opencontainers.image.title="skillrace-skillgen-base" \
+      org.opencontainers.image.description="Pinned Python/pytest workspace on the shared SkillRACE Pi runtime" \
+      org.opencontainers.image.source="skillrace/images/skillgen-base"
+
+# Exact Debian package versions make repository drift fail visibly instead of
+# silently changing the experiment environment.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      python3=3.11.2-1+b1 \
+      python3-pytest=7.2.1-2 \
+ && rm -rf /var/lib/apt/lists/* \
+ && ln -sf /usr/bin/python3 /usr/local/bin/python
+
+WORKDIR /
+RUN rm -rf /workspace /skills/* /logs/* \
+ && mkdir -p /workspace /skills /logs \
+ && git config --global user.email "base@skillrace.local" \
+ && git config --global user.name "skillrace"
+
+WORKDIR /workspace
+RUN git init -q -b main \
+ && printf '__pycache__/\n*.pyc\n' > .gitignore \
+ && git add -A \
+ && GIT_AUTHOR_DATE=2026-07-11T00:00:00Z \
+    GIT_COMMITTER_DATE=2026-07-11T00:00:00Z \
+    git commit -q -m "skillgen base: empty workspace"

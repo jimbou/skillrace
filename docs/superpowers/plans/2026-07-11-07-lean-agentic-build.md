@@ -19,7 +19,7 @@
 - One shared qwen3.6-flash configuration, runner, sanity gate, and property checker.
 - RQ3 feedback producers are the same three methods with the same 30-run allocation.
 - RQ3 hidden evaluation compares zero-shot, random-feedback, VeriGrey-feedback, and SkillRACE-feedback once on each hidden test.
-- No additional full baseline. Only an optional five-skill outcomes-only SkillRACE ablation.
+- No additional baseline, ablation, model sweep, or per-skill parameter selection.
 
 ### Task 1: Establish the offline reliability foundation
 
@@ -42,7 +42,7 @@
 - Modify: `skills/*/applicability.json`, `skillrace/fixed_checks.py`, `skillrace/check_properties.py`, `skillrace/aggregate.py`, `skillrace/tree.py`, `skillrace/guards.py`
 - Test: `tests/test_property_specs.py`, `tests/test_campaign_outcomes.py`, `tests/test_aggregate_metrics.py`, `tests/test_atomic_call_sites.py`
 
-- [ ] Write failing tests proving all 28 applicability matrices reference real property IDs, pre-agent infrastructure failures do not consume budget, started errors/timeouts do consume budget, first-defect indexes are one-based, and no-defect campaigns are right-censored.
+- [ ] Write failing tests proving every manifest-selected skill's applicability matrix references real property IDs, pre-agent infrastructure failures do not consume budget, started errors/timeouts do consume budget, first-defect indexes are one-based, and no-defect campaigns are right-censored.
 - [ ] Implement explicit property selection and fixed-invariant allowlists.
 - [ ] Replace mutable shared JSON writes with atomic replacement.
 - [ ] Record infrastructure, agent, oracle-inconclusive, and generation outcomes separately.
@@ -87,7 +87,7 @@
 - [ ] Implement random/greybox queues and SkillRACE frozen-tree epochs with one reducer.
 - [ ] Record intended-branch, different-new-branch, no-divergence, path-miss, targeted, and serendipitous outcomes without requiring branch success.
 - [ ] Keep synthesis opportunistic: coherent multi-feature mutations are allowed and all valid discoveries fold back into the tree.
-- [ ] Add an outcomes-only strategy boundary but do not schedule other ablations.
+- [ ] Derive intended-branch, alternate-new-branch, miss, targeted, and serendipitous mechanism labels from the same headline SkillRACE executions.
 - [ ] Run focused and full tests, then commit.
 
 ### Task 6: Harden the ten-scenario hidden benchmark economically
@@ -127,7 +127,7 @@
 - Test: `tests/test_defect_triage.py`, `tests/test_analyze_rq1.py`, `tests/test_artifact.py`
 
 - [ ] Run the complete offline suite and sub-30-minute replay smoke from a clean checkout.
-- [ ] Run Docker smoke campaigns for random, VeriGrey-inspired, and SkillRACE on debugging, CLI, parser, SQL, and low-contingency skills.
+- [ ] Run Docker smoke campaigns for random, VeriGrey-inspired, and SkillRACE on debugging, CLI, parser, SQL, and medium-contingency skills.
 - [ ] With explicit API authorization, run small qwen3.6-flash pilots, inspect traces/trees/guards/checks, and fix only general cross-skill failures with regression tests.
 - [ ] Never change a baseline or prompt merely because a pilot result is unfavorable; fairness tests and frozen protocol remain authoritative.
 - [ ] Deduplicate suspected defects by failure signature and confirm one representative once.

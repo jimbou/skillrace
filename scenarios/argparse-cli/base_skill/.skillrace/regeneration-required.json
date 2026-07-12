@@ -1,0 +1,7 @@
+{
+  "schema": "skillrace-base-regeneration-required/1",
+  "scenario_id": "argparse-cli",
+  "status": "regeneration-required",
+  "current_skill_hash": "2304b42fc4f2fe3b5e3a4cc5b1ed0db7e9f0b8199f3138d86fd51164775cbb1a",
+  "reason": "original model-call provenance was not recoverable"
+}

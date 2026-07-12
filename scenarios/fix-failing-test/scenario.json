@@ -1,0 +1,37 @@
+{
+  "schema": "skillrace-scenario/1",
+  "scenario_id": "fix-failing-test",
+  "purpose_sha256": "1270882d65f541608905b15fc648795edf0074a89b1968a40a8716829359af59",
+  "base_skill_sha256": "d545b69a3e91487f680b084b50c8f3f8121dce73ae5aa464a3856203d6f2e4dd",
+  "public_paths": [
+    "scenario.md",
+    "base_skill",
+    "campaign"
+  ],
+  "hidden_tests": {
+    "path": "tests",
+    "count": 10,
+    "ids": [
+      "fix-failing-test/t1",
+      "fix-failing-test/t2",
+      "fix-failing-test/t3",
+      "fix-failing-test/t4",
+      "fix-failing-test/t5",
+      "fix-failing-test/t6",
+      "fix-failing-test/t7",
+      "fix-failing-test/t8",
+      "fix-failing-test/t9",
+      "fix-failing-test/t10"
+    ]
+  },
+  "boundary": {
+    "public_can_read": [
+      "scenario.md",
+      "base_skill",
+      "campaign"
+    ],
+    "forbidden_to_campaign": [
+      "tests"
+    ]
+  }
+}

@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillRACE — Reasoning-Augmented Concolic Execution for Coding-Agent Skills</title>
+  <meta
+    name="description"
+    content="Reasoning-Augmented Concolic Execution evaluates coding-agent skills with a fair, reproducible protocol across baseline and adaptive methods."
+  />
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="script.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+
+  <header class="topbar">
+    <div class="inner">
+      <a class="brand" href="#main-content" aria-label="Reasoning-Augmented Concolic Execution home">
+        <img class="brand-icon" src="skillrace-icon.png" alt="" />
+        <span>SkillRACE</span>
+      </a>
+      <div class="scroll-progress" aria-hidden="true"><span></span></div>
+      <nav aria-label="Primary">
+        <a href="#protocol-overview">Protocol</a>
+        <a href="#motivation">Motivation</a>
+        <a href="#method">Method</a>
+        <a href="#failure-model">Failure model</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#evaluation">Evaluation</a>
+        <a href="#artifacts">Artifacts</a>
+        <a href="#status">Status</a>
+        <a href="#results">Results</a>
+        <a href="#citation">Citation</a>
+      </nav>
+      <a class="cta" href="../README.md">Repository</a>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="hero">
+      <div class="inner">
+        <p class="eyebrow">Protocol-first, reproducible testing</p>
+        <div class="hero-header">
+          <img class="hero-logo" src="skillrace-icon.png" alt="SkillRACE icon" />
+          <div>
+            <h1>Reasoning-Augmented Concolic Execution</h1>
+            <h2>for Coding-Agent Skills</h2>
+          </div>
+        </div>
+        <p>
+          Reasoning-augmented testing drives generation toward hard-to-reach behavior and surfaces brittle bugs
+          that static baselines often miss.
+        </p>
+        <div class="hero-stats">
+          <span class="pill">Methods: <strong>Random</strong>, <strong>VeriGrey</strong>, <strong>SkillRACE</strong></span>
+          <span class="pill">Budget: <strong>30 runs per (skill, method)</strong></span>
+          <span class="pill">Model: <strong>qwen3.6-flash</strong>, constant across methods</span>
+        </div>
+        <div class="hero-actions">
+          <a class="btn" href="#protocol-overview">Read protocol</a>
+          <a class="btn secondary" href="#evaluation">See RQs</a>
+        </div>
+        <div class="hero-ticker" aria-label="Protocol quick facts">
+          <span class="tick"><span class="tick-dot"></span>2 baselines + 1 adaptive</span>
+          <span class="tick"><span class="tick-dot"></span>30-run fixed budget per cell</span>
+          <span class="tick"><span class="tick-dot"></span>Single reproducibility envelope</span>
+        </div>
+        <div class="hero-panels" aria-label="Research focus">
+          <div class="hero-mini">
+            <p class="mini-label">Target outcome</p>
+            <p>Higher confirmed-defect yield with stronger branch exploration</p>
+          </div>
+          <div class="hero-mini">
+            <p class="mini-label">Method split</p>
+            <p>Random, VeriGrey, and SkillRACE under same protocol</p>
+          </div>
+          <div class="hero-mini">
+            <p class="mini-label">Evaluation mode</p>
+            <p>Fairness-first, fixed budget, full evidence trails</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="protocol-overview" class="elevated">
+      <div class="inner">
+        <h3>Protocol at a glance</h3>
+        <p class="subtle">One fixed protocol per method, per skill.</p>
+        <div class="protocol-grid">
+          <article class="metric-card">
+            <p class="metric-kicker">Campaign budget</p>
+            <p class="metric-value"><span class="stat-num" data-target="30">0</span> runs / cell</p>
+            <p class="mini-note">Same execution budget across all studies.</p>
+          </article>
+          <article class="metric-card">
+            <p class="metric-kicker">Public skills</p>
+            <p class="metric-value"><span class="stat-num" data-target="22">0</span> validated</p>
+            <p class="mini-note">Target: 30 with identical inclusion criteria.</p>
+          </article>
+          <article class="metric-card">
+            <p class="metric-kicker">Generation scenarios</p>
+            <p class="metric-value"><span class="stat-num" data-target="10">0</span> scenarios</p>
+            <p class="mini-note">10 hidden tests per scenario.</p>
+          </article>
+          <article class="metric-card">
+            <p class="metric-kicker">Failure accounting</p>
+            <p class="metric-value">4-tier</p>
+            <p class="mini-note">signal → signature → confirmation → yield</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="motivation">
+      <div class="inner">
+        <h3>Why this problem exists</h3>
+        <p class="subtle">
+          A weak branch can break many workflows. Random and static baselines often never touch it.
+        </p>
+        <div class="grid3">
+          <article class="card">
+            <h4>Rare branches</h4>
+            <p>Deep control flow in model outputs is only exposed when tests are steered toward
+              structurally new states.</p>
+          </article>
+          <article class="card">
+            <h4>False confidence</h4>
+            <p>Passing shallow checks can still hide behavioral or state-level failures.</p>
+          </article>
+          <article class="card">
+            <h4>Comparability</h4>
+            <p>Different budgets, seeds, and checkers can invalidate method-to-method comparisons.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="contributions">
+      <div class="inner">
+        <h3>Core ideas</h3>
+        <div class="contrib-grid">
+          <article class="feature-card">
+            <h4>Behavioral exploration</h4>
+            <p>Runs become compact episode trees; promising branches mutate under valid constraints.</p>
+          </article>
+          <article class="feature-card">
+            <h4>Single fairness envelope</h4>
+            <p>All methods share the same seed, budget, and execution envelope for fair comparison.</p>
+          </article>
+          <article class="feature-card">
+            <h4>Evidence-first defects</h4>
+            <p>Layered accounting avoids duplicate inflation and keeps findings auditable.</p>
+          </article>
+          <article class="feature-card">
+            <h4>Artifact-first reproducibility</h4>
+            <p>Seeded journals and manifests are kept for replay and reviewer inspection.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="inner">
+        <h3>System architecture</h3>
+          <p class="subtle">Search and execution are separated to reduce feedback coupling.</p>
+        <div class="arch-grid">
+          <article class="arch-card">
+            <p class="arch-title">1. Candidate builder</p>
+            <h4>Inputs and prompt materialization</h4>
+            <p>Same pipeline for all methods: seed -> candidate -> runner prompt.</p>
+          </article>
+          <article class="arch-card">
+            <p class="arch-title">2. Execution</p>
+            <h4>Isolated skill runs</h4>
+            <p>Deterministic constraints with fixed timeouts and captured artifacts.</p>
+          </article>
+          <article class="arch-card">
+            <p class="arch-title">3. Trace extraction</p>
+            <h4>Episode segmentation</h4>
+            <p>Logs are normalized into branching episodes.</p>
+          </article>
+          <article class="arch-card">
+            <p class="arch-title">4. Search policy</p>
+            <h4>Tree + guard mutation</h4>
+            <p>Priority is given to unexplored and high-potential branches.</p>
+          </article>
+          <article class="arch-card">
+            <p class="arch-title">5. Oracle</p>
+            <h4>Checks and verification</h4>
+            <p>Static checks, property checks, and generated checks are scored consistently.</p>
+          </article>
+          <article class="arch-card">
+            <p class="arch-title">6. Reporting</p>
+            <h4>Yield and confidence</h4>
+            <p>Results are grouped, confirmed, and exported with seed-aware metadata.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+        <section id="method">
+      <div class="inner grid2">
+        <article>
+          <h3>Method</h3>
+          <div class="method-steps" aria-label="Execution loop">
+            <details class="step-detail" open>
+              <summary>1) Build candidate</summary>
+              <p>Seed + policy generate one runnable candidate.</p>
+            </details>
+            <details class="step-detail">
+              <summary>2) Execute and trace</summary>
+              <p>Isolated execution captures artifacts, outputs, and state.</p>
+            </details>
+            <details class="step-detail">
+              <summary>3) Compress behavior</summary>
+              <p>Runs compress into normalized episode signatures.</p>
+            </details>
+            <details class="step-detail">
+              <summary>4) Mutate target</summary>
+              <p>Promising branches are mutated with validity checks.</p>
+            </details>
+            <details class="step-detail">
+              <summary>5) Evaluate</summary>
+              <p>Candidate replay goes through the fixed oracle and accounted checks.</p>
+            </details>
+          </div>
+          <p class="subtle">
+            The differentiator is branch policy and ranking in step 4.
+          </p>
+        </article>
+        <aside class="card method-compare">
+          <h4>Method difference (fair policy)</h4>
+          <div class="compare-tabs" role="tablist" aria-label="Method comparison">
+            <button class="compare-tab is-active" data-mode="random" role="tab" aria-selected="true">Random</button>
+            <button class="compare-tab" data-mode="verigrey" role="tab" aria-selected="false">VeriGrey</button>
+            <button class="compare-tab" data-mode="skillrace" role="tab" aria-selected="false">SkillRACE</button>
+          </div>
+          <p id="compare-copy" class="compare-copy">
+            Random ignores execution feedback and always samples directly from the search space.
+          </p>
+          <p id="compare-note" class="mini-note">Toggle to see the behavior difference.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section id="failure-model">
+      <div class="inner">
+        <h3>Failure model</h3>
+        <div class="grid3">
+          <article class="feature-card">
+            <h4>1. Signal</h4>
+            <p>Any check failure triggers a raw signal.</p>
+          </article>
+          <article class="feature-card">
+            <h4>2. Grouping</h4>
+            <p>Equivalent traces are merged by normalized signatures.</p>
+          </article>
+          <article class="feature-card">
+            <h4>3. Confirmation</h4>
+            <p>Repeats are re-run under frozen conditions.</p>
+          </article>
+          <article class="feature-card">
+            <h4>4. Campaign score</h4>
+            <p>Confirmed defects become campaign yield.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="evaluation">
+      <div class="inner">
+        <h3>Evaluation design</h3>
+        <div class="grid3">
+          <div class="card highlight">
+            <p class="mini-chip">RQ1</p>
+            <h4>RQ1 — Public skills</h4>
+            <p><strong>22 public skills completed</strong>.</p>
+            <p>Target: <strong>30</strong> total with fixed inclusion rules.</p>
+            <p>Primary output: confirmed defects.</p>
+          </div>
+          <div class="card">
+            <p class="mini-chip">RQ2</p>
+            <h4>RQ2 — Why it works</h4>
+            <p>Trajectory labels explain which branch pressures lead to gains.</p>
+          </div>
+          <div class="card">
+            <p class="mini-chip">RQ3</p>
+            <h4>RQ3 — Generation</h4>
+            <p>10 scenarios, 10 hidden tests each, private to generation loop.</p>
+            <p>Primary output: hidden-test deltas vs baseline.</p>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Study</th><th>Unit</th><th>Budget</th><th>Primary output</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>RQ1</td><td>Skill × method</td><td>30 runs</td><td>Confirmed defects</td></tr>
+              <tr><td>RQ2</td><td>Branch labels</td><td>derived</td><td>Explanatory trends</td></tr>
+              <tr><td>RQ3</td><td>Scenario × method</td><td>10 tests each</td><td>Delta hidden-test pass rate</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="artifacts" class="status">
+      <div class="inner">
+        <h3>Artifacts and reproducibility</h3>
+        <div class="grid2">
+          <div class="card">
+            <h4>What’s prepared</h4>
+            <ul>
+              <li>Protocol freeze files (prompts, seeds, costs, models).</li>
+              <li>Run journals and candidate manifests.</li>
+              <li>Property specs and applicability tables.</li>
+              <li>Raw traces and fixed-check evidence.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Links</h4>
+            <div class="artifact-links">
+              <a href="../docs/superpowers/specs/2026-07-11-skillrace-evaluation-design.md">Evaluation protocol</a>
+              <a href="../docs/evaluation-reviewer-guide.md">Reviewer guide</a>
+              <a href="../docs/implementation-status.md">Implementation status</a>
+              <a href="../STATUS.md">Project status</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="status">
+      <div class="inner">
+        <h3>Current status</h3>
+        <p class="subtle">Implementation is substantially complete; headline metrics are still pending final paid campaigns.</p>
+        <div class="meter">
+          <div class="meter-labels">
+            <span>Completion</span>
+            <span>41%</span>
+          </div>
+          <div class="meter-track"><span class="meter-fill" style="width: 41%;"></span></div>
+        </div>
+        <div class="status-grid">
+          <article>
+            <h4>Done</h4>
+            <ul>
+              <li>Core engine and search loop</li>
+              <li>Fairness protocol scaffolding</li>
+              <li>Evidence logging and manifests</li>
+            </ul>
+          </article>
+          <article>
+            <h4>In progress</h4>
+            <ul>
+              <li>Campaign freeze alignment</li>
+              <li>Dataset expansion to 30 skills</li>
+              <li>Final analysis pass</li>
+            </ul>
+          </article>
+          <article>
+            <h4>Pending</h4>
+            <ul>
+              <li>Headline RQ1 campaign</li>
+              <li>Headline RQ3 campaign</li>
+              <li>Artifact package for submission</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="results">
+      <div class="inner">
+        <h3>Results (placeholders)</h3>
+        <div class="placeholder-grid">
+          <article>
+            <h4>RQ1 defect yield</h4>
+            <p class="status-pill pending">Pending execution</p>
+            <p class="pending">TBD</p>
+            <p class="mini-note">Will report grouped, confirmed yield and latency.</p>
+          </article>
+          <article>
+            <h4>RQ3 hidden tests</h4>
+            <p class="status-pill pending">Pending execution</p>
+            <p class="pending">TBD</p>
+            <p class="mini-note">Per-condition delta from zero-shot baseline.</p>
+          </article>
+          <article>
+            <h4>Cost and speed</h4>
+            <p class="status-pill pending">Pending execution</p>
+            <p class="pending">TBD</p>
+            <p class="mini-note">Token/cost/time by stage is tracked.</p>
+          </article>
+          <article>
+            <h4>Confidence</h4>
+            <p class="status-pill pending">Pending execution</p>
+            <p class="pending">TBD</p>
+            <p class="mini-note">Bootstrap and fixed-seed intervals predeclared.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="citation">
+      <div class="inner">
+        <h3>Citation placeholder</h3>
+        <pre><code>@inproceedings{skillrace2026,
+  title = {Reasoning-Augmented Concolic Execution for Coding-Agent Skills},
+  author = {TBD},
+  year = {2026},
+  note = {Under review}
+}</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <p>Contact via repository issues for reproducibility requests.</p>
+      <p class="subtle">A public page for SkillRACE visibility, protocol clarity, and future sharing.</p>
+    </div>
+  </footer>
+
+  <button id="to-top" class="to-top" aria-label="Back to top">↑ Top</button>
+</body>
+</html>

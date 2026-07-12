@@ -1,0 +1,103 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "argparse-cli/t7",
+  "state": "validated",
+  "contract_identity_sha256": "8c8ba3edb402ce33430c2544fee8205ea55cf53a0d2e459923ed27b21cc1c883",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T00:09:20.580943+00:00",
+  "image_digest": "sha256:ba8efe853f858230969de89fe1aaf66648b8a42e3d2d16de510b1039084387af",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "5f52205d629fe20275e3f61370d4d53ffe2e5dd950c8c567371b7c5d9ba2f2d2",
+    "criteria": {
+      "flag-off": {
+        "command": [
+          "bash",
+          "/check/oracle/flag-off.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.148408,
+        "script_sha256": "d9a13e3e906dda9d3246079f8fefbb02a8339e49de539d88dfe1a963287174c8",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "flag-on": {
+        "command": [
+          "bash",
+          "/check/oracle/flag-on.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.13523,
+        "script_sha256": "4fb2a6a3dfa1c935601d322eaf22771238a72c8079ef044828a9a9be5f52fa9c",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "flag-off": {
+        "command": [
+          "bash",
+          "/check/oracle/flag-off.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL tool.py missing",
+        "duration_seconds": 0.083845,
+        "script_sha256": "d9a13e3e906dda9d3246079f8fefbb02a8339e49de539d88dfe1a963287174c8",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "flag-on": {
+        "command": [
+          "bash",
+          "/check/oracle/flag-on.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL tool.py missing",
+        "duration_seconds": 0.080518,
+        "script_sha256": "4fb2a6a3dfa1c935601d322eaf22771238a72c8079ef044828a9a9be5f52fa9c",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "crash": {
+      "overlay_sha256": "0c942dc899e5ffeab7768c6e190050a492a60b4c5c44400bda4bc4d848d5c06f",
+      "criteria": {
+        "flag-off": {
+          "command": [
+            "bash",
+            "/check/oracle/flag-off.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected exit 0: rc=2",
+          "duration_seconds": 0.111559,
+          "script_sha256": "d9a13e3e906dda9d3246079f8fefbb02a8339e49de539d88dfe1a963287174c8",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "flag-on": {
+          "command": [
+            "bash",
+            "/check/oracle/flag-on.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected exit 0: rc=2",
+          "duration_seconds": 0.105978,
+          "script_sha256": "4fb2a6a3dfa1c935601d322eaf22771238a72c8079ef044828a9a9be5f52fa9c",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "flag-off",
+        "flag-on"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

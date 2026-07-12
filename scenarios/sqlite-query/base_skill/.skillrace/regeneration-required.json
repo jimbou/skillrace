@@ -1,0 +1,7 @@
+{
+  "schema": "skillrace-base-regeneration-required/1",
+  "scenario_id": "sqlite-query",
+  "status": "regeneration-required",
+  "current_skill_hash": "237f4fb83e0accbedee31ff8fbd1044f6bdf87fe3f1f5b9bf4a74bb9962257dd",
+  "reason": "original model-call provenance was not recoverable"
+}

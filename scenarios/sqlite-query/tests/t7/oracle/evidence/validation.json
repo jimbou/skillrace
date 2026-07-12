@@ -1,0 +1,133 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "sqlite-query/t7",
+  "state": "validated",
+  "contract_identity_sha256": "838b8695a71597ac5e7d13c5a722979b51bd457a2ae6b145c841b97b7f950051",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T00:15:38.613701+00:00",
+  "image_digest": "sha256:b79704d1157b06ee4c42ae8c031341fbdc2508328b56b0ebff1d19b85e8a1aea",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "3bd27756e057d78d49964211fab7a80004e51324c9c72cd5f0b8c4d14804511f",
+    "criteria": {
+      "answer": {
+        "command": [
+          "bash",
+          "/check/oracle/answer.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.112188,
+        "script_sha256": "853dfc983c52f1eb8ea913a05fffe85b02d8e1ed93c7a1e5839d67b642d5f33f",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "clean": {
+        "command": [
+          "bash",
+          "/check/oracle/clean.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.14552,
+        "script_sha256": "73e86abae71a79fa037a32b24aec0662f5bf78b20dacb26f3073f0c5f4f0738d",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "answer": {
+        "command": [
+          "bash",
+          "/check/oracle/answer.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL answer.py missing",
+        "duration_seconds": 0.081686,
+        "script_sha256": "853dfc983c52f1eb8ea913a05fffe85b02d8e1ed93c7a1e5839d67b642d5f33f",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "clean": {
+        "command": [
+          "bash",
+          "/check/oracle/clean.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL answer.py missing",
+        "duration_seconds": 0.093127,
+        "script_sha256": "73e86abae71a79fa037a32b24aec0662f5bf78b20dacb26f3073f0c5f4f0738d",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "crash": {
+      "overlay_sha256": "b7c7ed6b1bd00698b13ecec1d97308352bdea1659abca79192cdfb60cf16cd35",
+      "criteria": {
+        "answer": {
+          "command": [
+            "bash",
+            "/check/oracle/answer.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected exit 0: rc=2",
+          "duration_seconds": 0.114044,
+          "script_sha256": "853dfc983c52f1eb8ea913a05fffe85b02d8e1ed93c7a1e5839d67b642d5f33f",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "clean": {
+          "command": [
+            "bash",
+            "/check/oracle/clean.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL command exit=2",
+          "duration_seconds": 0.141613,
+          "script_sha256": "73e86abae71a79fa037a32b24aec0662f5bf78b20dacb26f3073f0c5f4f0738d",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "answer"
+      ],
+      "killed_assigned": true
+    },
+    "hardcoded-answer": {
+      "overlay_sha256": "1ee4942889e41b8e1a9727c472123ee6a63856eb20f0d654898988db1e2ca5b4",
+      "criteria": {
+        "answer": {
+          "command": [
+            "bash",
+            "/check/oracle/answer.sh"
+          ],
+          "exit_code": 0,
+          "final_output_line": "ok",
+          "duration_seconds": 0.115268,
+          "script_sha256": "853dfc983c52f1eb8ea913a05fffe85b02d8e1ed93c7a1e5839d67b642d5f33f",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "clean": {
+          "command": [
+            "bash",
+            "/check/oracle/clean.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL query-specific probe output=[b]",
+          "duration_seconds": 0.147905,
+          "script_sha256": "73e86abae71a79fa037a32b24aec0662f5bf78b20dacb26f3073f0c5f4f0738d",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "clean"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

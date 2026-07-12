@@ -11,6 +11,31 @@
 > authenticated GitHub API sweep, not doable from a plain web fetch; the funnel below
 > is therefore partial and will grow.
 
+## Pre-headline boundary correction (2026-07-11; before headline campaigns)
+
+The quantitative headline is now the complete set of **22 prepared, redistributable
+public skills**, selected as the **first 22 candidates** that passed the protocol in the
+same fixed popularity-driven candidate order. The four original in-repository skills
+(`build-python-cli`, `fix-failing-test`, `frontent-design`, and
+`mcp-server-patterns`) are development-only because they were used while building and
+piloting the system. `frontent-design` also remains outside the code-behavior boundary
+because its strongest success criteria are presentational proxies.
+
+This correction is independent of performance: no original development skill can
+enter the headline, and public removals are limited to three pre-result artifact-license
+failures (`cli-typer-scripts`, `json-serialization`, `json-tools`). Their content is
+not redistributed. The already-admitted S4 candidate `condition-based-waiting` was
+prepared from a historical MIT snapshot, producing the first 22 headline skills. It is
+medium contingency: two blind baseline exercises already chose valid synchronization, while a
+fresh skill-enabled stale-state exercise followed the skill and passed 100 repetitions.
+
+The boundary is enforced by `experiments/manifests/rq1-skills.draft.json`,
+`experiments/manifests/third-party-skills.json`, `skillrace.d1_audit`, and
+`skillrace.third_party_audit`. All 22 headline images pass strict runtime smoke.
+
+The same inclusion/exclusion protocol and candidate order remain active. This log is not
+closed until we append 8 additional qualifying public skills to reach a 30-skill target.
+
 ## Funnel (so far)
 
 | Stage | Count |

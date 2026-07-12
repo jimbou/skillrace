@@ -1,187 +1,122 @@
 <a href="../../README.md"><img src="../../skillrace-icon.png" alt="SkillRACE" width="54" align="right"></a>
 
-# Baselines — the three-rung ladder
+# Evaluation methods and fairness boundary
 
-> **Design spec** (baseline ladder, from the tex). The *implemented* test-case generator (`gen_agent`) is the floor/seed generator — see [docs/generator.md](../generator.md).
+This document defines the three complete systems in the RQ1 comparison. The approved
+protocol—not an individual CLI flag—owns their model, budget, bootstrap allocation,
+candidate realization, sanity gate, runner, property checker, and accounting rules.
 
-> tex §9 ("Baselines: the three-rung ladder"). The baselines are **not separate
-> systems**. Each is a drop-in `Generator` (the same interface SkillRACE's
-> generation component implements), wired into the **same loop**, sharing the
-> **same Runner, Docker environments, run budget, episode abstraction (where
-> needed), and — critically — the same Property Checker**. So any measured
-> difference reflects **test generation**, not detection.
+The comparison contains exactly:
 
----
+1. independent Random generation;
+2. a VeriGrey-inspired tool-sequence greybox baseline; and
+3. full SkillRACE concolic execution.
 
-## Purpose
+There is no seeded black-box arm, outcomes-only arm, direct-property baseline, model
+sweep, or per-skill choice of the strongest Greybox configuration.
 
-To isolate, rung by rung, *what each ingredient buys*:
+## Shared experimental boundary
 
-| Rung | Adds exactly one ingredient | Isolates |
-|------|------------------------------|----------|
-| **Floor — random mutation** | nothing (blind mutation) | the black-box fuzzing floor |
-| **Greybox — VeriGrey-inspired** | tool-sequence **novelty feedback** | value of *any* behavioral feedback over blind mutation |
-| **SkillRACE** | episodes + reasoning-derived guard mutation + behavior tree | value of *the episode abstraction & reasoning-guard mutation* over raw tool-sequence novelty |
+For one method/skill campaign, every system receives exactly 30 counted agent
+executions with `qwen3.6-flash`. Every candidate uses the same realization/build/repair
+pipeline, basic mechanical sanity gate, Pi runner, pre-run property compiler, fixed
+checks, and isolated mechanical oracle execution.
 
-`Floor → Greybox` isolates the value of *any* behavioral feedback. `Greybox →
-SkillRACE` is the **headline claim**, measured against a real published mechanism
-(VeriGrey's feedback idea) rather than a strawman.
+Build, schema, or pre-agent sanity rejection is a generation failure and does not consume
+one of the 30 agent executions. Once Pi is recorded as started, success, timeout, agent
+error, and oracle-inconclusive outcomes consume a slot. Attempts and failures remain in
+the durable campaign manifest.
 
----
+The methods have isolated output/search state. They may receive different independently
+generated inputs because the algorithms need different initialization; fairness comes
+from the same frozen sampling protocol and equal expensive-agent budget, not from forcing
+all systems to share a favorable seed corpus.
 
-## The shared interface (what makes them drop-in)
+## Random: 0 bootstrap + 30 fresh tests
 
-All three implement the [`Generator`](../data-contracts.md#11-the-shared-generator-interface-baselines-are-drop-in)
-protocol — and **nothing else changes** in the loop:
+Random is the feedback-free black-box floor:
 
-```python
-class Generator(Protocol):
-    def seed(self, seeds: list[Candidate]) -> None: ...
-    def propose(self) -> Candidate | None: ...        # next input, or None when exhausted
-    def fold(self, candidate: Candidate, run_dir: Path) -> None: ...  # ingest a finished run
-    def state(self) -> dict: ...
-```
+- generate a fresh task/environment independently at every counted iteration;
+- use a digest of prior descriptions only to discourage literal duplicates;
+- never select or mutate a previous execution;
+- never read traces, tool calls, reasoning, outcomes, episodes, properties, guards,
+  trees, or verdicts when generating the next test; and
+- ignore completed executions except for protocol accounting and result storage.
 
-The loop (`skillrace.loop`) is written once against this protocol:
+Random therefore has no seed tree or initialization corpus. Calling its 30 independent
+draws “seeds” would obscure the algorithm and is avoided in the paper and artifact.
 
-```python
-gen = make_generator(method)          # "random" | "greybox" | "skillrace"
-gen.seed(load_seeds(skill))
-while budget_remaining():
-    cand = gen.propose()
-    if cand is None: break
-    run_dir = runner.run(cand)                          # SHARED Runner
-    verdicts, bugs = property_checker.check(run_dir, applicable_props)  # SHARED checker
-    gen.fold(cand, run_dir)
-    record(cand, run_dir, verdicts, bugs)
-```
+## VeriGrey-inspired: 10 bootstrap + 20 guided tests
 
-Only `make_generator(method)` differs across rungs. The Runner call and the
-Property Checker call are byte-identical, which is the experimental control: the
-three rungs cannot differ in *how a bug is detected*, only in *which inputs they
-generate*.
+This baseline adapts VeriGrey's feedback mechanism to correctness testing while clearly
+disclosing the non-transferable parts:
 
----
+- independently generate and execute ten diverse initial cases;
+- retain all ten cases, including cases with duplicate schematized sequences;
+- initialize coverage from every bootstrap execution before mutation starts;
+- expose only globally frozen L1 tool events and derived tool/transition/full-sequence
+  novelty to the search policy;
+- give a candidate one energy unit for each new tool, transition, and full sequence;
+- select a retained case by that novelty/energy state and ask the shared model for a
+  mutation conditioned on its tool sequence; and
+- spend the remaining 20 counted executions on those guided mutations.
 
-## Rung 1 — Floor (random mutation)
+The generator cannot read reasoning, episode purposes, outcomes, correctness properties,
+guards, SkillRACE tree state, or verdicts. One global L1 event schema is fixed before
+headline results; the experiment does not choose L0/L1/L2 per skill.
 
-- **`propose`:** a model mutates a randomly chosen seed's prompt and/or env at
-  random; every mutant is run (no feedback).
-- **`fold`:** no-op.
-- **`state`:** just the RNG seed and the seed pool.
-- **Uses:** the shared Runner + Property Checker. **No** episodes, **no** tree.
-- This is the standard black-box fuzzing baseline and is structurally the black-box
-  baseline used by VeriGrey.
+The name is “VeriGrey-inspired” because VeriGrey's injection-specific context bridging,
+mutation operators, and injection oracle do not transfer to coding-skill correctness.
+The artifact adapts the published feedback/scheduling idea and replaces only those
+domain-specific pieces with the same shared realization and correctness oracle used by
+all three systems.
 
----
+## SkillRACE: 10 bootstrap + 20 concolic tests
 
-## Rung 2 — Greybox (VeriGrey-inspired tool-sequence feedback)
+SkillRACE independently generates and executes ten bootstrap cases, converts concrete
+runs into episodes, folds them into a behavior tree, extracts reasoning/outcome-derived
+branch conditions, and spends 20 further executions seeking property-relevant unexplored
+situations.
 
-Ports VeriGrey's *feedback idea* to this setting: the **novelty of the tool-call
-sequence** (a new tool, a new transition, a new sequence vs. what's been seen)
-drives which seeds to keep and how much to mutate them — over the **same
-schematized tool events** SkillRACE uses.
+Its mutation policy is deliberately opportunistic:
 
-- **`fold`:** schematize the run's tool-call sequence (from the frozen trace's
-  `tool` fields) into events/transitions; update a **novelty index** (e.g. a set of
-  seen tool n-grams / transition edges). A run that exhibits a new tool, transition,
-  or sequence is "interesting" and its candidate is kept as a new seed.
-- **`propose`:** pick/keep seeds by tool-sequence novelty and mutate them (generic
-  mutation).
-- **`state`:** the novelty index + seed pool.
-- **Crucially this rung is the "no-reasoning, no-intent-layer" ablation:** it
-  explores by **raw tool-sequence novelty** — **no episodes, no reasoning-derived
-  guards, no behavior tree.** It reads only the `tool` field of the trace, never
-  `reasoning`, never the observation-grounded outcome.
-- **Honest caveat (tex §9):** VeriGrey's *injection-specific mutation* and *injection
-  oracle* are **replaced** by generic mutation and our property checker. So this is
-  "VeriGrey-inspired," not VeriGrey; the comparison speaks to "tool-sequence
-  feedback vs. reasoning-guard mutation for correctness testing," not to VeriGrey's
-  security performance.
+- a mutation may change several coherent environment features;
+- reaching the intended branch is recorded, not required;
+- a different new branch is useful exploration;
+- every reproducible property violation remains eligible regardless of its motivating
+  target; and
+- targeted, serendipitous, path-miss, alternate-new-branch, and no-divergence labels are
+  mechanism measurements derived from these same headline executions.
 
----
+This preserves the paper's concolic-execution framing without claiming exact symbolic
+constraint solving or requiring the model's stated reason to be causal.
 
-## Rung 3 — SkillRACE
+## Parallel execution without semantic drift
 
-The full generation component: `fold` runs Components 2→3→4→5a (segment →
-summarize → fold into tree → extract guards); `propose` runs 5-frontier→5b→5c
-(pick a frontier branch → mutate guard → synthesize → validate) and returns a
-**validated** candidate.
+Random and VeriGrey-inspired proposals are transactionally reserved in batches. For a
+SkillRACE epoch, one reducer freezes the current tree and a deterministic, branch-diverse
+target plan before workers synthesize anything. Workers write immutable results; the
+reducer folds them in deterministic candidate-ID order, independent of completion order.
+Global API, Docker, and agent semaphores bound resource use. Durable lifecycle receipts
+and fold progress permit exactly-once resume after interruption.
 
-- **Uses:** everything; the only rung that reads `reasoning`, builds episodes, and
-  maintains the behavior tree.
-- Implemented as `SkillRACEGenerator` wrapping Components 2–5; it is the reference
-  implementation of the `Generator` protocol.
+Parallel execution is an implementation optimization, not another experimental arm.
 
----
+## Required regression evidence
 
-## Dependencies
+The artifact tests assert that:
 
-**Needs (all rungs):** the shared **Runner**, **Docker environments**, **Property
-Checker**, the loop, the seed set, and the judgment model (random/greybox use it
-only for mutation; SkillRACE uses it for all its model steps).
+- the protocol enforces `30/0+30`, `30/10+20`, and `30/10+20`;
+- role-specific model overrides are rejected;
+- Random and VeriGrey-inspired cannot access forbidden feedback;
+- all VeriGrey bootstrap cases initialize coverage and only later mutants face novelty
+  retention;
+- duplicate coordinates cannot be reserved or executed twice;
+- a started-but-unknown execution is charged conservatively rather than replayed;
+- reversed worker completion produces byte-identical folded SkillRACE state; and
+- confirmation reruns and defect grouping occur after search, outside the 30-run budget.
 
-**Does NOT depend on:** each other. Swapping `make_generator(method)` is the only
-change. The Runner and Property Checker have **no knowledge** of which rung is
-driving them.
-
----
-
-## The model's role
-
-- **Random:** one model call per `propose` (mutate a seed).
-- **Greybox:** one model call per `propose` (mutate a chosen seed); `fold`'s novelty
-  index is **code, no model**.
-- **SkillRACE:** model calls inside Components 2–5 as documented there.
-
-All rungs use the **same** judgment model (global single-model rule); model choice
-is the ablation axis, applied identically to all rungs.
-
----
-
-## How to test it in isolation
-
-The point of the baselines is comparability, so the tests assert *sharing* and
-*drop-in equivalence*:
-
-- **`shared_runner_and_checker/`** — run each rung for a tiny budget against the same
-  stub skill; assert all three call the **identical** Runner and Property Checker
-  entry points (spy on them) with the same signatures, and that swapping the
-  generator changes **only** the proposed candidates.
-- **`greybox_novelty_index/`** (pure, no model) — feed two runs with identical tool
-  sequences; assert the second is **not** "interesting" (no new novelty). Feed a run
-  with a new tool transition; assert it **is** kept.
-- **`greybox_reads_no_reasoning/`** — assert the greybox generator never accesses the
-  `reasoning`/episode/summary fields (e.g. provide a trace with `reasoning` blanked
-  and confirm identical behavior) — proving it is the no-reasoning ablation.
-- **`random_is_feedback_free/`** — assert `fold` is a no-op (state after `fold`
-  equals state before).
-- **`generator_protocol_conformance/`** — a single parametrized test that runs all
-  three through the `Generator` protocol contract (seed → propose → fold → state)
-  and asserts each emits a valid `Candidate` and a serializable `state`.
-
-### Test shape
-
-```python
-@pytest.mark.parametrize("method", ["random", "greybox", "skillrace"])
-def test_rung_is_drop_in(method, spy_runner, spy_checker):
-    run_loop(make_generator(method), seeds, budget=3,
-             runner=spy_runner, checker=spy_checker)
-    assert spy_runner.signature == RUNNER_SIG          # identical Runner interface
-    assert spy_checker.signature == CHECKER_SIG        # identical Property Checker
-```
-
----
-
-## Failure modes
-
-| Situation | Behavior |
-|-----------|----------|
-| A rung tries to use a non-shared detector | Forbidden by construction: the loop hard-codes the shared Property Checker; a rung has no path to its own oracle. (Reviewed + asserted by `shared_runner_and_checker`.) |
-| Greybox novelty index saturates (everything seen) | `propose` returns `None` (exhausted) → loop ends for that budget; reported as coverage plateau. |
-| Random mutation produces an invalid env | Random has no validator, so the Runner's env-build failure is recorded as a wasted run (this *is* the floor's inefficiency, and the comparison is meant to show it). SkillRACE avoids this via 5c validation — exactly the efficiency the ladder is built to measure. |
-| Optional security slice (VeriGrey injection oracle) | Kept **secondary**; run on a subset only, to show SkillRACE is not worse on VeriGrey's own task. Does not touch the correctness story or the shared checker. |
-
-**Surfacing:** per-method results are attributed via `Candidate.provenance.source`
-(`random`/`greybox`/`skillrace`), so bug yield, coverage, and wasted-run counts are
-reported per rung against the identical detector.
+The source of truth for the full study is
+`docs/superpowers/specs/2026-07-11-skillrace-evaluation-design.md`; the checked-in
+machine protocol is `experiments/protocols/issta-main.draft.json` until the final
+pre-result freeze.

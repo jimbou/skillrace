@@ -1,0 +1,69 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "text-template/t5",
+  "state": "validated",
+  "contract_identity_sha256": "f14dfff9d2f0166235d792f850097ed8d956fd8ea9767631133319449afb40e1",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T00:16:00.754569+00:00",
+  "image_digest": "sha256:2438228145e60118055953e939bf774d4c0422c9f117c887d84d2589337ad82b",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "2bcf4051358e0ba9b3150068d623534870f12fd7efafdc1c651ce6fbdbd64fe5",
+    "criteria": {
+      "adjacent": {
+        "command": [
+          "bash",
+          "/check/oracle/adjacent.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.121134,
+        "script_sha256": "9f790e975da0c5c8ce7149c8de732151fa41978aa0d5d316481528f7586c9a1f",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "adjacent": {
+        "command": [
+          "bash",
+          "/check/oracle/adjacent.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL render.py missing",
+        "duration_seconds": 0.074604,
+        "script_sha256": "9f790e975da0c5c8ce7149c8de732151fa41978aa0d5d316481528f7586c9a1f",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "no-output": {
+      "overlay_sha256": "d0bc0edd39b8dcb7deb1f748b1fbb80e3eb4f7ae405aa772d9429a4323590c67",
+      "criteria": {
+        "adjacent": {
+          "command": [
+            "bash",
+            "/check/oracle/adjacent.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL out.txt missing",
+          "duration_seconds": 0.094218,
+          "script_sha256": "9f790e975da0c5c8ce7149c8de732151fa41978aa0d5d316481528f7586c9a1f",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "adjacent"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

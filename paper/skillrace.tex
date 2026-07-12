@@ -5,7 +5,7 @@
 % grouped in the PLACEHOLDERS block below: fill them once, they update
 % everywhere, and every occurrence is visibly a placeholder until then.
 % =====================================================================
-\documentclass[acmsmall,screen,nonacm]{acmart}
+\documentclass[acmsmall,screen,review,anonymous]{acmart}
 
 \usepackage{booktabs}
 \usepackage{listings}
@@ -62,34 +62,30 @@
 % =====================================================================
 % PLACEHOLDERS — fill these once experiments land.
 % =====================================================================
-\newcommand{\NumSkills}{\ph{28}}            % skills in the suite (24 built + 4 build-deferred)
-\newcommand{\NumSkillsCore}{\ph{TBA}}       % skills w/ full property matrix
+\newcommand{\NumSkills}{22}                  % redistributable public headline skills
 % D2 (skill-generation) suite — concrete
 \newcommand{\NumScenarios}{10}
 \newcommand{\NumTestsPer}{10}
 \newcommand{\NumTestsTot}{100}
 \newcommand{\NumChecksTot}{192}
-\newcommand{\Budget}{\ph{120}}              % agent runs per skill per method
-\newcommand{\SeedCount}{\ph{20}}            % seed inputs per campaign
-\newcommand{\AgentModel}{\ph{a fixed frontier model}}
-\newcommand{\JudgeModel}{\ph{a fixed cheap model}}
+\newcommand{\Budget}{30}                     % counted agent executions / skill / method
+\newcommand{\SeedCount}{10}                  % bootstrap executions for adaptive methods
+\newcommand{\Model}{\texttt{qwen3.6-flash}}
 % headline bug-finding deltas (percentage points / factors) — TBA
 \newcommand{\BugsSkillrace}{\ph{TBA}}
 \newcommand{\BugsGreybox}{\ph{TBA}}
 \newcommand{\BugsRandom}{\ph{TBA}}
 \newcommand{\DeltaOverGreybox}{\ph{TBA}}
 \newcommand{\DeltaOverRandom}{\ph{TBA}}
-% injection detection rate
-\newcommand{\DetectRate}{\ph{TBA}}
 % claim-2 hidden-test pass rates
 \newcommand{\PassZeroShot}{\ph{TBA}}
 \newcommand{\PassRandom}{\ph{TBA}}
 \newcommand{\PassGreybox}{\ph{TBA}}
 \newcommand{\PassSkillrace}{\ph{TBA}}
-% calibration agreement
-\newcommand{\SegF}{\ph{TBA}}
-\newcommand{\MergeAgree}{\ph{TBA}}
-\newcommand{\CompileAgree}{\ph{TBA}}
+% mechanism diagnostics from the same RQ1 runs
+\newcommand{\IntendedReach}{\ph{TBA}}
+\newcommand{\AlternateReach}{\ph{TBA}}
+\newcommand{\SerendipitousBugs}{\ph{TBA}}
 
 % =====================================================================
 \title[\tool: Reasoning-Augmented Concolic Execution for Coding-Agent Skills]{%
@@ -115,21 +111,34 @@ an outcome read from tool output rather than from the agent's own narration---an
 merges episodes into a growing \emph{behavior tree}. It reads the agent's reasoning
 at each branch as the \emph{condition} that sent the run one way rather than another,
 then mutates those conditions to synthesize new \((\text{prompt},\text{environment})\)
-inputs that drive the skill down branches it has not yet taken. Candidate inputs are
-validated against the target condition \emph{before} any agent run, so the expensive
-resource---the agent under test---is spent only on inputs already shown to exercise
-the intended situation. Correctness is judged by \emph{properties}: universal
+inputs intended to drive the skill toward branches it has not yet taken. Candidate
+starting states are validated against the mutated environmental condition \emph{before}
+any agent run; whether execution reaches the intended branch is recorded afterward, not
+required for a discovered defect to count. Correctness is judged by \emph{properties}: universal
 process invariants checked mechanically, and per-skill specifications compiled into
 executable checks \emph{before} the run they judge, so that no model ever grades the
-run it also produced. We evaluate \tool against a blind-mutation floor and a
-greybox rung that ports the feedback mechanism of a recent agent fuzzer to this
+run it also produced. We evaluate \tool against independent random generation and a
+VeriGrey-inspired rung that ports the feedback mechanism of a recent agent fuzzer to this
 setting, on a suite of \NumSkills\ skills mined from public repositories. Holding the
 runner, environments, budget, and oracle identical across methods, \tool exposes
-\DeltaOverGreybox\ more distinct defects per agent-run budget than the greybox rung and
-\DeltaOverRandom\ more than the floor, and reaches its first violation in fewer runs.
+\DeltaOverGreybox\ more distinct defects per agent-run budget than the VeriGrey-inspired
+rung and \DeltaOverRandom\ more than Random, and reaches its first violation in fewer runs.
 Feeding \tool's findings back to revise an LLM-generated skill raises its pass rate on
 independently-authored held-out tests from \PassZeroShot\ to \PassSkillrace.
 \end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+<concept>
+<concept_id>10011007.10010940.10010971.10010972</concept_id>
+<concept_desc>Software and its engineering~Software testing and debugging</concept_desc>
+<concept_significance>500</concept_significance>
+</concept>
+</ccs2012>
+\end{CCSXML}
+\ccsdesc[500]{Software and its engineering~Software testing and debugging}
+\keywords{coding agents, agent skills, concolic execution, software testing,
+coverage-guided testing}
 
 \maketitle
 
@@ -188,8 +197,8 @@ into the tree, exposing the next frontier, exactly as in concolic execution.
 Two design commitments make this practical rather than merely appealing. First, the
 agent under test is the only expensive component; everything else is code or a small
 model. \tool therefore never spends an agent run on an unvalidated input: a synthesized
-candidate is built into its container and checked against its target condition---does
-the test it sets up actually fail with the intended error?---with no agent involved,
+candidate is built into its container and checked against its mutated starting-state
+condition---does the test it sets up actually fail with the intended error?---with no agent involved,
 and only validated candidates are run. Second, correctness is decided by
 \emph{properties}, not by a model's opinion of the run. Universal process invariants
 (a skill must not force-push, must not delete the very test it was asked to satisfy,
@@ -199,12 +208,14 @@ an executable check before the run they judge}, so the component that decides wh
 a run is buggy never sees the run it grades. A run is buggy when it violates a property
 we fixed in advance---not when a model thought it went badly.
 
-We use \tool to answer two questions. \emph{Does reasoning-guided exploration find
+We use \tool to answer three questions. \emph{Does reasoning-guided exploration find
 more skill defects than feedback that ignores reasoning?} We compare against a
-blind-mutation floor and a greybox rung that ports the tool-invocation-sequence
+fresh random generation and a VeriGrey-inspired rung that ports tool-invocation-sequence
 feedback of a recent agent fuzzer~\cite{verigrey} to correctness testing, holding the
 runner, the environments, the budget, and the property checker identical across all
 three so that any difference measures test \emph{generation}, not detection.
+\emph{Does guidance have to hit its intended branch to be useful?} We distinguish
+intended reach from alternate new behavior and serendipitous defects using the same runs.
 \emph{Can a skill be improved with what \tool finds?} Most skills in circulation are
 themselves LLM-generated, which is circular---a model writing down what it does or does
 not reliably know how to do. We test whether \tool breaks the circle: we revise an
@@ -223,7 +234,7 @@ tests authored independently of the revision loop.
   specifications compiled into checks \emph{before} the run they grade
   (\cref{sec:approach,sec:impl}).
   \item \textbf{An evaluation} on \NumSkills\ skills mined from public repositories,
-  against a blind-mutation floor and a faithful greybox port, measuring defect yield
+  against Random and a VeriGrey-inspired port, measuring defect yield
   under a fixed budget; plus a study of whether \tool's findings improve an
   LLM-generated skill on held-out tests (\cref{sec:eval}).
 \end{itemize}
@@ -295,11 +306,16 @@ tests authored independently of the revision loop.
   \end{tikzpicture}}
   \caption{\tool's loop. A run is segmented into episodes and folded into the behavior
   tree; the tree's branch frontier drives property-guided synthesis of a new input,
-  which the \emph{validator} confirms exercises the targeted branch \emph{before} any
-  agent run. The agent under test (orange) is the only expensive stage and is entered
+  whose mutated starting-state condition the \emph{validator} checks \emph{before} any
+  agent run. Intended branch reach is measured after execution. The agent under test
+  (orange) is the only expensive stage and is entered
   only through the validated-input gate; every other stage is a cheap model call or
   plain code. Each run's final container is checked against fixed invariants and the
   input's pre-compiled checks, yielding bug reports.}
+  \Description{SkillRACE pipeline from seed inputs through a Docker agent run,
+  episode segmentation, behavior-tree folding, guard extraction, mutation,
+  starting-state validation, and back to the runner, with properties feeding the
+  checker.}
   \label{fig:pipeline}
 \end{figure*}
 
@@ -452,12 +468,12 @@ $T \leftarrow \emptyset$;\quad $R \leftarrow \emptyset$\;
 \end{algorithm}
 
 Each new run is folded back and classified against the branch it targeted:
-\emph{predicted divergence} (it took the new branch---coverage gained, the frontier
-extends), \emph{no divergence} (it reached the branch but behaved as before---the stated
-reason was not causal for this mutation, which is marked spent), or \emph{path miss} (it
-never reached the branch---an earlier guard failed). No-divergence is not a failure of
-the tool; it is the loop confirming that a hypothesized condition did not matter, which
-is information the search uses.
+\emph{intended branch}, \emph{different new branch}, \emph{no divergence},
+\emph{path miss}, or \emph{unfolded} when evidence is unavailable. No-divergence and
+path-miss are useful negative steering evidence, while a different new branch is useful
+opportunistic exploration. Crucially, this classification describes the mutation, not
+the validity of a defect: a confirmed property violation counts regardless of whether
+the intended branch was reached.
 
 \subsection{Properties: the oracle}
 \label{sec:props}
@@ -495,13 +511,13 @@ planted defects the property suite detects (\cref{sec:eval}).
 
 \tool is implemented in Python. The agent under test runs on the Pi agent
 harness~\cite{pi2025} inside Docker; \tool interacts with it only through its recorded
-session trace and the live final container, so it is agnostic to the agent's internals.
-A single model---\JudgeModel---performs every model-driven \tool step (segmentation,
-merge judgments, guard extraction, selection, synthesis, check compilation), decoupled
-from the agent under test (\AgentModel). We do not mix models across steps; instead we
-ablate the choice of \tool's model and report the pipeline's sensitivity to it. All
-model-driven steps run at temperature~0 and cache their judgments, so a campaign is a
-deterministic procedure given its seeds and selection order.
+session trace and final filesystem state, so it is agnostic to the agent's internals.
+For fairness and cost control, the same model---\Model---is used for the agent under
+test and every model-driven pipeline role (segmentation, merge judgments, guard
+extraction, selection, synthesis, check compilation, and skill revision). Model-driven
+judgments run at temperature~0 and are content-hash cached. Every stochastic seed and
+model receipt is persisted; replay is deterministic from those recorded outputs even
+though independent campaign replications use different derived seeds.
 
 \paragraph{Trace and episodes.} A deterministic renderer projects Pi's session log into
 a globally-numbered list of tool calls with reasoning inline; a boundary may fall only at
@@ -514,11 +530,12 @@ cached, so the same episode pair gets the same verdict within a campaign. Guard 
 lives beside the tree; deferred (non-\(E_0\)) guards are recorded so the fraction of the
 branch space we cannot yet target is reported rather than hidden.
 
-\paragraph{Property checking.} Fixed invariants run on the host in Python. Compiled
-checks run as bash inside the live final container, which also exposes the trace and the
-diff, so a single mechanism covers both state and trace properties. A syntactically
-broken check is re-authored once with the error fed back and, failing that, recorded as
-inconclusive---never as a violation.
+\paragraph{Property checking.} Fixed invariants run on the host in Python. The final
+container is snapshotted once; each compiled check runs in a fresh networkless child
+with a host-enforced timeout, so one check cannot contaminate the next. Trace checks
+must structurally select actual \texttt{toolCall} blocks rather than grep reasoning
+text. Syntax or policy failures are repaired once and then recorded as
+inconclusive---never as violations.
 
 % =====================================================================
 \section{Evaluation}
@@ -526,15 +543,13 @@ inconclusive---never as a violation.
 
 We ask:
 \begin{description}[leftmargin=3.2em,itemsep=1pt]
-  \item[RQ1] Does \tool find more skill defects, under a fixed agent-run budget, than a
-  blind-mutation floor and a greybox rung that uses tool-sequence feedback but no
+  \item[RQ1] Does \tool find more skill defects per fixed agent-run budget than
+  independent random generation and a VeriGrey-inspired rung that uses tool-sequence feedback but no
   reasoning?
-  \item[RQ2] How do \tool's model-driven components (segmentation, merging, check
-  compilation) agree with human judgment, and how strong is the property suite?
+  \item[RQ2] How often does a \tool mutation reach its intended branch, reach a different
+  new branch, or miss---and how many defects are useful serendipitous discoveries?
   \item[RQ3] Does revising an LLM-generated skill with \tool's findings improve its pass
   rate on held-out tests, relative to revising with the baselines' findings?
-  \item[RQ4] How does \tool's yield depend on its model choice and on
-  property-guided selection (ablation)?
 \end{description}
 
 \subsection{Setup}
@@ -547,11 +562,14 @@ criteria, logs every admit/reject decision with its reason, and commits to per-s
 reporting---so skill choice cannot be influenced by results. A skill is admitted only if
 it (i) produces a \emph{code} artifact whose behavior is mechanically checkable (a suite
 that passes, a CLI that computes a value, a query that returns the right answer, a build
-that succeeds), (ii) builds in a credential-free container, and (iii) is procedural
-rather than a one-liner. Crucially, \emph{environment-contingency}---whether the skill's
+that succeeds), (ii) builds in a credential-free container, (iii) is procedural
+rather than a one-liner, and (iv) has clear artifact-redistribution terms. Three
+prepared public candidates failed only this license gate and are retained by source
+hash, not shipped. Crucially, \emph{environment-contingency}---whether the skill's
 behavior depends on the starting state, which is where reasoning-guided exploration can
 separate from reasoning-blind feedback---is \emph{recorded but not used for inclusion};
-excluding low-contingency skills would bias the comparison in our favor. Document-%
+the final licensed suite contains 18 high- and four medium-contingency skills, and
+excluding the medium-contingency cases would bias the comparison in our favor. Document-%
 generation skills (creating a \texttt{.docx}, a slide deck) are excluded: their success
 is presentational, so no trustworthy mechanical oracle exists. Each admitted skill ships
 a base image, a natural-language property specification, and a per-skill applicability
@@ -570,13 +588,13 @@ implementations each).}
 \toprule
 \textbf{Skill} & \textbf{Artifact checked} & \makecell{\textbf{\#props}} & \makecell{\textbf{env-}\\\textbf{contingent}}\\
 \midrule
-\texttt{fix-failing-test}   & suite passes; tests unedited      & 4 & \checkmark \\
-\texttt{build-python-cli}   & CLI runs; produces output         & 5 & \checkmark \\
-\texttt{mcp-server-patterns}& project builds; server responds  & 6 & \checkmark \\
+\texttt{fastapi-endpoint}   & endpoint behavior and validation  & 2 & \checkmark \\
+\texttt{condition-based-waiting}& repeated suite; bounded waits & 5 & $\circ$ \\
 \texttt{test-driven-development}& suite passes; test-first in trace & 4 & \checkmark \\
 \texttt{sql-queries}        & query returns correct answer      & 3 & \checkmark \\
 \texttt{regex-expert}       & validator matches spec; anchored  & 3 & $\circ$ \\
-\texttt{frontend-design}    & renderable artifact; responsive   & 8 & $\circ$ \\
+\texttt{yaml-config}        & parsed values and error handling   & 2 & \checkmark \\
+\texttt{refactor}           & behavior preserved; suite passes  & 3 & \checkmark \\
 \multicolumn{4}{c}{\ph{$\cdots$ \NumSkills\ skills total (cli, refactor, debugging, parser, config, \dots) $\cdots$}}\\
 \bottomrule
 \end{tabular}
@@ -585,29 +603,33 @@ implementations each).}
 \paragraph{Baselines: a three-rung ladder.} All rungs share \tool's runner, environments,
 budget (\Budget\ agent runs per skill), the shared realize/build pipeline, and---%
 critically---the \emph{same property checker with the same per-input compiled checks}, so
-any difference measures test generation, not detection. All rungs also start from the same
-\SeedCount\ seed inputs, produced by proposing diverse (task, environment) ideas from the
-skill's specification and building each into a container; the methods differ only in what
-they generate \emph{after} the seed phase.
-\emph{Floor} mutates seed prompts and environments at random with no behavioral feedback.
-\emph{Greybox} ports the feedback mechanism of VeriGrey~\cite{verigrey}, a recent agent
-fuzzer: it keeps a run's candidate as a seed when the run's tool-invocation sequence is
+any difference measures test generation, not detection. \emph{Random} makes \Budget
+fresh, independent task/environment proposals and receives no execution feedback; it
+therefore needs no artificial seed tree. \emph{VeriGrey-inspired} and \emph{\tool}
+each spend \SeedCount\ counted executions on their own independently generated bootstrap
+corpus and the remaining 20 on adaptive exploration. Bootstrap candidates are not shared:
+fairness comes from the same frozen generator, model, total executions, build policy, and
+oracle, while independent seeds avoid coupling one method's search state to another.
+The VeriGrey-inspired rung ports the feedback mechanism of VeriGrey~\cite{verigrey}, a recent
+agent fuzzer: it keeps a run's candidate as a seed when the run's tool-invocation sequence is
 novel (a new tool, a new transition, or a new sequence) and assigns exploration energy
 by that novelty---but over correctness testing rather than injection, with VeriGrey's
 injection-specific mutation and oracle replaced by the shared components. Because raw
 tool arguments are near-unique in a coding agent (which would make every run ``novel''
-and collapse the feedback to blind mutation), we schematize tool events at three
-granularities and, to avoid handicapping the baseline, report the sensitivity and use the
-\emph{best-performing} granularity for the headline comparison. \emph{\tool} is the full
-loop of \cref{sec:approach}. The Floor$\to$Greybox gap isolates the value of any
-behavioral feedback; the Greybox$\to$\tool gap---the headline---isolates the value of the
-episode abstraction and reasoning-guided mutation over reasoning-blind novelty.
+and collapse the feedback to blind mutation), we use one globally fixed L1 event schema
+chosen before headline outcomes---never the best level per skill. \emph{\tool} is the full
+loop of \cref{sec:approach}. The comparison is a full-system one: all three methods use the
+same frozen model, budget, realization/build pipeline, validation, runner, and property checker.
+Observed differences are attributed to each method's generation logic, not to mismatched
+detection infrastructure.
 
-\paragraph{Metrics.} We report, per skill and pooled: distinct properties violated within
-the budget; runs and wall-clock to first violation; and unique behavior-tree branches
-covered. A flagged violation is re-run \(k{=}3\) times to separate a reproducible defect
-(3/3) from brittleness. We report yield split by property provenance (fixed vs.\
-compiled), the compiled ones carrying a wider confidence band.
+\paragraph{Metrics.} The headline is confirmed distinct-defect yield per \Budget counted
+agent executions, reported per skill and pooled. We also report runs, model tokens/cost,
+and wall-clock to first confirmed defect. Candidate violations are deduplicated by
+property and failure signature; one representative is rerun once outside the search
+budget, with its cost reported separately. Timeouts, infrastructure errors, and missing
+evidence are never converted to passes or zero cost. Secondary same-run diagnostics are
+branch outcome and property provenance (fixed vs. compiled).
 
 \subsection{RQ1: Defect yield}
 \label{sec:rq1}
@@ -619,11 +641,11 @@ placeholders pending the full campaign. \todo{fill.}}
 \label{tab:rq1}
 \begin{tabular}{@{}l c c c@{}}
 \toprule
-& \textbf{Floor} & \textbf{Greybox} & \textbf{\tool}\\
+& \textbf{Random} & \makecell{\textbf{VeriGrey-}\\\textbf{inspired}} & \textbf{\tool}\\
 \midrule
-Distinct properties violated (pooled) & \BugsRandom & \BugsGreybox & \BugsSkillrace\\
-Reproducible ($3/3$) violations       & \ph{TBA} & \ph{TBA} & \ph{TBA}\\
-Runs to first violation (median)      & \ph{TBA} & \ph{TBA} & \ph{TBA}\\
+Confirmed distinct defects (primary)   & \BugsRandom & \BugsGreybox & \BugsSkillrace\\
+Runs containing confirmed defects     & \ph{TBA} & \ph{TBA} & \ph{TBA}\\
+Runs to first confirmed violation (median)      & \ph{TBA} & \ph{TBA} & \ph{TBA}\\
 Unique branches covered               & \ph{TBA} & \ph{TBA} & \ph{TBA}\\
 \bottomrule
 \end{tabular}
@@ -633,52 +655,37 @@ Unique branches covered               & \ph{TBA} & \ph{TBA} & \ph{TBA}\\
 \centering
 \fbox{\parbox{0.9\columnwidth}{\centering\vspace{15mm}
 \textbf{[Figure~2 placeholder]}\\[1mm]
-distinct properties violated (y) vs.\ agent runs spent (x),\\
-one curve per method, pooled over skills; \tool above Greybox above Floor.
+cumulative confirmed defects (y) vs.\ agent runs spent (x),\\
+one curve per method, pooled over skills; \tool vs. VeriGrey-inspired vs. Random.
 \vspace{15mm}}}
 \caption{Defect discovery vs.\ budget. A per-run advantage for \tool would show as a
 curve that rises faster and higher. \todo{plot from campaign logs.}}
+\Description{Placeholder for cumulative confirmed defects versus counted agent
+executions for Random, VeriGrey-inspired, and SkillRACE.}
 \label{fig:yield}
 \end{figure}
 
-\Cref{tab:rq1} and \cref{fig:yield} will report yield. We expect \tool to exceed Greybox
-by \DeltaOverGreybox\ and Floor by \DeltaOverRandom\ on distinct properties violated per
+\Cref{tab:rq1} and \cref{fig:yield} will report yield. We test whether \tool exceeds the
+VeriGrey-inspired rung by \DeltaOverGreybox\ and Random by \DeltaOverRandom\ on confirmed defects per
 budget, and to reach the first violation in fewer runs, because guard mutation targets the
 conditions properties depend on whereas tool-sequence novelty rewards any behavioral
 difference---most of which, in correctness testing, is benign variation. \todo{write to
 the measured result; do not overclaim if the gap is small on some skills. Report per-skill
 so mixed outcomes are visible.}
 
-\subsection{RQ2: Component agreement and property strength}
+\subsection{RQ2: Targeted and opportunistic exploration}
 \label{sec:rq2}
 
-The model-driven components are calibrated against human labels: segmentation boundary
-agreement (\SegF\ F1 on \ph{$\sim$100} hand-segmented traces), merge-decision agreement on
-a labeled episode-pair set (\MergeAgree), and compiled-check agreement with hand-checked
-verdicts (\CompileAgree). For property strength, we inject known violations---deleting a
-test, weakening assertions to a trivial pass, declaring victory without running the suite,
-force-pushing, pathological repetition---and report the detection rate. In a preliminary
-run on one skill the suite detected \ph{all five} injected violation classes; we report
-the full rate across the suite in \cref{tab:detect}. \todo{scale the injection study.}
-
-\begin{table}[t]
-\centering\small
-\caption{Injected-violation detection. \todo{fill across suite.}}
-\label{tab:detect}
-\begin{tabular}{@{}l c@{}}
-\toprule
-\textbf{Injected violation} & \textbf{Detected}\\
-\midrule
-delete target test        & \ph{$\checkmark$}\\
-weaken test to trivial pass & \ph{$\checkmark$}\\
-declare victory, no test run & \ph{$\checkmark$}\\
-force-push                & \ph{$\checkmark$}\\
-pathological repetition   & \ph{$\checkmark$}\\
-\midrule
-Overall detection rate    & \DetectRate\\
-\bottomrule
-\end{tabular}
-\end{table}
+For every \tool exploration attempt we compare the frozen target with the folded trace
+and classify the result as: intended branch reached, a different new branch reached,
+no divergence, target/path miss, or unfolded because evidence was unavailable. The same
+run also reports whether confirmed defects are \emph{targeted} or
+\emph{serendipitous}: targeted defects have a violated property ID matching the attempt's
+selected target property, and all other confirmed defects are serendipitous. Intended
+reach is diagnostic, not an admission criterion for a defect. Thus the same RQ1 executions
+reveal whether concolic guidance works by precise steering, by productive perturbation into
+other unexplored behavior, or both. We report intended reach (\IntendedReach), alternate-new
+reach (\AlternateReach), and serendipitous confirmed defects (\SerendipitousBugs).
 
 \subsection{RQ3: Improving an LLM-generated skill}
 \label{sec:rq3}
@@ -692,13 +699,15 @@ and \NumChecksTot\ executable checks in total, \emph{authored independently of a
 loop} (by hand, disjoint from anything a tester generates and never shown to any tester or
 reviser); this is the leakage control. A test passes iff all its checks pass; checks are
 facet-driven (each test carries as many as it has real correctness facets). Every check was
-verified in-container against a reference solution, so a test failure reflects the skill,
-not a broken oracle. For each scenario we compare four versions of the \emph{one}
+verified against a reference solution in a fresh container, preventing an earlier check
+from creating state that helps a later one; the same isolation policy is used during the
+hidden evaluation. For each scenario we compare four versions of the \emph{one}
 zero-shot LLM-generated base skill on the held-out tests: unrevised, and revised from the
-Floor, Greybox, and \tool campaign reports respectively. The reviser prompt is
+Random, VeriGrey-inspired, and \tool campaign reports respectively. Each feedback
+producer receives the same \Budget-execution budget used in RQ1. The reviser prompt is
 \emph{identical} across conditions; only the feedback payload differs. A difference in
-held-out pass rate is therefore attributable to feedback quality, i.e.\ to the testing
-method.
+held-out pass rate is therefore associated with method-specific feedback quality under this
+fixed protocol (same model, same base skill, same prompt, same budget).
 
 \begin{table}[t]
 \centering\small
@@ -710,21 +719,12 @@ method's findings. \todo{fill.}}
 \textbf{Skill version} & \textbf{Held-out pass rate}\\
 \midrule
 Zero-shot (LLM-generated)     & \PassZeroShot\\
-Revised from Floor findings   & \PassRandom\\
-Revised from Greybox findings & \PassGreybox\\
+Revised from Random findings   & \PassRandom\\
+Revised from VeriGrey-inspired findings & \PassGreybox\\
 Revised from \tool findings   & \PassSkillrace\\
 \bottomrule
 \end{tabular}
 \end{table}
-
-\subsection{RQ4: Ablations}
-\label{sec:rq4}
-
-We ablate (i) \tool's model, swapping \JudgeModel\ for a stronger and a weaker model and
-reporting how yield moves; (ii) property-guided selection, replacing it with
-uniform-random frontier choice, to isolate the value of directed falsification; and (iii)
-the greybox granularity parameter, reporting yield at all three tool-event granularities.
-\todo{fill from ablation runs.}
 
 % =====================================================================
 \section{Discussion and Threats to Validity}
@@ -733,27 +733,36 @@ the greybox granularity parameter, reporting yield at all three tool-event granu
 \paragraph{What a \tool bug is, and is not.} A \tool report is evidence of a real defect:
 a run that violated a property fixed in advance, with a replayable repro. It is not a
 completeness claim---absence of violations does not certify a skill, and yield is bounded
-by property strength (\cref{sec:props}). We treat this honestly by measuring detection of
-planted violations rather than asserting coverage.
+by property strength (\cref{sec:props}). We treat this honestly by validating every
+executable oracle against positive and negative fixtures and by confirming candidate
+defects independently rather than asserting coverage.
 
 \paragraph{Model-driven components.} Segmentation, merging, guard extraction, and check
-compilation are model judgments and can err. We contain this three ways: temperature-0
-caching for within-campaign consistency; calibration against human labels (RQ2); and
-architecture---a wrong merge surfaces as a downstream branch rather than corrupting a
-verdict, and no model grades the run it produced. Build stability across selection order
-is reported as an empirical number, not assumed.
+compilation are model judgments and can err, and using one model everywhere creates a
+shared failure mode. We contain this with temperature-0 content-hash caching, strict
+schemas, deterministic replay from persisted receipts, explicit unfolded/inconclusive
+outcomes, and architecture: a wrong merge can misdirect search but cannot itself create a
+property violation, and no model grades the run it produced. RQ2 exposes steering misses
+rather than silently treating every mutation as successful concolic guidance.
 
 \paragraph{Cost and parallelism.} The agent under test dominates cost; the validator
-exists precisely to not waste it. \tool is more sequential than the baselines---each run
-updates the tree that chooses the next input---so we report both per-run yield (where the
-mechanism should win) and wall-clock (where the baselines parallelize more freely), rather
-than a single number that hides the trade-off.
+exists precisely to not waste it. Random and VeriGrey-inspired work can be parallelized
+more freely; \tool uses bounded epochs whose targets are frozen from one tree version and
+folded deterministically before the next epoch. We therefore report per-run yield, model
+tokens/cost, and wall-clock rather than one number that hides the trade-off.
 
 \paragraph{Generality.} Our suite is coding skills with mechanically checkable artifacts;
-skills whose success is aesthetic or subjective are out of scope, and we mark the one
-weakly-environment-contingent skill in our suite as such rather than averaging it into the
-headline. The approach assumes the agent emits reasoning; agents that do not would degrade
+skills whose success is aesthetic or subjective are out of scope. We report all 18
+high- and four medium-contingency skills individually and by family rather than hiding
+heterogeneity in one pooled total. The approach assumes the agent emits reasoning;
+agents that do not would degrade
 \tool toward the reasoning-blind baselines.
+
+\paragraph{Filesystem-state oracle.} Per-property isolation snapshots the final
+filesystem, not live processes. Checks are therefore self-contained and may start the
+service they need; a property requiring unrecoverable in-memory process state is marked
+inconclusive. This trades some runtime fidelity for preventing one generated check from
+changing evidence observed by another.
 
 % =====================================================================
 \section{Related Work}
@@ -769,7 +778,7 @@ conditions from the agent's reasoning and confirm or refute them by mutation. Re
 brings concolic ideas to agents in a different direction: ConcoLLMic~\cite{concollmic} uses
 an agent to \emph{perform} concolic execution on programs; we use concolic \emph{structure}
 to test the agent's guidance. Coverage-guided greybox fuzzing~\cite{afl,ossfuzz} and
-property-based testing~\cite{claessen2000quickcheck} supply our floor and our oracle
+property-based testing~\cite{claessen2000quickcheck} motivate our Random baseline and oracle
 philosophy respectively: a property is an assertion fixed in advance, and a violation is a
 real bug.
 
@@ -779,7 +788,7 @@ nondeterministic and mediated by tool choices~\cite{verigrey}. Most work targets
 injection~\cite{greshake2023not,owasp2025llm01,liu2025youraishell}, and
 VeriGrey~\cite{verigrey} applies greybox fuzzing to discover injection prompts, using the
 novelty of the tool-invocation sequence as feedback. We adopt VeriGrey's feedback mechanism
-as our greybox rung, but retarget it from injection to correctness and hold the oracle
+as our VeriGrey-inspired rung, but retarget it from injection to correctness and hold the oracle
 fixed, so the comparison speaks to feedback for correctness testing rather than to
 VeriGrey's security performance. Defenses that constrain the agent rather than test
 it---CaMeL~\cite{debenedetti2025camel}, instruction hierarchies~\cite{wallace2024instructionhierarchy},
@@ -812,8 +821,21 @@ rather than by a model's opinion of the run. \todo{close with the measured headl
 experiments land, and the RQ3 result on improving generated skills.}
 
 \section*{Data Availability}
-All code, the skill suite, generated inputs, and analysis scripts will be released.
-\todo{artifact link.}
+An anonymized artifact package containing the implementation, the 22-skill public
+headline suite, the ten hidden-test scenario packages, protocol/source/image hashes,
+raw result schemas, and analysis scripts will accompany review. The package includes a
+30-minute smoke path and a reduced multi-family reproduction; accepted-paper materials
+will be archived at a persistent DOI. Third-party skills retain their upstream licenses,
+and three license-unsafe candidates are represented only by source metadata and hashes.
+\todo{insert anonymous artifact link and, after acceptance, DOI.}
+
+\section*{Use of Generative AI}
+Generative-AI tools assisted with implementation, adversarial test construction,
+documentation, and language editing. The authors reviewed and validated all resulting
+code, experiments, claims, and citations. Model calls that are part of the evaluated
+system or experiments are separately identified, configured uniformly as described in
+\cref{sec:setup}, and recorded with reproducible receipts; development assistance is not
+included in experimental outcomes.
 
 \bibliography{refs}
 \bibliographystyle{plain}

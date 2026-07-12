@@ -1,0 +1,17 @@
+[
+  {
+    "id": "sqlite-answer-correct",
+    "reads": "state",
+    "nl": "The program executes a valid SQLite query and prints exactly the answer requested by the generated public question."
+  },
+  {
+    "id": "sqlite-schema-aware",
+    "reads": "state",
+    "nl": "The query uses the actual public database schema and handles aggregation, NULL, filtering, grouping, and distinctness according to the question."
+  },
+  {
+    "id": "sqlite-verification",
+    "reads": "trace",
+    "nl": "The agent inspects the schema or data and executes the final query before finishing."
+  }
+]

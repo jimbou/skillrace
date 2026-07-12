@@ -1,255 +1,323 @@
 <a href="../README.md"><img src="../skillrace-icon.png" alt="SkillRACE" width="54" align="right"></a>
 
-# Implementation status — what is built, what is proven, what is left
+# SkillRACE implementation status
 
-> Written July 2026. This is the single document to read to know where the project
-> stands. Component design rationale lives in `docs/design/*`; the paper is in
-> `paper/skillrace.tex` (engineering design notes in `../skillrace-implementation.tex`);
-> hands-on commands in [pipeline-walkthrough.md](./pipeline-walkthrough.md).
+**Status date:** 2026-07-12
 
----
+**Measurement status:** no headline RQ1 or RQ3 experiment has been run.
 
-## 0. Status at a glance
+**Protocol status:** the main protocol and dataset manifest are still `draft`.
 
-**Built and live-verified (offline / on qwen3.6-flash):**
-- The full six-component pipeline + the campaign loop, with all three method rungs
-  (random floor / greybox / SkillRACE) sharing one runner and one oracle.
-- Oracle: a zero-model fixed-invariant core + per-case checks compiled *before* the run.
-- Injected-violation detection harness (5/5 on a pilot case).
-- **D1 bug-finding suite:** 28 code-behavior skills authored (24 base-images built
-  offline, 4 dependency-gated), with a pre-registered selection protocol + logged crawl.
-- **D2 skill-generation suite:** 10 scenarios × 10 hidden tests = **100 tests / 192
-  executable checks**, all build-verified and satisfiability-checked in-container.
-- The paper (`paper/skillrace.tex`), an offline unit-test suite, and the analysis
-  tooling (aggregate / calibrate / crawl / triage / driver).
+This page answers two questions: what has actually been built and verified, and what is
+still required before the ISSTA measurements can begin. For the complete experimental
+contract—including what counts as a run, fairness controls, failure/defect calculations,
+RQ3 grading, cost accounting, parallelism, and validity limitations—read
+[evaluation-reviewer-guide.md](evaluation-reviewer-guide.md). The approved detailed
+design is [the evaluation specification](superpowers/specs/2026-07-11-skillrace-evaluation-design.md).
 
-**Not yet done (needs compute or human labels, not design):** the actual measurement
-campaigns (RQ1/RQ3 numbers), calibration labels (RQ2), building the 4 dependency-gated
-D1 skills, and loop parallelism for scale. See §5.
+Historical files under `docs/superpowers/plans/` record how implementation work was
+organized. They are not the current experiment protocol; where they mention extra
+ablations, six RQ3 conditions, three hidden repeats, a per-skill Greybox sweep, or shared
+seeds, the lean evaluation guide and specification supersede them.
 
-## 1. The system in one diagram
+## 1. Current bottom line
 
-```text
-                        ┌────────────────────────── the campaign loop (skillrace.loop) ─┐
-                        │                                                               │
- SEED phase (shared):   │  EXPLORE phase (per method):                                  │
- propose K NL ideas ──▶ │   random   : fresh diverse idea, no feedback                  │
- realize (prompt,tail)  │   greybox  : VeriGrey novelty/energy over tool sequences      │
- build (+model repair)  │   skillrace: tree ─▶ guards ─▶ property-guided pick ─▶        │
-                        │              synthesize ─▶ VALIDATE (no agent) ─▶ case        │
-                        │                                                               │
-                        │  every iteration, byte-identical for all methods:             │
-                        │   compile checks (pre-run) ─▶ run agent ─▶ check properties   │
-                        │   ─▶ fold (method's own feedback)                             │
-                        └───────────────────────────────────────────────────────────────┘
-```
+The campaign engine, three testing methods, isolated property checker, public datasets,
+RQ3 revision/evaluation pipeline, durable model journal, and deterministic parallel
+execution machinery are implemented. The most important missing implementation is the
+**headline RQ1 analysis path**: the repository can detect, group, and confirm findings,
+but its old `aggregate.py` still counts raw property IDs and must not produce paper
+numbers.
 
-## 2. Component status
+The remaining closure work is therefore not “run the expensive experiment now.” It is:
 
-| # | Component | Module | Status | Live-tested |
-|---|-----------|--------|--------|-------------|
-| 1 | Runner (Docker, live container + timebomb, cost, diff) | `run_case.py` | **done** | yes — 9 agent runs this session |
-| 2+3 | Segmenter + summarizer (one pass; intent / what_it_did / outcome-from-tool-outputs; span validation, 1 repair; agent variant for long traces) | `segment.py`, `segment_agent.py`, `simplify_trace.py` | **done** | yes |
-| 4 | Tree builder (purpose-merge, broaden-only, outcome-on-edge, way-variants, cached judgments) | `tree.py` | **done** | yes |
-| 5 | Guards & synthesis (extraction w/ executable grounding + E0/agent_runtime split + disagreement flags; frontier; **property-guided selection**; synthesis; **agent-free validation**) | `guards.py` | **done** | yes — full chain fired live |
-| 6a | Fixed property core (zero model, host-side Python: force-push, destructive rm, repetition, budget) | `fixed_checks.py` | **done** | yes |
-| 6b | Pre-run per-case check compilation (model sees prompt + built-E0 probe, **never the run**; scripts stored with the case) | `compile_checks.py` | **done** | yes |
-| 6c | Checker (executes precompiled scripts + fixed core in the live container; legacy post-hoc mode behind `--author-post-hoc`) | `check_properties.py` | **done** | yes |
-| — | Seed / random generator (propose → realize → build → model-repair; toolchain-aware proposer) | `generator.py` | **done** | yes |
-| — | Greybox generator (VeriGrey adaptation; L0/L1/L2 labels; corpus recycling) | `greybox.py` | **done** | yes |
-| — | Campaign loop (Generator protocol; shared runner/checker; divergence classification; campaign.json) | `loop.py` | **done** | yes — all three rungs |
-| — | Injected-violation detection harness | `inject_violations.py` | **done** | yes — 5/5 detected |
-| — | Hidden-test skill evaluation (claim 2) | `skill_eval.py` | **done** | plumbing tested; end-to-end needs agent runs |
-| — | Condition-blind skill reviser (claim 2) | `revise_skill.py` | **done** | plumbing tested; needs agent runs |
-| — | Dataset crawler + triage (D1) | `crawl_skillsmp.py`, `triage_candidates.py` | **done** | yes — 628 candidates crawled + triaged |
-| — | Results aggregator (campaign.json → RQ1 table + LaTeX macros) | `aggregate.py` | **done** | yes — logic unit-tested |
-| — | Calibration scorers (segmentation F1 / merge kappa) | `calibrate.py` | **done** (awaits labels) | logic unit-tested |
+1. finish and test the RQ1 confirmed-defect analysis and table/plot generator;
+2. run one clean repository-wide regression and independent artifact review;
+3. create and hash the concrete one-replication experiment schedules;
+4. replenish CloseAI, run a small multi-family paid pilot, and inspect its complete raw
+   receipts without tuning to an evaluated skill;
+5. freeze code, prompts, model settings, images, inputs, resources, and analysis; and
+6. only then run the paid headline campaigns.
 
-### Key design decisions locked in this session (and why)
+## 2. Experiment that the implementation supports
 
-1. **Oracle integrity: checks compile before the run.** The model that authors a
-   property check sees `(prompt, built initial environment)` and never the run it
-   judges; scripts attach to the CASE so every method's runs of that case are
-   judged byte-identically. This preserves the paper's "no model judges the run"
-   claim and doubles as a fairness control. (`compile_checks.py`; the old
-   post-hoc authoring survives only as a debugging flag.)
-2. **Three verdict provenances**, reported separately: `fixed` (zero model) >
-   `compiled-pre-run` (model at compile time) > `authored-post-run` (legacy).
-3. **Property-guided targeting** (from notes.md): when picking which guard to
-   mutate, the model is shown the skill's properties and asked for the feasible
-   mutation most likely to break one — directed falsification, the main
-   legitimate edge over tool-sequence novelty.
-4. **Greybox = VeriGrey verbatim where possible** (novelty sets, 3-increment
-   energy, novelty-weighted scheduling, corpus that never exhausts), with the
-   injection-specific parts replaced by shared components, and label
-   granularity (L0/L1/L2) treated as a declared, swept parameter — headline
-   numbers use the baseline's best level. See
-   [greybox-verigrey-adaptation.md](./design/greybox-verigrey-adaptation.md).
-5. **Tree = purpose-merge, outcome on the edge, no node split.** Divergence in
-   outcome surfaces one step later as a branch whose in-edges carry the
-   differing outcomes — precisely where guard extraction reads them. The tex was
-   updated to match.
+| Study | Conditions | Allocation | Fixed agent executions |
+|---|---|---|---:|
+| RQ1: public skill testing | Random, VeriGrey-inspired L1, SkillRACE on 22 skills | 30 per method/skill | 1,980 |
+| RQ2: mechanism | Labels from the same SkillRACE RQ1 executions | no extra arm | 0 extra |
+| RQ3 public testing | the same three producers on 10 base skills | 30 per producer/scenario | 900 |
+| RQ3 hidden final exam | zero-shot plus three feedback revisions on 10×10 tests | each test once | 400 |
 
-## 3. What the live smoke tests proved (July 2026, qwen3.6-flash end to end)
+The lean design has one predeclared campaign replication. Random spends all 30 counted
+executions on fresh independent cases. VeriGrey-inspired and SkillRACE each spend ten on
+independently generated bootstrap cases and 20 on guided exploration. The intended fixed
+total is 3,280 agent executions, plus one data-dependent confirmation rerun per distinct
+suspected defect. Base generation, internal semantic processing, check compilation, and
+revision are model calls whose cost is recorded but which do not masquerade as agent
+executions.
 
-| Campaign | Budget | Outcome |
-|---|---|---|
-| skillrace / fix-failing-test | 4 (2 seed) | 2 true syntheses, 0 fallbacks; classifications `predicted_divergence` + `no_divergence`; 2 distinct properties violated |
-| greybox / fix-failing-test | 3 (2 seed) | novelty index 12 tools / 24 transitions / 3 sequences; 1 energy-chosen LLM mutation; mutant broke the wall-clock budget (counted violation) |
-| random / fix-failing-test | 2 (1 seed) | clean control |
-| injection study (case2) | 5 injections | **5/5 detected** (delete-test, weaken-test, false-victory, force-push, repetition) |
+## 3. What is implemented
 
-Notable live findings:
+### 3.1 Fair campaign protocol and three methods
 
-- **A real skill-defect case study**: a generated env named its buggy module
-  `collections.py`, shadowing the stdlib so pytest itself crashed. The agent
-  "fixed" the code and declared victory via a hand-rolled bypass while the real
-  suite still could not run. `tests-pass-final` and `ran-tests-before-finishing`
-  fired — the observation-grounded oracle caught what the agent's narration
-  missed. This is the archetype of "guidance doesn't cover a broken test
-  harness."
-- **The Component-5 chain works as designed**: guard `which module the workspace
-  targets` grounded as `test -f text_processor.py` (E0-decidable), negated,
-  synthesized into a validated new env, run took a new branch
-  (`predicted_divergence`); the follow-up sibling mutation produced
-  `no_divergence` — the honest "stated reason wasn't causal" signal, recorded
-  and the mutation marked spent.
-- **A checker false positive surfaced and was fixed**: a compiled check flagged
-  `rm -rf __pycache__` as destructive (the zero-model fixed core correctly did
-  not). The compile prompt now instructs severity-over-surface-patterns. Keep
-  collecting these — they are the compile-step calibration data the paper
-  promises.
+- `experiments/protocols/issta-main.draft.json` fixes `qwen3.6-flash`, budget 30,
+  bootstrap count 10, five pre-agent attempts per coordinate, one global L1 Greybox
+  schema, and the shared generator configuration.
+- The protocol authoritatively maps allocations to Random `0+30`, VeriGrey-inspired
+  `10+20`, and SkillRACE `10+20`; the production path cannot silently turn Random into a
+  seeded method or select a different Greybox level per skill.
+- Random receives no execution feedback. VeriGrey-inspired sees only schematized L1 tool
+  events and novelty over tools, transitions, and full sequences. SkillRACE sees its own
+  episodes, outcomes, tree, guards, and properties for target selection.
+- All three use the same candidate realization/build/repair path, sanity gate, Pi runner,
+  base image per skill, wall-clock policy, property specs, compiler/checker, model, and
+  provider journal policy.
+- The comparison is explicitly full-system. No implemented or planned headline claim
+  says that Random→Greybox isolates feedback or that Greybox→SkillRACE isolates a single
+  component.
 
-### Bugs found in pre-existing code (fixed)
+### 3.2 Exact budget and crash accounting
 
-- `generator.normalize_tail` prefixed `RUN` onto backslash-continuation lines,
-  corrupting valid multi-line Dockerfiles (silent build-budget burner).
-- Greybox seeds exhausted after spending energy → generator could die before
-  budget; VeriGrey's corpus never exhausts → recycling added.
-- The seed proposer suggested heavyweight foreign stacks (Spring/Rails on a
-  Python base); it is now told to prefer the base's toolchain and to get
-  interestingness from the broken STARTING STATE, not exotic stacks.
+- A coordinate consumes budget only after Pi is durably recorded as started.
+- Proposal, schema, build, or sanity failures before that marker do not consume one of
+  the 30 slots, but their attempts, cost, time, and reason remain reportable.
+- Completion, agent error, timeout, lost outcome, or oracle-inconclusive status after the
+  marker consumes the slot. A method cannot erase a bad started execution.
+- Execution and attempt coordinates are transactionally reserved and unique. Start,
+  terminal, cleanup, fold, and generator-state receipts are immutable and checked on
+  resume.
+- If an external action may have happened but lacks a terminal receipt, its state is
+  `unknown`; the system stops rather than silently repeating a paid call.
+- The outer scheduler marks a cell successful only when it returns both `complete: true`
+  and terminal status `completed` with all 30 distinct counted coordinates.
 
-## 4. How to run everything
+### 3.3 Candidate validity and property oracle
+
+- Every candidate passes the same non-semantic schema, path, build, base-integrity,
+  workspace/tool, task, and obvious-start-state sanity checks before the agent can run.
+- Natural-language properties are compiled into mechanical scripts before the agent
+  execution. The compiler may see the task, initial tree, tools, immutable image, and
+  applicability policy; it cannot see the future trace, final state, or verdict.
+- Compile identity binds model/prompt/policy, properties, candidate, applicability, and
+  image digest. Legacy post-run check authoring is excluded from headline evidence.
+- The final state is snapshotted once. Each compiled check executes in a fresh,
+  networkless, capability-dropped, process- and timeout-bounded child, so one check cannot
+  prepare state for another.
+- Exact trace checks structurally parse tool-call blocks rather than searching narration.
+  Invalid scripts, missing evidence, Docker failure, and timeout yield inconclusive—not a
+  fabricated pass or defect.
+
+### 3.4 SkillRACE exploration and RQ2 evidence
+
+- Concrete traces are segmented into episodes and summarized using tool outputs for
+  outcomes. Episodes fold into a behavior tree; reasoning/outcome conditions generate
+  candidate mutations.
+- Selection is property-first and branch-diverse. Mutation may coherently change several
+  environment features and may discover a useful branch other than the motivating one.
+- Intended reach is diagnostic only. Implemented labels are `intended_branch`,
+  `different_new_branch`, `no_divergence`, `path_miss`, and `unfolded`.
+- Targeted versus serendipitous is a separate property relationship: a finding is
+  targeted when its violated property ID equals the mutation's selected target property.
+  Neither label gates whether a confirmed defect counts.
+
+### 3.5 Defect grouping and confirmation primitive
+
+- A definite `holds: false` property verdict is a suspected failure, not immediately a
+  unique defect.
+- Mechanical normalization removes volatile addresses, paths, and numeric literals from
+  the detail, then hashes property ID plus normalized detail. Groups use
+  `(skill, property, failure_signature)`.
+- The earliest representative of each group is rerun once after search. Only the same
+  property/signature recurring with status `confirmed` counts; timeout, error,
+  inconclusive, or not-reproduced remains separate.
+- Confirmation consumes time and money but not one of the 30 search slots. Its full cost
+  is recorded. This confirmation machinery is integrated in RQ3 and is intended to feed
+  the unfinished RQ1 analysis.
+
+### 3.6 Deterministic parallel execution
+
+- Independent method/skill/replication cells can run concurrently through one manifest
+  scheduler and global resource pool with separate API, Docker, and agent limits.
+- Random and Greybox use transactional frozen batch reservations.
+- SkillRACE freezes tree version N and a property-first, branch-diverse target plan for a
+  bounded epoch (default four); workers execute immutable jobs, then one reducer folds
+  them in candidate-ID order into N+1.
+- Reverse worker-completion tests require byte-identical campaign, tree, generator,
+  cache, guard, and classification state. Partial generation intent can be recovered
+  without double-spending a coordinate.
+- Hidden tests and checks are currently isolated but sequential inside a scenario. RQ3
+  scenarios are independent and can be scheduled outside one another, but a final frozen
+  top-level RQ3 schedule is not yet checked in.
+
+### 3.7 D1 public skill suite
+
+- The draft headline set contains 22 redistributable public skills, 60 properties, and
+  12 families: 18 high- and four medium-environment-contingency skills.
+- These were selected as the first 22 that satisfied the approved inclusion/exclusion
+  protocol under the mining order (by popularity). The same methodology and filters remain
+  in force for selecting the remaining 8 headline skills.
+- Four original skills used during development are excluded from headline inference.
+  Three mined public candidates are excluded because redistribution permission is absent
+  or unsafe.
+- Twenty-five source records pin repository, commit, path, source hash, fidelity, and
+  license evidence; 18 upstream license texts are embedded. All 22 declared base images
+  currently resolve under the D1 audit.
+- Contingency was classified before results and is never a post-result inclusion rule.
+
+### 3.8 D2 skill-generation suite
+
+- Ten scenarios contain exactly ten hidden tests each: 100 tests and 192 executable
+  criteria in total.
+- Each test has a versioned public/hidden contract, Dockerfile and check hashes, a
+  reference overlay, and assigned negative implementations.
+- Runtime evidence regenerated on 2026-07-12 records 100/100 references passing,
+  100/100 empty starting states rejected, and all 215 assigned negative/criterion pairs
+  killed. This is **100 validated Docker evidence records**; all 192 checks run inside
+  the built containers, with every criterion evaluated in a fresh container.
+- The negative implementations validate the oracles only. They are never counted as bugs
+  found by any testing method.
+
+### 3.9 RQ3 public phase, revision, and hidden exam
+
+- A scenario stages only its public purpose/campaign package and one journal-provenance
+  `/2` zero-shot base skill.
+- The same base skill receives three 30-execution campaigns, separate deterministic
+  failure grouping/confirmation, and three feedback envelopes.
+- Every envelope has the same schema and a maximum of 3,600 canonical-JSON UTF-8 bytes.
+  Section round-robin preserves findings, explored situations, and method-specific
+  evidence fairly under truncation.
+- The three revision calls use the same model, prompts, reasoning/temperature/output
+  settings, and base skill; only the envelope changes. Each `/2` artifact binds exact
+  request bytes, stable operation identity, hashed provider identity, usage, cost, and
+  copied immutable journal receipts.
+- Hidden evaluation is exactly four conditions × ten tests. A functional pass requires
+  exactly the unique criterion IDs from the current hidden contract, all with
+  hidden-independent provenance and all holding. Missing, extra, duplicate, or wrong-
+  provenance criteria cannot pass.
+- The headline denominator remains ten scheduled tests. Error, timeout, missing, or
+  inconclusive execution yields no pass and is separately reported. Strict pass also
+  requires applicable fixed invariants.
+- Recursive verification reloads the current hidden contracts, resolved validation image
+  digest, and exact `t1..t10` inventory; rehashes raw launch/run/trace/verdict/cost files;
+  and recomputes grades rather than trusting stored summaries.
+- RQ3 analysis treats scenarios as the top-level paired units and reports each revision's
+  pass-rate change from its same zero-shot skill. It does not treat 100 tests as 100
+  independent scenarios.
+
+### 3.10 Hidden-information isolation
+
+- Production campaign processes use an empty-root bubblewrap namespace. Explicit
+  runtime/code/public inputs are read-only; only the campaign output and provider ledger
+  are writable; the source scenario and `tests/` tree are absent.
+- Confirmation reruns and revision run in separate confined children with only their
+  required public inputs. A completed, hash-verified public-phase barrier precedes any
+  hidden-test content loading or execution.
+- Launch artifacts record the exact bubblewrap binary/hash/version, argv, mounts and
+  modes, clean environment-variable names, and policy hash; resume recomputes them.
+- Trusted orchestration retains host network access and the exact Docker Unix socket.
+  This is an explicit trust boundary: it could ask Docker to bind a host path, although
+  generated agents never receive the socket and production commands use recorded public
+  mounts. The artifact does not claim hostile-container security.
+
+### 3.11 CloseAI operation journal
+
+- Calls use stable operation IDs and exact request hashes with atomic/fsynced starts,
+  attempts, terminals, and call-terminal receipts.
+- Provider identifiers are hashed; secrets and raw provider IDs are not stored.
+- Missing usage/cost is represented as unknown rather than false zero. Production pricing
+  fails closed for an unknown model.
+- Strict `/2` base/revision validators reject missing or inconsistent model, request,
+  usage, cost, billing, provider, operation, or journal provenance.
+- `scripts/closeai_hello.py` is a one-call diagnostic that uses the same durable journal;
+  it is not an experiment.
+
+## 4. Verification evidence available now
+
+The following are targeted engineering checks, not scientific outcomes:
+
+- campaign accounting, recovery, information-boundary, frozen-epoch, and reverse-order
+  tests have passed in focused suites;
+- all 100 D2 runtime-evidence records validate with zero pending or failed audits;
+- the journal/base/revision provenance suite passed 77 focused tests after the `/2`
+  migration;
+- the strict hidden-evidence RQ3 surface passed its focused 83-test suite;
+- public-phase/confirmation/revision isolation passed 12 isolation-specific tests and a
+  100-test broad RQ3-focused selection, including real bubblewrap and Docker probes.
+
+After the RQ3 integrations and this documentation update were combined, the complete
+repository suite reported **562 passed and 100 skipped** on 2026-07-12. Full Python
+compilation and `git diff --check` also exited successfully. These are implementation
+consistency checks, not scientific outcomes, and still need a clean-checkout artifact
+rehearsal before freeze.
+
+## 5. What is not finished
+
+### 5.1 Required before protocol freeze
+
+- **Headline RQ1 analysis:** replace the legacy raw-property `aggregate.py` path with a
+  verifier that consumes campaign and confirmation receipts, reconstructs failure groups,
+  calculates confirmed yield/discovery/AUC/censoring, performs paired family-cluster
+  uncertainty, and writes all RQ1/RQ2 tables and plots without hand editing.
+- **D1 completion:** continue the same fixed candidate-order inclusion protocol to add 8
+  additional public code-behavior skills (target headline suite = 30), then rerun D1
+  draft/frozen validation checks to confirm the manifest is no longer draft.
+- **Final statistical freeze:** encode and test the exact bootstrap seed/resamples and
+  output schemas for both RQ1 and RQ3, then hash them in the freeze manifest.
+- **Concrete experiment schedules:** after adding 8 more D1 skills, generate the 30×3 RQ1 and
+  10×3 RQ3 public campaign cells with one replication, resource limits, output paths,
+  and derived scheduler seeds; validate that no duplicate or omitted cell exists.
+- **Final independent review:** perform one fresh adversarial artifact review and repeat
+  the same gates from the eventual clean frozen checkout.
+- **Documentation reconciliation:** remove remaining historical claims in README/paper
+  text that imply a baseline gap isolates one component, classify targeted findings by
+  branch reach, or use raw distinct-property counts as the headline.
+- **Artifact rehearsal:** perform a clean-checkout, sub-30-minute smoke path and verify
+  every documented command and relative link.
+
+### 5.2 Requires funded model access
+
+- Regenerate all ten zero-shot RQ3 base skills under the `/2` journal schema. Old `/1`
+  artifacts intentionally fail closed and cannot be relabelled.
+- Run a small, explicitly development-only multi-family pilot through generation, agent
+  execution, checking, confirmation, feedback, revision, and hidden grading. Inspect
+  receipts and generic failure modes; do not tune prompts to a headline skill.
+- CloseAI currently returns HTTP 403 consistent with insufficient balance. No completion
+  call in the current build conversation succeeded; `/v1/models` connectivity alone is
+  not a paid model result.
+
+### 5.3 Scientific measurements and publication artifact
+
+- Freeze the protocol, datasets, model/role settings, prompts, images, one replication,
+  resources, journal policy, and analysis hashes before looking at headline outcomes.
+- Run all RQ1 and RQ3 campaigns and data-dependent confirmations.
+- Generate paper tables/figures from verified artifacts and report mixed/negative results
+  unchanged. There is currently no evidence-backed claim that SkillRACE wins.
+- Complete the anonymized conference package, archival metadata/DOI plan, and final paper
+  consistency pass. Current paper result fields remain placeholders.
+
+## 6. Reviewer commands
+
+Use the repository virtual environment; the host has no bare `python` command:
 
 ```bash
-# one campaign (one method × one skill × one budget)
-python -m skillrace.loop --method skillrace|random|greybox \
-    --skill <s> --skill-dir skills/<s> --base skillrace/<s>:base \
-    --props skills/<s>/properties.json --budget 20 --seed-count 6 \
-    [--greybox-level L0|L1|L2] [--seed-k 3] --out out/campaign/<method>/<s>
+# Fast, no-cost artifact gate
+PYTHON=.venv/bin/python scripts/artifact_smoke.sh
 
-# detection-rate study for a case that has compiled checks
-python -m skillrace.compile_checks --case <case> --props skills/<s>/properties.json
-python -m skillrace.inject_violations --case <case> --out out/injection/<name>
+# D1 selection, source, license, and image audit
+.venv/bin/python -m skillrace.d1_audit \
+  experiments/manifests/rq1-skills.draft.json --require-images
 
-# claim-2 loop (once scenarios exist)
-python -m skillrace.revise_skill --skill-dir skills/<s> \
-    --feedback out/campaign/<method>/<s>/campaign.json --out candidates/<method>-v2
-python -m skillrace.skill_eval --scenario scenarios/<name> --skill-name <s> \
-    --skill-dir candidates/<method>-v2 --out out/skill-eval/<method>-v2
+# D2 contracts and stored runtime evidence
+.venv/bin/python -m skillrace.scenario_contract validate \
+  scenarios --require-runtime-evidence
+
+# Complete no-live regression suite
+.venv/bin/python -m pytest -m 'not live'
+
+# One journaled connectivity probe after funding is restored
+.venv/bin/python scripts/closeai_hello.py
 ```
 
-Artifacts per campaign: `campaign.json` (per-iteration record: provenance,
-violations, classification, seconds), `tree.json` + `tree.guards.json`
-(skillrace), `cases/*/` (Dockerfile, candidate.json, checks/, validate.sh),
-`runs/*/` (trace, episodes, verdicts, diff, cost).
-
-## 4b. Paper, datasets, and prep (added later)
-
-- **Paper** in `paper/` (`skillrace.tex` + verified `refs.bib`), acmart style, compiles
-  clean; Figure 1 is a native editable TikZ pipeline. Placeholders are macros.
-- **Dataset selection protocol** `docs/dataset-protocol.md` — pre-registered
-  inclusion/exclusion criteria and reporting commitments (anti-cherry-picking).
-- **D1 decision log** `candidates/skill-suite-candidates.md` — **code-behavior skills
-  only** (I1 refined: the artifact must be code whose behavior is checkable; document-
-  generation skills — docx/pptx/pdf/xlsx — are excluded under X1 as presentational).
-  **28 skills authored — 24 base-build-verified offline + 4 build-deferred** (pip/npm
-  deps): the 4 in-repo originals + 24 vendored verbatim from public repos (obra/superpowers,
-  anthropics/knowledge-work-plugins, and the skillsmp S5 crawl), assembled instances-per-
-  family (cli ×3, refactor ×3, sql ×4, unit-test ×2, parser ×2, plus singletons). Full
-  grouped list: `candidates/D1-final-suite.md`. Fixed-invariant catalog + applicability
-  matrices in `skills/INVARIANTS.md`. The S5 crawl produced 628 candidates → triaged
-  (`skillrace.crawl_skillsmp` + `triage_candidates`). Honest ceiling: the pool cleanly
-  yields ~28 *distinct* code-behavior skills (rest are forks/coupled/presentational); a
-  literal 30+ needs broadening sources, not padding with near-duplicates.
-- **D2 scenarios** `scenarios/` — 10 skill-generation scenarios × **10 hidden tests =
-  100 tests, 192 facet-driven executable checks**. **Fully build-verified**: dedicated
-  base `skillrace/skillgen-base` (`scenarios/build_base.sh`) built offline; every
-  environment builds and all 192 checks run *inside the built containers* against
-  hand-written reference solutions and pass (confirming none is vacuously unsatisfiable
-  and every expected value is correct). Checks-per-test match real facets (rich
-  scenarios ~2.6-3.0, pure-function ones ~1; no padding). Only the agent runs (an
-  experiment) remain.
-- **Offline test suite** `tests/test_pure.py` (18 tests, `pytest.ini`) over the pure
-  functions — no Docker/network/model.
-- **Prep tooling**: `skillrace.aggregate` (campaign.json → RQ1 table + LaTeX macros),
-  `skillrace.calibrate` (segmentation F1 / merge kappa scorers, ready for labels),
-  `scripts/run_suite.sh` (all methods × skills × greybox granularity sweep), and the
-  `--regrade-k` reproducibility regrade in the loop.
-
-## 5. What is left, in priority order
-
-The pipeline, both datasets, the paper skeleton, and all analysis tooling are done.
-What remains is mostly **running** it (compute), **labelling** (RQ2), and a few polish
-items — none are design-blocked.
-
-1. **Run the RQ1 campaigns (the headline numbers).** Execute the three rungs on the
-   D1 suite under a fixed budget: `scripts/run_suite.sh` then `python -m skillrace.aggregate`,
-   which prints the RQ1 table and the `\renewcommand` lines to paste into the paper.
-   This is the single biggest remaining item — everything is plumbed, it just needs
-   agent-run compute.
-2. **Run the RQ3 skill-improvement study.** For each scenario: revise the base skill
-   from each method's campaign findings (`revise_skill`), then `skill_eval` on the 100
-   hidden tests. Do a **one-scenario dry run first** to confirm the reviser + eval loop
-   end-to-end, then scale.
-3. **Finish the D1 dataset to a literal 30** (optional; 28 is defensible). Build the 4
-   dependency-gated skills (`pip`/`npm` in their `Containerfile.base`) on a networked
-   machine, and/or re-run `crawl_skillsmp` with a GitHub-direct source. See
-   `candidates/skill-suite-candidates.md`.
-4. **Calibration labels (RQ2).** Hand-segment ~100 traces and label a merge-pair set,
-   then run `python -m skillrace.calibrate` (scorers already written). Also compile-step
-   verdict agreement on a hand-checked sample; tree build-stability across seed order.
-5. **Loop parallelism** for real-scale budgets (iterations are sequential, ~4–6 min
-   each). Random/greybox parallelize trivially; SkillRACE can batch several frontier
-   targets per tree refresh. Report both per-run and wall-clock metrics.
-6. **Greybox granularity sweep** at scale: `--greybox-level L0|L1|L2` per subset skill;
-   pick the best level per skill for the headline (the driver already loops all three).
-7. **Guard-extractor tuning**: prefer failure-signature/state conditions over
-   file-identity ones (the observed `no_divergence` came from a behaviorally-inert
-   module-name mutation). Consider batching guard extraction at larger tree sizes.
-8. **Fill the paper** from `aggregate.py` output (RQ1 macros), add the real Figure 2
-   (discovery-vs-budget plot), and clear the remaining `\todo`s.
-9. **Deferred, recorded** (per build-plan): `agent_runtime` guards; the VeriGrey
-   injection-oracle slice; cross-prefix tree merging (measure duplication first);
-   in-process Pi SDK runner.
-
-### What we did this session (changelog)
-
-- Built Component 5 (guards + property-guided synthesis + agent-free validator), the
-  campaign loop, the greybox rung, the pre-run oracle + fixed core, and the injection
-  harness; wired and live-tested all three rungs end-to-end.
-- Wrote the paper (`paper/skillrace.tex` + verified `refs.bib`, TikZ Figure 1).
-- Built the dataset-selection protocol; crawled skillsmp (628 candidates) and triaged;
-  assembled **D1 = 28 code-behavior skills** (24 built) with logged provenance, after
-  refining I1 to exclude presentational/document skills.
-- Built **D2 = 10 scenarios × 10 tests (100 tests / 192 checks)**, all build-verified
-  and satisfiability-checked in-container.
-- Added analysis tooling (aggregate / calibrate / crawl / triage / run_suite / k-regrade)
-  and an offline unit-test suite; fixed several real bugs (see §3).
-
-## 6. Known caveats to keep in mind (honesty box)
-
-- `CLOSE_API_KEY` is visible inside the agent-under-test container
-  (`run_case.py`); note it in the paper's setup or proxy the key.
-- Timeout runs destroy the container → state checks are inconclusive for them;
-  they count against the generating method identically for all rungs (the fixed
-  core still judges them, incl. the budget property).
-- The tree is a prefix tree: identical situations reached along different
-  prefixes occupy separate nodes (path-tree semantics, like concolic execution).
-  Defend explicitly or measure duplication before changing.
-- Merge-cache keys include the node's broadened intent, so cache hit-rate
-  drops as nodes grow — expect real (small) merge-call costs at 100+ runs.
-- The `no-destructive-ops`-style compiled checks are only as nuanced as the
-  compile prompt; keep auditing false positives/negatives and fold them into
-  the calibration sample.
+Do not start paid headline commands while `STATUS.md` says the protocol is draft. A
+passing offline suite proves implementation consistency; it does not prove experimental
+effectiveness.

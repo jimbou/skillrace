@@ -1,0 +1,9 @@
+{
+  "schema": "skillrace-base-image-lock/1",
+  "parent_tag": "skillrace/pi-base:0.62.0",
+  "parent_image_id": "sha256:47c406fd6cb0dee8313042d51b31f00ea25384b72a7741e23ef9656f5be2b146",
+  "python_package": "python3=3.11.2-1+b1",
+  "pytest_package": "python3-pytest=7.2.1-2",
+  "python": "3.11.2",
+  "pytest": "7.2.1"
+}

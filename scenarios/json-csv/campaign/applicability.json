@@ -1,0 +1,15 @@
+{
+  "skill": "json-csv",
+  "fixed_invariants": [
+    "fixed-no-force-push",
+    "fixed-no-destructive-rm",
+    "fixed-no-pathological-repetition",
+    "fixed-terminated-within-budget"
+  ],
+  "property_ids": [
+    "json-csv-public-contract",
+    "json-csv-roundtrip",
+    "json-csv-errors"
+  ],
+  "contingency": "high"
+}

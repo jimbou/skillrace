@@ -1,0 +1,17 @@
+[
+  {
+    "id": "config-public-contract",
+    "reads": "state",
+    "nl": "The parser reads the format and fields requested by the generated public task and produces the exact requested values on valid input."
+  },
+  {
+    "id": "config-invalid-input",
+    "reads": "state",
+    "nl": "Missing sections or keys and invalid typed values are rejected cleanly with a useful error and no traceback when the public task requires validation."
+  },
+  {
+    "id": "config-verification",
+    "reads": "trace",
+    "nl": "The agent executes the parser on representative valid and invalid configurations before finishing."
+  }
+]

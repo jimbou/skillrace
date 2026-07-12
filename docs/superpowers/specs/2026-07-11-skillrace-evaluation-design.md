@@ -22,12 +22,14 @@ Under a fixed agent-run budget, reasoning- and property-guided behavioral explor
 finds more confirmed skill defects than unguided independent LLM generation and
 tool-sequence-guided greybox mutation.
 
-The paper will describe SkillRACE as concolic-inspired approximate exploration. It will
-not require exact path reproduction or claim that every reasoning statement is causal.
+The paper describes SkillRACE as concolic execution for agent skills: concrete runs are
+lifted into a behavior tree and reasoning-derived branch conditions are mutated to seek
+new paths. Intended path reproduction is measured but is not a prerequisite for a valid
+defect, and the paper does not claim that every stated reason is causal.
 
 ## Experimental Contract
 
-For each skill and campaign replication:
+For each skill and campaign replication (the current headline protocol uses one replication):
 
 1. Use one frozen test-generation protocol, model configuration, realization pipeline,
    build policy, and sanity gate for every method. The protocol defines both independent
@@ -55,8 +57,8 @@ comparing methods. Campaign replications generate new initialization sets from t
 frozen protocol so results do not rely on one favorable corpus.
 
 The headline is a full-system comparison, not a claim that the random-to-greybox gap
-isolates tool-sequence feedback. A separate subset ablation supplies that controlled
-comparison using matched seeds and mutation machinery.
+isolates tool-sequence feedback. No matched-seed baseline or other extra experimental
+arm is required for the submitted evaluation.
 
 ## Shared Candidate Sanity Gate
 
@@ -110,10 +112,8 @@ The greybox baseline adapts VeriGrey's feedback mechanism to skill correctness t
 Because injection-specific context bridging and the injection oracle do not transfer,
 the paper calls this method "VeriGrey-inspired" rather than VeriGrey itself.
 
-Tool-event granularities L0, L1, and L2 are evaluated on development skills excluded
-from the final comparison. One global level is frozen for the headline experiment; all
-three levels are reported as a sensitivity analysis. The headline never selects a
-different best level per evaluated skill.
+One global L1 tool-event schema is frozen before the headline experiment. The headline
+never selects a different level per skill; no new L0/L1/L2 sweep is required.
 
 ### SkillRACE
 
@@ -136,18 +136,13 @@ Each generated case records its motivating guard, intended mutation, targeted pr
 validation result, actual branch classification when available, and whether a discovered
 violation was targeted or serendipitous.
 
-## Experiment Scope and One Small Ablation
+## Experiment Scope
 
-The only full comparisons are random, VeriGrey-inspired, and full SkillRACE. No direct-
-property baseline, seeded black-box arm, per-component model sweep, or uniform-selection
-arm is added to the full experiment.
-
-One preregistered small ablation may be run if the fixed compute allocation includes it:
-SkillRACE without reasoning, using observable outcomes only, on five skills selected
-before results to cover debugging, CLI, parser, SQL, and low-contingency behavior. It
-uses the same 30-run budget. This is the most direct affordable test of the paper's
-reasoning contribution. It is secondary and is never substituted for a weak headline
-result.
+The only comparisons are random, VeriGrey-inspired, and full SkillRACE. There is no
+direct-property baseline, seeded black-box arm, component/model sweep, uniform-selection
+arm, or outcomes-only ablation. Mechanism evidence instead comes from intended-branch,
+alternate-new-branch, miss, and serendipitous-defect labels collected in the same
+SkillRACE executions.
 
 ## Correctness Repairs Required Before Campaigns
 
@@ -192,7 +187,7 @@ regenerated rather than retrospectively labelled as model-generated.
 
 ### Phase 1: Produce testing feedback
 
-For every scenario and campaign replication:
+For every scenario and campaign replication (one replication for the headline protocol):
 
 1. Start random, VeriGrey-inspired, and SkillRACE from the same base skill.
 2. Give each method the same total agent-run budget to test the base skill: random uses
@@ -220,8 +215,12 @@ Each method's output is projected into the same bounded feedback envelope:
   context for SkillRACE;
 - inconclusive findings clearly separated from confirmed findings.
 
-The envelope schema, ordering, and maximum token count are identical across methods;
-missing fields are empty rather than omitted. The reviser receives the same system
+The envelope schema, ordering, and frozen maximum of **3,600 canonical-JSON UTF-8
+bytes** are identical across methods; missing fields are empty rather than omitted.
+Items are admitted in deterministic section round-robin order so a verbose generic
+section cannot erase all method-specific evidence. This byte cap is deliberately not
+described as a Qwen token count. Actual provider input/output
+tokens are recorded separately on every revision call. The reviser receives the same system
 prompt, base skill, model, temperature, and output budget for all conditions. Only the
 feedback envelope differs. It produces three revised skills: random-feedback,
 greybox-feedback, and SkillRACE-feedback. The zero-shot skill is not revised.
@@ -296,7 +295,7 @@ and refactoring skills are not treated as independent observations.
 
 Parallelism is allowed where it does not create shared mutable search state:
 
-- skills, methods, the one small reasoning ablation, and replications run concurrently;
+- skills, methods, and replications run concurrently;
 - independent property checks compile concurrently;
 - D2 test/skill-version/replication combinations run concurrently;
 - random and greybox candidate runs may be queued independently within resource limits;
@@ -311,8 +310,8 @@ and per-run directories. Docker, CPU, and API concurrency use explicit semaphore
 
 The public mined D1 skills form the headline dataset after all deferred images build.
 Locally authored skills are reported separately as controlled case studies. Results are
-clustered by family and include low-contingency cases rather than silently excluding
-them.
+clustered by family and report all preclassified contingency strata rather than silently
+excluding the medium-contingency cases.
 
 The artifact contains a locked environment, a sub-30-minute smoke test, frozen datasets,
 raw campaign records, reference-oracle evidence, analysis scripts, and commands that
@@ -330,7 +329,7 @@ Full campaigns do not begin until:
 4. all D2 tests pass syntax and reference-solution validation, reject at least one
    negative implementation, and the identified weak checks reject their targeted
    mutants;
-5. a pilot covering at least one debugging, CLI, parser, SQL, and low-contingency skill
+5. a pilot covering at least one debugging, CLI, parser, SQL, and medium-contingency skill
    completes without missing artifacts or unrecoverable infrastructure failures;
 6. the pilot reports branch-classification, fallback, oracle-inconclusive, cost, and
    candidate-rejection rates;

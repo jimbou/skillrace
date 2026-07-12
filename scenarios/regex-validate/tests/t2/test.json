@@ -1,0 +1,74 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "regex-validate/t2",
+  "candidate_sha256": "def0530d3ad88168485cae7a9ab7cf71666a100d88c870d8e0b80891499aac13",
+  "dockerfile_sha256": "ba69408f061de14235f7f6678d509fb3b6644f447f0bd58d24de9cc614d6f08d",
+  "content_identity_sha256": "79c3a7ae98c6ae3ca9cba922337f21a5588ddb7efa907f5569d0bb6e362c8f51",
+  "duplicate_justification": null,
+  "entrypoint": "python3 -c 'import validate'",
+  "criteria": [
+    {
+      "id": "accepts-valid",
+      "script": "checks/accepts-valid.sh",
+      "script_sha256": "d4a36f4929ee2b4c68b20de61bda82fe9165bbc8f77c2dee94d662189ceeeb9e",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "reject-all"
+      ]
+    },
+    {
+      "id": "anchored",
+      "script": "checks/anchored.sh",
+      "script_sha256": "af746d97d89473ea3317d88baf0f6274ec6bb7962f924ac5cb6a4331aeffba49",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "unanchored"
+      ]
+    },
+    {
+      "id": "rejects-invalid",
+      "script": "checks/rejects-invalid.sh",
+      "script_sha256": "83d3da814cd40ba137b13c7513b5288c7a11159a1797e2c1df7acc7a9391d3dd",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "accept-all"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "reject-all",
+      "overlay": "oracle/negative/reject-all",
+      "fault": "reject all",
+      "overlay_sha256": "11e9012222972385d5c5aa448215d7d7d633c6e4a8756e3686d8d4ce898fad90"
+    },
+    {
+      "id": "accept-all",
+      "overlay": "oracle/negative/accept-all",
+      "fault": "accept all",
+      "overlay_sha256": "cb8ce54e5eaf82309ce21e64dfa6255038326e6df15f56704782232f9a7e3b07"
+    },
+    {
+      "id": "unanchored",
+      "overlay": "oracle/negative/unanchored",
+      "fault": "unanchored",
+      "overlay_sha256": "48621f2fcf41eb9b4df3eb0f8be569bd579b9637ee52ada3815bc3685da5cc16"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "7cb05003b8918377823e393dc2645fab69e3c83dd0267adc52abb0d16ac0ca1c",
+  "contract_identity_sha256": "1c44475a6759d960a74c50e995677620195dafa6d1757fbf338ce78e5e00a59f"
+}

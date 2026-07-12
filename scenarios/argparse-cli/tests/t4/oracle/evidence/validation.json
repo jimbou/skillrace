@@ -1,0 +1,133 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "argparse-cli/t4",
+  "state": "validated",
+  "contract_identity_sha256": "d0e80c023c7549df3e9ac878ff4549e9a6ff5a1b983e833d124a2deb91f718a7",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T00:09:02.000518+00:00",
+  "image_digest": "sha256:ba8efe853f858230969de89fe1aaf66648b8a42e3d2d16de510b1039084387af",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "5f52205d629fe20275e3f61370d4d53ffe2e5dd950c8c567371b7c5d9ba2f2d2",
+    "criteria": {
+      "invalid-choice-nonzero": {
+        "command": [
+          "bash",
+          "/check/oracle/invalid-choice-nonzero.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.087549,
+        "script_sha256": "a0621697ea204a5b3ffa864405678c9aaa34191cdbf2200ebd1b41ccbc40f5e2",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "valid-choice": {
+        "command": [
+          "bash",
+          "/check/oracle/valid-choice.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.09443,
+        "script_sha256": "7844c5a871f29e6a3c01931c7bc661d9a1ede6037d7705d1743bba4de37ef3c7",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "invalid-choice-nonzero": {
+        "command": [
+          "bash",
+          "/check/oracle/invalid-choice-nonzero.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL tool.py missing",
+        "duration_seconds": 0.085563,
+        "script_sha256": "a0621697ea204a5b3ffa864405678c9aaa34191cdbf2200ebd1b41ccbc40f5e2",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "valid-choice": {
+        "command": [
+          "bash",
+          "/check/oracle/valid-choice.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL tool.py missing",
+        "duration_seconds": 0.051004,
+        "script_sha256": "7844c5a871f29e6a3c01931c7bc661d9a1ede6037d7705d1743bba4de37ef3c7",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "crash": {
+      "overlay_sha256": "0c942dc899e5ffeab7768c6e190050a492a60b4c5c44400bda4bc4d848d5c06f",
+      "criteria": {
+        "invalid-choice-nonzero": {
+          "command": [
+            "bash",
+            "/check/oracle/invalid-choice-nonzero.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected diagnostic on stderr",
+          "duration_seconds": 0.108985,
+          "script_sha256": "a0621697ea204a5b3ffa864405678c9aaa34191cdbf2200ebd1b41ccbc40f5e2",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "valid-choice": {
+          "command": [
+            "bash",
+            "/check/oracle/valid-choice.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected exit 0: rc=2",
+          "duration_seconds": 0.097796,
+          "script_sha256": "7844c5a871f29e6a3c01931c7bc661d9a1ede6037d7705d1743bba4de37ef3c7",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "valid-choice"
+      ],
+      "killed_assigned": true
+    },
+    "accepts-invalid": {
+      "overlay_sha256": "1a293ef36f7e5428f661ae7680f163e79e2dcd26d509ef561e1583ce67de4869",
+      "criteria": {
+        "invalid-choice-nonzero": {
+          "command": [
+            "bash",
+            "/check/oracle/invalid-choice-nonzero.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected non-zero exit: rc=0",
+          "duration_seconds": 0.115431,
+          "script_sha256": "a0621697ea204a5b3ffa864405678c9aaa34191cdbf2200ebd1b41ccbc40f5e2",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "valid-choice": {
+          "command": [
+            "bash",
+            "/check/oracle/valid-choice.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL output=[accepted]",
+          "duration_seconds": 0.111309,
+          "script_sha256": "7844c5a871f29e6a3c01931c7bc661d9a1ede6037d7705d1743bba4de37ef3c7",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "invalid-choice-nonzero"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

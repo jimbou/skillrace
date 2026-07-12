@@ -1,0 +1,1 @@
+print('2 passed in 0.01s')

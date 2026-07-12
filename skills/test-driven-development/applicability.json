@@ -7,6 +7,12 @@
     "fixed-terminated-within-budget"
   ],
   "sbe_categories": ["test-integrity", "outcome-integrity", "self-consistency"],
+  "property_ids": [
+    "feature-suite-passes",
+    "test-written-and-failed-first",
+    "no-test-weakened",
+    "output-pristine"
+  ],
   "contingency": "high",
   "note": "Process skill: the self-consistency properties encode TDD's own advertised discipline (test-first, watch-it-fail)."
 }

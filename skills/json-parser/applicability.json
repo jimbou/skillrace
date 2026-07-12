@@ -1,1 +1,1 @@
-{"skill":"json-parser","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","build-static"],"contingency":"high","family":"parser"}
+{"skill":"json-parser","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","build-static"],"property_ids":["parses-valid","rejects-invalid","valid-json-out"],"contingency":"high","family":"parser"}

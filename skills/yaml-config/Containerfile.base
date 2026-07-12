@@ -1,6 +1,9 @@
 # Level-2 per-skill base: yaml-config (config instance, vendored benchflow-ai). NETWORK-GATED build.
 FROM skillrace/skillgen-base:latest
-RUN pip install --no-cache-dir pyyaml
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3-pip \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m pip install --break-system-packages --no-cache-dir pyyaml==6.0.3
 COPY repo/    /workspace/
 COPY SKILL.md /skills/yaml-config/SKILL.md
 RUN cd /workspace && git add -A && git commit -q -m "base: yaml-config" || true

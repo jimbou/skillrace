@@ -1,0 +1,9 @@
+{
+  "schema": "skillrace-rq3-campaign-config/1",
+  "scenario_id": "text-template",
+  "skill_name": "text-template",
+  "base_image": "skillrace/rq3-text-template:base",
+  "properties": "properties.json",
+  "applicability": "applicability.json",
+  "containerfile": "Containerfile.base"
+}

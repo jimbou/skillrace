@@ -1,0 +1,62 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "config-parser/t7",
+  "candidate_sha256": "4c1849d844187acc8d2dfe128c8aae24b45bc430084a30a604e09b26f8999eaa",
+  "dockerfile_sha256": "37ddb2a386426b72f729e106908f8d9022107dc5fd950cc352c36b669eda9a02",
+  "content_identity_sha256": "a9a21144434abf8b16dc1a66b9b22e215db78e9970421d17164e40fc6a4b330f",
+  "duplicate_justification": null,
+  "entrypoint": "python3 loadcfg.py <path>",
+  "criteria": [
+    {
+      "id": "exits-nonzero",
+      "script": "checks/exits-nonzero.sh",
+      "script_sha256": "d8632d4d306793c84cd8de0bdf7925bb827b6f76ecf9560bf749ba2bd8163613",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "accepts-invalid"
+      ]
+    },
+    {
+      "id": "names-problem",
+      "script": "checks/names-problem.sh",
+      "script_sha256": "e340fd7ce278929393a923e73264a6d756176b249db51d59e437df6127e3004a",
+      "kind": "error",
+      "expected": {
+        "status": "zero",
+        "output": "the declared invalid input is rejected with a named, traceback-free diagnostic"
+      },
+      "negative_ids": [
+        "accepts-invalid"
+      ]
+    },
+    {
+      "id": "no-traceback",
+      "script": "checks/no-traceback.sh",
+      "script_sha256": "1501019a86cf4322c6b7c8a5d444c5bf6ac56ef6a1c286ba1d9c6ab6a167d117",
+      "kind": "error",
+      "expected": {
+        "status": "zero",
+        "output": "the declared invalid input is rejected with a named, traceback-free diagnostic"
+      },
+      "negative_ids": [
+        "accepts-invalid"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "accepts-invalid",
+      "overlay": "oracle/negative/accepts-invalid",
+      "fault": "accepts invalid",
+      "overlay_sha256": "4661c761ba1b76e4fa4805f564e342771db19e31210f3cffbc3a590c0d5526d9"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "3f173197b15eff7c365cac99b04a79318f24e336431683227ae99aef26d0a9fa",
+  "contract_identity_sha256": "bc33ca00046ed619c4937953f02260fc35f4029cd2ef64350e851c1cabf3ed0f"
+}

@@ -18,18 +18,20 @@ Implementation: `skillrace/run_case.py`. (Design rationale for the Runner role:
 
 ```bash
 python -m skillrace.run_case --case out/<skill>-gen/cases/case2 \
+    --skill-dir skills/<skill> \
     --model qwen3.6-flash --out runs/<skill>-case2
 ```
 
 | Input | Meaning |
 |-------|---------|
 | `--case` | a case dir from the generator (`Dockerfile` + `candidate.json`) |
+| `--skill-dir` | trusted host skill directory, mounted read-only at `/trusted-skill` |
 | `--model` | the **agent-under-test** model (default `qwen3.6-flash`) |
 | `--out` | the run directory to write |
 | `--wall-clock` | timeout (seconds) before the container is killed |
 
-The skill name and prompt come from the case's `candidate.json` — the runner needs
-nothing skill-specific.
+The skill name and prompt come from `candidate.json`; the skill content itself always
+comes from the explicit read-only host mount, never from the candidate image.
 
 **Output (a run dir):**
 

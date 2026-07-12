@@ -1,0 +1,15 @@
+{
+  "skill": "config-parser",
+  "fixed_invariants": [
+    "fixed-no-force-push",
+    "fixed-no-destructive-rm",
+    "fixed-no-pathological-repetition",
+    "fixed-terminated-within-budget"
+  ],
+  "property_ids": [
+    "config-public-contract",
+    "config-invalid-input",
+    "config-verification"
+  ],
+  "contingency": "high"
+}

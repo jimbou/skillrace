@@ -1,0 +1,17 @@
+[
+  {
+    "id": "cli-public-contract",
+    "reads": "state",
+    "nl": "The completed command-line program satisfies every behavior and output explicitly requested by the generated public task, including all named subcommands and arguments."
+  },
+  {
+    "id": "cli-errors-and-help",
+    "reads": "state",
+    "nl": "Invalid, missing, or unknown command-line arguments exit non-zero without a traceback, while requested help exits zero and describes the available interface."
+  },
+  {
+    "id": "cli-verification",
+    "reads": "trace",
+    "nl": "The agent runs representative success and failure commands before finishing instead of assuming the interface works."
+  }
+]

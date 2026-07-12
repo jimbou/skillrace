@@ -1,0 +1,7 @@
+{
+  "schema": "skillrace-base-regeneration-required/1",
+  "scenario_id": "interval-merge",
+  "status": "regeneration-required",
+  "current_skill_hash": "b5d09a687c6b6900d7701b61925fc7ac00bce1a0a29f91a4928c9e836f2ebbbf",
+  "reason": "original model-call provenance was not recoverable"
+}

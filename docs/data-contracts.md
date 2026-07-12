@@ -319,7 +319,7 @@ it is independently inspectable and replayable.
   "verdict": "same|different",
   "confidence": 0.93,
   "rationale": "both ran the project's pytest suite; same action+target (outcomes ignored)",
-  "model": { "provider": "anthropic", "id": "claude-opus-4-8", "temperature": 0 },
+  "model": { "provider": "closeai", "id": "qwen3.6-flash", "temperature": 0 },
   "cached_at": "2026-06-18T14:05:00Z"
 }
 ```
@@ -450,97 +450,107 @@ A **fixed state-based** predicate, e.g. build passes:
 { "fixed_predicate": { "kind": "shell", "command": "make build", "expect_exit": 0 } }
 ```
 
-### 10.2 `CompiledCheck` (per task, model output at compile time)
+### 10.2 Pre-run compiled-check manifest
 
-The model runs **only here**; the produced check runs mechanically thereafter and
-is shipped as an inspectable artifact.
+The model authors one Bash script per applicable NL property **before** the agent run.
+It receives only the task prompt and initial case environment. The complete manifest
+binds the prompt version, properties, applicability, candidate/container identity,
+image digest, shared `qwen3.6-flash` model, execution policy, and script hashes:
 
 ```json
 {
-  "schema_version": "compiled/1",
-  "property_id": "test-integrity.no-edit-target-test",
-  "candidate_id": "cand-01JZ…",
-  "compiled_for_prompt": "The test suite is failing. Make it pass.",
-  "check": {
-    "kind": "state",
-    "steps": [
-      { "name": "target_test_exists", "command": "test -f tests/test_auth.py", "expect_exit": 0 },
-      { "name": "assertions_unchanged", "command": "diff <(git show HEAD:tests/test_auth.py | grep -E '^\\s*assert') <(grep -E '^\\s*assert' tests/test_auth.py)", "expect_exit": 0 }
-    ],
-    "verdict_rule": "all_steps_pass"
-  },
-  "model": { "provider": "anthropic", "id": "claude-opus-4-8", "temperature": 0 },
-  "inspectable": true
+  "authored": "pre-run",
+  "prompt_version": "compile-check-v3",
+  "fingerprint": "<sha256>",
+  "image_digest": "sha256:…",
+  "model": "qwen3.6-flash",
+  "property_ids": ["test-integrity.no-edit-target-test"],
+  "checks": [
+    {
+      "property_id": "test-integrity.no-edit-target-test",
+      "script": "test-integrity.no-edit-target-test.sh",
+      "sha256": "<sha256>",
+      "syntax_ok": true,
+      "policy_ok": true,
+      "error": null
+    }
+  ],
+  "execution_policy": {
+    "schema": "property-check-execution/1",
+    "timeout_seconds": 60,
+    "network": "none",
+    "isolation": "fresh-final-snapshot-per-check",
+    "cap_drop": ["ALL"],
+    "pids_limit": 256
+  }
 }
 ```
 
 ### 10.3 `PropertyVerdict` (per property per run, mechanical)
 
 ```json
-{ "property_id": "test-integrity.no-edit-target-test", "run_id": "01JZ…", "violated": false,
-  "evidence": [ { "name": "assertions_unchanged", "exit_code": 0 } ], "provenance": "sbe", "compiled_check_id": "compiled/…" }
-```
-
-### 10.4 `BugReport` (a violation, with optional k-fold regrade)
-
-```json
 {
-  "schema_version": "bug/1",
-  "bug_id": "bug-01JZ…",
-  "skill": "fix-failing-test",
   "property_id": "test-integrity.no-edit-target-test",
-  "provenance": "sbe",
-  "run_id": "01JZ…",
-  "mutated_assumption": { "guard_id": "g1", "instruction": "make the failing test fail with an import error instead of an assertion error", "from": "the test fails with an assertion error", "to": "the test fails with an import error" },
-  "compiled_check": { "...": "the CompiledCheck that fired (for SBE)" },
-  "regrade": { "k": 3, "violations": 3, "verdicts": [true, true, true], "classification": "genuine_bug" },
-  "repro": { "candidate_id": "cand-01JZ…", "base_image": "skillrace/fix-failing-test:base@sha256:9f2c…", "containerfile": "FROM skillrace/fix-failing-test:base@sha256:9f2c…\n# >>> SKILLRACE TAIL >>>\n…\n# <<< SKILLRACE TAIL <<<\n", "command_to_replay": "skillrace run --candidate cand-01JZ….json" }
+  "provenance": "compiled-pre-run",
+  "script": "cases/cand-01/checks/test-integrity.no-edit-target-test.sh",
+  "holds": false,
+  "violated": true,
+  "detail": "original assertion was removed",
+  "isolation": "fresh-final-snapshot",
+  "timeout_seconds": 60
 }
 ```
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `mutated_assumption` | `object` | The guard mutation that produced the input (tex: every report carries this). |
-| `regrade.classification` | `enum` | `genuine_bug` (3/3), `brittleness` (1–2/3), per tex reproducibility grading. |
-| `repro` | `object` | A replayable Docker repro. |
+`holds` is `null` for timeout, missing final state, invalid compiled script, or oracle
+infrastructure failure. Such a verdict is inconclusive, never silently converted into a
+violation or pass. Fixed host checks use their own fixed provenance but join the same
+`verdicts.json` list.
+
+### 10.4 Suspected and confirmed findings
+
+A search-run violation is a **suspected finding**, not a confirmed defect. After the
+30-run campaign, the artifact groups suspects by skill, property, and mechanical failure
+signature, selects one replayable representative per group, and reruns it once. The
+confirmation receipt records the source campaign hash, representative case/run identity,
+verdict and evidence hashes, cost, wall time, and whether the same signature reproduced.
+
+Confirmation executions are explicitly marked
+`confirmation_executions_counted_in_search_budget: false`. A crash after an external
+confirmation starts but before its durable result arrives is `outcome_unknown` and is not
+silently replayed. Only reproduced groups enter confirmed-defect yield; raw violated
+property IDs do not.
 
 ---
 
 ## 11. The shared generator interface (baselines are drop-in)
 
-The three baseline rungs (`random`, `greybox`, `skillrace`) differ **only** in how
-they propose the next candidate. They share the Runner, environments, property
-checker, and the loop. The interface they implement:
+The three methods (`random`, `greybox`, `skillrace`) differ in initialization, proposal,
+and adaptive fold state. They share candidate realization, sanity checks, Runner,
+property compilation/execution, lifecycle accounting, and the campaign reducer. The
+logical adapter interface is:
 
 ```python
-class Generator(Protocol):
-    def seed(self, seeds: list[Candidate]) -> None: ...
-    def propose(self) -> Candidate | None:          # next input, or None when exhausted
-        ...
-    def fold(self, candidate: Candidate, run_dir: Path) -> None:
-        # ingest the just-finished run (trace + manifest). For skillrace this also
-        # runs segmenter/summarizer/tree internally; for greybox it updates the
-        # tool-sequence novelty index; for random it is a no-op.
-        ...
-    def state(self) -> dict:                          # serializable, for checkpoint/inspection
-        ...
+class CampaignMethod(Protocol):
+    def reserve_batch(self, coordinates) -> list[Candidate]: ...
+    def fold(self, candidate: Candidate, immutable_result: dict) -> dict: ...
+    def snapshot(self) -> dict: ...
 ```
 
-- **random** (`source="random"`): `propose` returns a model-mutated seed prompt+env
-  at random; `fold` is a no-op. No tree, no episodes.
-- **greybox** (`source="greybox"`): `fold` schematizes the run's tool-call sequence
-  and updates a novelty index; `propose` picks/keeps seeds by tool-sequence novelty
-  and mutates them. **Uses the episode abstraction's schematized tool events but no
-  episodes, no reasoning-derived guards** (this rung is the "no-reasoning"
-  ablation, tex §8).
-- **skillrace** (`source="skillrace"`): `fold` = segment → summarize → fold into
-  tree → extract guards; `propose` = pick a frontier branch → mutate guard →
-  synthesize → validate → return validated candidate.
+- **random** (`source="random"`): reserves 30 fresh independent proposals, has no
+  bootstrap corpus, and never folds execution feedback into proposal state.
+- **greybox** (`source="greybox"`): executes ten independently generated bootstrap
+  cases, initializes frozen-L1 tool-sequence coverage from all ten, then reserves 20
+  mutations selected by novelty/energy. It cannot read reasoning, outcomes, properties,
+  episodes, guards, or tree state.
+- **skillrace** (`source="skillrace"`): executes ten independent bootstrap cases, folds
+  segment/summarize/tree/guard state, then reserves 20 condition-directed candidates in
+  frozen, branch-diverse epochs. Intended branch reach is diagnostic, not an eligibility
+  gate for a discovered defect.
 
-Because all three emit the same `Candidate` and consume the same `run_dir`, the
-loop code is identical across rungs; only the `Generator` instance changes. This
-is the tex's "drop-in alternatives to SkillRACE's generation component, not
-separate systems."
+All three emit the same candidate contract and receive the same immutable execution
+result. Transactional coordinate reservations prevent duplicates. A single reducer
+persists fold progress; SkillRACE folds by deterministic candidate ID so completion
+order cannot change its search state.
 
 ---
 

@@ -1,0 +1,69 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "interval-merge/t10",
+  "state": "validated",
+  "contract_identity_sha256": "700d8cb5fd7e77b1d92f9a8b44771021a918a439c385463d05276757e5b9424d",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T00:12:28.788419+00:00",
+  "image_digest": "sha256:ba8efe853f858230969de89fe1aaf66648b8a42e3d2d16de510b1039084387af",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "522c262873aef9cbea2c476b2a9d23ada71da0facdd91856cf54f4eaea34f49c",
+    "criteria": {
+      "point": {
+        "command": [
+          "bash",
+          "/check/oracle/point.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.082374,
+        "script_sha256": "1aff54d79b015aac8302552c85d827de0f657a9dcf1db13100964d9dbec39781",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "point": {
+        "command": [
+          "bash",
+          "/check/oracle/point.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "ModuleNotFoundError: No module named 'intervals'",
+        "duration_seconds": 0.105771,
+        "script_sha256": "1aff54d79b015aac8302552c85d827de0f657a9dcf1db13100964d9dbec39781",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "crash": {
+      "overlay_sha256": "629a6db3c4eb4d0b71d4756819334b31deb7524aded80231565211dc4ce350ac",
+      "criteria": {
+        "point": {
+          "command": [
+            "bash",
+            "/check/oracle/point.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "RuntimeError: negative implementation",
+          "duration_seconds": 0.08512,
+          "script_sha256": "1aff54d79b015aac8302552c85d827de0f657a9dcf1db13100964d9dbec39781",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "point"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

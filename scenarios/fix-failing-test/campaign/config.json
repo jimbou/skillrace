@@ -1,0 +1,9 @@
+{
+  "schema": "skillrace-rq3-campaign-config/1",
+  "scenario_id": "fix-failing-test",
+  "skill_name": "fix-failing-test",
+  "base_image": "skillrace/rq3-fix-failing-test:base",
+  "properties": "properties.json",
+  "applicability": "applicability.json",
+  "containerfile": "Containerfile.base"
+}

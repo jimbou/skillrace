@@ -6,7 +6,7 @@ import validate as v
 v0='#fff'
 # surround with chars invalid in EVERY spec (space, '!') so a correctly
 # anchored validator rejects them; catches solutions that use re.search / no ^$
-for s in (' '+v0, v0+' ', '!'+v0+'!'):
+for s in (' '+v0, v0+' ', '!'+v0+'!', v0+'\n'):
     assert v.is_valid(s) is False, ('anchoring: should reject',s)
 print('ok')
 PY

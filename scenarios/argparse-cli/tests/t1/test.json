@@ -1,0 +1,81 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "argparse-cli/t1",
+  "candidate_sha256": "be0e12afd5b5dba14914b4c3659b8cd7ddd52c9f015070d9f9bd88a7f917d896",
+  "dockerfile_sha256": "ba69408f061de14235f7f6678d509fb3b6644f447f0bd58d24de9cc614d6f08d",
+  "content_identity_sha256": "19075f9d77aa95303d34693a52fc0257f0fab7f56bea2d3a369e1a9cb40c9e2f",
+  "duplicate_justification": null,
+  "entrypoint": "python3 tool.py <subcommand>",
+  "criteria": [
+    {
+      "id": "add",
+      "script": "checks/add.sh",
+      "script_sha256": "d893d6d3d4aa43137fb6a4057902d3c6de72b8db88a80e4d63a5b9c544c8e1c3",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    },
+    {
+      "id": "greet",
+      "script": "checks/greet.sh",
+      "script_sha256": "f6655d6626487be0b2a5dfdd8c324cc4847f6252f6f0f6dedf5663159f8dbeed",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    },
+    {
+      "id": "missing-arg-nonzero",
+      "script": "checks/missing-arg-nonzero.sh",
+      "script_sha256": "2102ede1f5766eaa4c4a1ace5cb0fbe95c4cc92f62d4c61010e5420877198aaa",
+      "kind": "error",
+      "expected": {
+        "status": "zero",
+        "output": "the declared invalid input is rejected with a named, traceback-free diagnostic"
+      },
+      "negative_ids": [
+        "accepts-invalid"
+      ]
+    },
+    {
+      "id": "unknown-subcmd-nonzero",
+      "script": "checks/unknown-subcmd-nonzero.sh",
+      "script_sha256": "cd051903fcd81bb7198ba1f31d0333a7113738022e24947bebc09f298b678391",
+      "kind": "error",
+      "expected": {
+        "status": "zero",
+        "output": "the declared invalid input is rejected with a named, traceback-free diagnostic"
+      },
+      "negative_ids": [
+        "accepts-invalid"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "crash",
+      "overlay": "oracle/negative/crash",
+      "fault": "all valid commands exit non-zero",
+      "overlay_sha256": "0c942dc899e5ffeab7768c6e190050a492a60b4c5c44400bda4bc4d848d5c06f"
+    },
+    {
+      "id": "accepts-invalid",
+      "overlay": "oracle/negative/accepts-invalid",
+      "fault": "invalid commands exit zero",
+      "overlay_sha256": "1a293ef36f7e5428f661ae7680f163e79e2dcd26d509ef561e1583ce67de4869"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "5f52205d629fe20275e3f61370d4d53ffe2e5dd950c8c567371b7c5d9ba2f2d2",
+  "contract_identity_sha256": "be06efeb94cc41573fcfa83eb2d9d669b3e3472c728539285cb975a822b4d362"
+}

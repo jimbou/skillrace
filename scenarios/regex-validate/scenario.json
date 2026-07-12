@@ -1,0 +1,37 @@
+{
+  "schema": "skillrace-scenario/1",
+  "scenario_id": "regex-validate",
+  "purpose_sha256": "b97f1be6379740cc2a85d1499f34d1d9feaecef44f4707901bebc8ae13d73d28",
+  "base_skill_sha256": "451a9144a14992b330bab04cc9a0f39593d4d07d9c0bb1811398f98421360ebb",
+  "public_paths": [
+    "scenario.md",
+    "base_skill",
+    "campaign"
+  ],
+  "hidden_tests": {
+    "path": "tests",
+    "count": 10,
+    "ids": [
+      "regex-validate/t1",
+      "regex-validate/t2",
+      "regex-validate/t3",
+      "regex-validate/t4",
+      "regex-validate/t5",
+      "regex-validate/t6",
+      "regex-validate/t7",
+      "regex-validate/t8",
+      "regex-validate/t9",
+      "regex-validate/t10"
+    ]
+  },
+  "boundary": {
+    "public_can_read": [
+      "scenario.md",
+      "base_skill",
+      "campaign"
+    ],
+    "forbidden_to_campaign": [
+      "tests"
+    ]
+  }
+}

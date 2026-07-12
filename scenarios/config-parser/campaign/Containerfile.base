@@ -1,0 +1,3 @@
+FROM skillrace/skillgen-base:latest
+COPY SKILL.md /skills/config-parser/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "rq3 public campaign base" || true

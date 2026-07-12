@@ -29,14 +29,16 @@ The agent under test runs on the [Pi agent framework](https://pi.dev/docs/latest
 how SkillRACE uses Pi is documented exhaustively (with citations and open questions)
 in **[docs/pi-integration.md](./docs/pi-integration.md)**.
 
-> **The pipeline is now implemented and live-verified end to end** (all three
-> method rungs, the pre-run property oracle, and the injection detection study).
-> Component status, verification results, locked-in design decisions, and the
-> prioritized remaining work:
+> **The core pipeline is implemented, but no headline RQ1 or RQ3 result has been
+> run.** The protocol and dataset manifest remain draft, the headline RQ1
+> confirmed-defect analysis is unfinished, and paid CloseAI calls are currently
+> balance-blocked. Read the complete experimental contract in
+> **[docs/evaluation-reviewer-guide.md](./docs/evaluation-reviewer-guide.md)** and the
+> candid built/unfinished ledger in
 > **[docs/implementation-status.md](./docs/implementation-status.md)**.
 > Hands-on commands: [docs/pipeline-walkthrough.md](./docs/pipeline-walkthrough.md).
-> The design source of truth is `skillrace-implementation.tex`; the doc set under
-> `docs/` translates it into exact contracts and per-component specs.
+> [docs/README.md](./docs/README.md) identifies which documents are authoritative;
+> historical implementation plans are not the current experiment protocol.
 
 ---
 
@@ -83,11 +85,11 @@ small fast model); **one** — running the agent under test — is expensive. So
 agent runs only on inputs already *validated*, and do everything else with cheap
 models or code.
 
-**One model, ablated — not mixed.** A **single** model is used for *every*
-model-driven step (segmentation, summarization, merge, guard extraction, SBE
-compilation). Model choice is an **ablation axis** (swap it, report how the numbers
-move), **not** a per-component decision. The agent under test is whatever agent the
-skill targets and is independent of this choice.
+**One frozen model throughout.** `qwen3.6-flash` is used for the agent under test and
+every model-driven role (generation, segmentation, summarization, merge, guard
+extraction, SBE compilation, and revision). This avoids a costly model matrix and
+prevents one method from receiving a stronger model. Every call is journaled under the
+same pricing and retry policy.
 
 ---
 
@@ -112,13 +114,15 @@ Arrows are **artifacts** (files/JSON), not function calls. Full schemas:
  └─────────────────────────┘           └────────────┘◀───────────┘
 ```
 
-**The loop** (tex §"The full loop"): seed the tree with `--seed-count` runs → pick a
-branch by priority (fan-out / mid-depth / novelty) → mutate its guard (negate / ask
-for a novel diverse sibling) → synthesize and **validate** a candidate (no agent run)
-→ run the agent once, **checking state-based properties live in the same container**
-→ fold the trace back in and classify it (predicted divergence / path miss)
-→ trace-structural checks (+ optional k-fold regrade) → repeat
-until the run budget (~100–150 runs/skill) is spent.
+**The lean evaluation loop** gives every method exactly 30 counted agent executions.
+Random generates 30 fresh tests and has no bootstrap phase or execution feedback.
+VeriGrey-inspired (globally fixed at L1) and SkillRACE independently generate 10
+bootstrap tests under the same frozen configuration, count all 10 executions, and
+then spend 20 executions on method-specific exploration. Every built candidate goes
+through the same mechanical sanity gate before check compilation or Pi. SkillRACE
+then folds traces into its tree, selects a branch/property-relevant mutation, and may
+add its target-specific validation; reaching the intended branch is recorded but is
+not required for a discovered defect to count.
 
 ---
 
@@ -151,7 +155,9 @@ until the run budget (~100–150 runs/skill) is spent.
 - **Property checking has two orthogonal axes** (trace-structural vs state-based;
   fixed vs SBE); **SBE specs are compiled per task by a model into an executable
   check** that runs mechanically — the model runs only at compile time and the
-  generated checks are inspectable artifacts:
+  generated checks are inspectable artifacts. The final filesystem is snapshotted once
+  and every check runs in a fresh networkless, timeout-bounded child so checks cannot
+  contaminate one another:
   [property-checker.md](./docs/design/property-checker.md).
 - **The three-rung baseline ladder shares the runner, environments, and property
   checker** — the baselines are drop-in alternatives to SkillRACE's *generation*
@@ -169,14 +175,27 @@ until the run budget (~100–150 runs/skill) is spent.
 ### The whole loop on one skill
 
 ```bash
-skillrace campaign \
-  --skill skills/fix-failing-test \
-  --method skillrace \                 # or: random | greybox
-  --seed-count 20 \                    # how many tests to sample to seed the tree
-  --budget 120 \                       # agent runs
-  --model anthropic/claude-opus-4-8 \  # the single judgment model (ablation axis)
-  --out out/
+python -m skillrace.loop \
+  --skill fix-failing-test \
+  --skill-dir skills/fix-failing-test \
+  --base skillrace/fix-failing-test:base \
+  --props skills/fix-failing-test/properties.json \
+  --method skillrace \
+  --protocol experiments/protocols/issta-main.draft.json \
+  --out out/campaign/skillrace/fix-failing-test
 ```
+
+Use `--method random` or `--method greybox` for the two baselines. The reviewed
+protocol owns the 30/10 allocation, qwen3.6-flash model, fixed L1 granularity,
+attempt cap, and seed-generator settings; the production CLI intentionally exposes no
+silent headline override. `scripts/run_suite.sh` runs exactly Random,
+VeriGrey-inspired L1, and SkillRACE once per requested skill under that protocol.
+
+The checked-in main protocol is deliberately still `draft`: headline execution and
+`run_suite.sh` fail closed until Task 8 freezes it as the exact approved
+`skillrace-issta-main-v1` contract. For a small non-headline pilot, use
+`--protocol experiments/protocols/pilot.json --development-only`; those artifacts
+remain visibly separate from headline results.
 
 Outputs land under `out/<method>/<skill>/`: numbered run directories `000/ 001/ …`
 plus the skill-level `tree.json`, `frontier.json`, `coverage.json`, and `bugs/`

@@ -1,0 +1,152 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{anthropic2025skills,anthropic2025skillseng}
+\citation{anthropic2025skillseng}
+\providecommand \oddpage@label [2]{}
+\@writefile{toc}{\contentsline {section}{Abstract}{1}{section*.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\newlabel{sec:intro}{{1}{1}{Introduction}{section.1}{}}
+\newlabel{sec:intro@cref}{{[section][1][]1}{[1][1][]1}}
+\citation{king1976symbolic,dart,sen2005cute,klee}
+\citation{verigrey}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textsc  {SkillRACE}\xspace  's loop. A run is segmented into episodes and folded into the behavior tree; the tree's branch frontier drives property-guided synthesis of a new input, whose mutated starting-state condition the \emph  {validator} checks \emph  {before} any agent run. Intended branch reach is measured after execution. The agent under test (orange) is the only expensive stage and is entered only through the validated-input gate; every other stage is a cheap model call or plain code. Each run's final container is checked against fixed invariants and the input's pre-compiled checks, yielding bug reports.}}{3}{figure.caption.2}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:pipeline}{{1}{3}{\tool 's loop. A run is segmented into episodes and folded into the behavior tree; the tree's branch frontier drives property-guided synthesis of a new input, whose mutated starting-state condition the \emph {validator} checks \emph {before} any agent run. Intended branch reach is measured after execution. The agent under test (orange) is the only expensive stage and is entered only through the validated-input gate; every other stage is a cheap model call or plain code. Each run's final container is checked against fixed invariants and the input's pre-compiled checks, yielding bug reports}{figure.caption.2}{}}
+\newlabel{fig:pipeline@cref}{{[figure][1][]1}{[1][3][]3}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Overview}{3}{section.2}\protected@file@percent }
+\newlabel{sec:overview}{{2}{3}{Overview}{section.2}{}}
+\newlabel{sec:overview@cref}{{[section][2][]2}{[1][3][]3}}
+\@writefile{toc}{\contentsline {paragraph}{A run that looks fine and is not.}{3}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Why \textsc  {SkillRACE}\xspace  catches it.}{4}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{From one finding to a systematic probe.}{4}{section*.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Approach}{4}{section.3}\protected@file@percent }
+\newlabel{sec:approach}{{3}{4}{Approach}{section.3}{}}
+\newlabel{sec:approach@cref}{{[section][3][]3}{[1][4][]4}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Runs, episodes, and the behavior tree}{4}{subsection.3.1}\protected@file@percent }
+\newlabel{sec:objects}{{3.1}{4}{Runs, episodes, and the behavior tree}{subsection.3.1}{}}
+\newlabel{sec:objects@cref}{{[subsection][1][3]3.1}{[1][4][]4}}
+\@writefile{toc}{\contentsline {paragraph}{Run.}{4}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Episode.}{4}{section*.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Behavior tree.}{4}{section*.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Guards: reading a branch condition from reasoning}{5}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:guards}{{3.2}{5}{Guards: reading a branch condition from reasoning}{subsection.3.2}{}}
+\newlabel{sec:guards@cref}{{[subsection][2][3]3.2}{[1][5][]5}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Property-guided synthesis, validated before any agent run}{5}{subsection.3.3}\protected@file@percent }
+\newlabel{sec:synth}{{3.3}{5}{Property-guided synthesis, validated before any agent run}{subsection.3.3}{}}
+\newlabel{sec:synth@cref}{{[subsection][3][3]3.3}{[1][5][]5}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Properties: the oracle}{5}{subsection.3.4}\protected@file@percent }
+\newlabel{sec:props}{{3.4}{5}{Properties: the oracle}{subsection.3.4}{}}
+\newlabel{sec:props@cref}{{[subsection][4][3]3.4}{[1][5][]5}}
+\citation{pi2025}
+\@writefile{loa}{\contentsline {algocf}{\numberline {1}{\ignorespaces \textsc  {SkillRACE}\xspace  exploration loop.}}{6}{algocf.1}\protected@file@percent }
+\newlabel{alg:loop}{{1}{6}{Property-guided synthesis, validated before any agent run}{algocf.1}{}}
+\newlabel{alg:loop@cref}{{[algorithm][1][]1}{[1][5][]6}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Implementation}{6}{section.4}\protected@file@percent }
+\newlabel{sec:impl}{{4}{6}{Implementation}{section.4}{}}
+\newlabel{sec:impl@cref}{{[section][4][]4}{[1][6][]6}}
+\@writefile{toc}{\contentsline {paragraph}{Trace and episodes.}{6}{section*.10}\protected@file@percent }
+\citation{verigrey}
+\@writefile{toc}{\contentsline {paragraph}{Tree and guards.}{7}{section*.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Property checking.}{7}{section*.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Evaluation}{7}{section.5}\protected@file@percent }
+\newlabel{sec:eval}{{5}{7}{Evaluation}{section.5}{}}
+\newlabel{sec:eval@cref}{{[section][5][]5}{[1][7][]7}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Setup}{7}{subsection.5.1}\protected@file@percent }
+\newlabel{sec:setup}{{5.1}{7}{Setup}{subsection.5.1}{}}
+\newlabel{sec:setup@cref}{{[subsection][1][5]5.1}{[1][7][]7}}
+\@writefile{toc}{\contentsline {paragraph}{Skill suite.}{7}{section*.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Baselines: a three-rung ladder.}{7}{section*.15}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Skill suite (excerpt of 22; families assembled as multiple community implementations each).}}{8}{table.caption.14}\protected@file@percent }
+\newlabel{tab:skills}{{1}{8}{Skill suite (excerpt of \NumSkills ; families assembled as multiple community implementations each)}{table.caption.14}{}}
+\newlabel{tab:skills@cref}{{[table][1][]1}{[1][7][]8}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Defect yield under a fixed budget of 30\ agent runs per skill. Values are placeholders pending the full campaign. {\color  {purple}\textbf  {[TODO: fill.]}}}}{8}{table.caption.17}\protected@file@percent }
+\newlabel{tab:rq1}{{2}{8}{Defect yield under a fixed budget of \Budget \ agent runs per skill. Values are placeholders pending the full campaign. \todo {fill.}}{table.caption.17}{}}
+\newlabel{tab:rq1@cref}{{[table][2][]2}{[1][8][]8}}
+\@writefile{toc}{\contentsline {paragraph}{Metrics.}{8}{section*.16}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}RQ1: Defect yield}{8}{subsection.5.2}\protected@file@percent }
+\newlabel{sec:rq1}{{5.2}{8}{RQ1: Defect yield}{subsection.5.2}{}}
+\newlabel{sec:rq1@cref}{{[subsection][2][5]5.2}{[1][8][]8}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Defect discovery vs.\ budget. A per-run advantage for \textsc  {SkillRACE}\xspace  would show as a curve that rises faster and higher. {\color  {purple}\textbf  {[TODO: plot from campaign logs.]}}}}{9}{figure.caption.18}\protected@file@percent }
+\newlabel{fig:yield}{{2}{9}{Defect discovery vs.\ budget. A per-run advantage for \tool would show as a curve that rises faster and higher. \todo {plot from campaign logs.}}{figure.caption.18}{}}
+\newlabel{fig:yield@cref}{{[figure][2][]2}{[1][8][]9}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}RQ2: Targeted and opportunistic exploration}{9}{subsection.5.3}\protected@file@percent }
+\newlabel{sec:rq2}{{5.3}{9}{RQ2: Targeted and opportunistic exploration}{subsection.5.3}{}}
+\newlabel{sec:rq2@cref}{{[subsection][3][5]5.3}{[1][9][]9}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}RQ3: Improving an LLM-generated skill}{9}{subsection.5.4}\protected@file@percent }
+\newlabel{sec:rq3}{{5.4}{9}{RQ3: Improving an LLM-generated skill}{subsection.5.4}{}}
+\newlabel{sec:rq3@cref}{{[subsection][4][5]5.4}{[1][9][]9}}
+\citation{king1976symbolic}
+\citation{dart}
+\citation{sen2005cute}
+\citation{klee}
+\citation{godefroid2008sage}
+\citation{concollmic}
+\citation{afl,ossfuzz}
+\citation{claessen2000quickcheck}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Held-out pass rate of an LLM-generated skill, zero-shot vs.\ revised from each method's findings. {\color  {purple}\textbf  {[TODO: fill.]}}}}{10}{table.caption.19}\protected@file@percent }
+\newlabel{tab:rq3}{{3}{10}{Held-out pass rate of an LLM-generated skill, zero-shot vs.\ revised from each method's findings. \todo {fill.}}{table.caption.19}{}}
+\newlabel{tab:rq3@cref}{{[table][3][]3}{[1][9][]10}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Discussion and Threats to Validity}{10}{section.6}\protected@file@percent }
+\newlabel{sec:threats}{{6}{10}{Discussion and Threats to Validity}{section.6}{}}
+\newlabel{sec:threats@cref}{{[section][6][]6}{[1][9][]10}}
+\@writefile{toc}{\contentsline {paragraph}{What a \textsc  {SkillRACE}\xspace  bug is, and is not.}{10}{section*.20}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Model-driven components.}{10}{section*.21}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Cost and parallelism.}{10}{section*.22}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Generality.}{10}{section*.23}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Filesystem-state oracle.}{10}{section*.24}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Related Work}{10}{section.7}\protected@file@percent }
+\newlabel{sec:related}{{7}{10}{Related Work}{section.7}{}}
+\newlabel{sec:related@cref}{{[section][7][]7}{[1][10][]10}}
+\@writefile{toc}{\contentsline {paragraph}{Concolic and search-based testing.}{10}{section*.25}\protected@file@percent }
+\citation{verigrey}
+\citation{debenedetti2024agentdojo}
+\citation{greshake2023not,owasp2025llm01,liu2025youraishell}
+\citation{verigrey}
+\citation{debenedetti2025camel}
+\citation{wallace2024instructionhierarchy}
+\citation{bhagwatkar2025firewalls}
+\citation{anthropic2025skills,anthropic2025skillseng}
+\citation{pillar2025rules}
+\citation{hou2025mcp}
+\citation{jimenez2024swebench}
+\bibdata{refs}
+\bibcite{anthropic2025skillseng}{{1}{}{{}}{{}}}
+\@writefile{toc}{\contentsline {paragraph}{Testing LLM agents.}{11}{section*.26}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Skills as a software artifact.}{11}{section*.27}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{11}{section.8}\protected@file@percent }
+\newlabel{sec:conclusion}{{8}{11}{Conclusion}{section.8}{}}
+\newlabel{sec:conclusion@cref}{{[section][8][]8}{[1][11][]11}}
+\bibcite{anthropic2025skills}{{2}{}{{}}{{}}}
+\bibcite{bhagwatkar2025firewalls}{{3}{}{{}}{{}}}
+\bibcite{klee}{{4}{}{{}}{{}}}
+\bibcite{claessen2000quickcheck}{{5}{}{{}}{{}}}
+\bibcite{debenedetti2025camel}{{6}{}{{}}{{}}}
+\bibcite{debenedetti2024agentdojo}{{7}{}{{}}{{}}}
+\bibcite{pi2025}{{8}{}{{}}{{}}}
+\bibcite{dart}{{9}{}{{}}{{}}}
+\bibcite{godefroid2008sage}{{10}{}{{}}{{}}}
+\bibcite{ossfuzz}{{11}{}{{}}{{}}}
+\bibcite{greshake2023not}{{12}{}{{}}{{}}}
+\bibcite{hou2025mcp}{{13}{}{{}}{{}}}
+\bibcite{jimenez2024swebench}{{14}{}{{}}{{}}}
+\bibcite{pillar2025rules}{{15}{}{{}}{{}}}
+\bibcite{king1976symbolic}{{16}{}{{}}{{}}}
+\bibcite{liu2025youraishell}{{17}{}{{}}{{}}}
+\bibcite{concollmic}{{18}{}{{}}{{}}}
+\bibcite{owasp2025llm01}{{19}{}{{}}{{}}}
+\bibcite{sen2005cute}{{20}{}{{}}{{}}}
+\bibcite{wallace2024instructionhierarchy}{{21}{}{{}}{{}}}
+\bibcite{afl}{{22}{}{{}}{{}}}
+\bibcite{verigrey}{{23}{}{{}}{{}}}
+\bibstyle{plain}
+\newlabel{tocindent-1}{0pt}
+\newlabel{tocindent0}{0pt}
+\newlabel{tocindent1}{4.65pt}
+\newlabel{tocindent2}{11.49998pt}
+\newlabel{tocindent3}{0pt}
+\providecommand\NAT@force@numbers{}\NAT@force@numbers
+\@writefile{toc}{\contentsline {section}{References}{12}{section*.31}\protected@file@percent }
+\newlabel{TotPages}{{12}{12}{}{page.12}{}}
+\gdef \@abspage@last{12}

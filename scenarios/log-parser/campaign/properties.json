@@ -1,0 +1,17 @@
+[
+  {
+    "id": "log-public-contract",
+    "reads": "state",
+    "nl": "The parser recognizes the public log grammar and computes the exact counts or summary requested by the generated task."
+  },
+  {
+    "id": "log-malformed-lines",
+    "reads": "state",
+    "nl": "Malformed, blank, or irrelevant log lines are handled according to the public task without crashes or accidental substring matches."
+  },
+  {
+    "id": "log-verification",
+    "reads": "trace",
+    "nl": "The agent runs the parser on representative valid and malformed lines and inspects the result before finishing."
+  }
+]

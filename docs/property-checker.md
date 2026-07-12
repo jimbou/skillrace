@@ -1,14 +1,16 @@
-# Property Checker — check a finished run
+# Property Checker — precompile and execute isolated oracles
 
 > **Implementation** — the `check_properties` command. Design spec: [design/property-checker.md](./design/property-checker.md).
 
-**Purpose:** given a **finished run** (from the [Runner](./runner.md)) and the skill's
-**NL properties/invariants**, compile each NL property into a concrete, mechanical
-**check** and run it, emitting verdicts. Its own component — it does **not** generate
-or run anything; it only judges a run that already happened.
+**Purpose:** turn a skill's **NL properties/invariants** into inspectable mechanical
+checks before an agent run, then execute those frozen checks over the finished run and
+emit verdicts. It is a separate oracle component: it neither generates the case nor
+controls the agent under test.
 
-The model runs **only at compile time**; the produced checks run mechanically, so
-verdicts are deterministic and auditable.
+The model runs **only before the agent execution**, while the case prompt and initial
+environment are public but the eventual run is still unknown. The produced scripts then
+run mechanically after every method's agent execution, so the oracle cannot tailor a
+check to the behavior or failure it is judging.
 
 Implementation: `skillrace/check_properties.py`. (Design rationale + the two axes /
 catalog: [design/property-checker.md](./design/property-checker.md).)
@@ -18,15 +20,20 @@ catalog: [design/property-checker.md](./design/property-checker.md).)
 ## Inputs / outputs
 
 ```bash
-python -m skillrace.check_properties --run runs/<skill>-case2 \
+# Once per generated case, before any agent sees it:
+python -m skillrace.compile_checks --case cases/<case> \
     --props skills/<skill>/properties.json --model qwen3.6-flash
+
+# After an agent run of that case (normally called by the campaign engine):
+python -m skillrace.check_properties --run runs/<run>
 ```
 
 | Input | Meaning |
 |-------|---------|
-| `--run` | a run dir from the Runner (`run.json` with the **live `container`**, `raw/session.jsonl`, `logs/workspace.diff`) |
-| `--props` | the skill's NL properties (the dataset part — see below) |
-| `--model` | the compile model (default `qwen3.6-flash`) |
+| `compile_checks --case` | generated case with `candidate.json`, its initial environment, and prompt |
+| `compile_checks --props` | the skill's NL properties selected by its applicability policy |
+| `compile_checks --model` | the shared compile model (default `qwen3.6-flash`) |
+| `check_properties --run` | a run dir from the Runner (`run.json`, `raw/session.jsonl`, `logs/workspace.diff`) |
 
 **`properties.json`** is the per-skill list of **must-hold** properties (correctness,
 not preferences) — each is just `{ id, reads, nl }`. **The NL itself says what to
@@ -51,94 +58,78 @@ The checker evaluates **every** property independently — so a run can pass its
 success property yet still violate an invariant (e.g. it passed by cheating), and both
 show up in the verdicts.
 
-**Output (into the run dir):**
+**Outputs:**
 
 ```
-runs/<skill>-case2/
-  compiled_checks.json   # the concrete checks (inspectable artifacts)
-  verdicts.json          # a list, per property: { property_id, holds, violated, detail, kind, op }
+cases/<case>/checks/
+  manifest.json          # complete compile identity, policy, script hashes, provenance
+  <property-id>.sh       # inspectable, pre-run mechanical oracle
+runs/<run>/
+  verdicts.json          # fixed and compiled verdicts, including provenance/inconclusive status
 ```
 
 ---
 
 ## How it works
 
-1. **Snapshot the finished run** (so concrete filenames/commands are available):
-   - **final file tree** — `docker exec` `find /workspace` in the live `run.json.container`
-   - **changed files** — parsed from `logs/workspace.diff`
-   - **tool-call trace** — name + command/args, in order, from `raw/session.jsonl`
-2. **Compile** each NL property → one mechanical check (model, once, with the snapshot).
-3. **Run** the check mechanically → verdict.
-4. **Tear down** (the checker owns cleanup): `docker rm -f` the container and `docker
-   rmi -f` the env image (skip with `--keep-container` for debugging). If the run left
+1. **Compile before execution.** Probe only the task prompt, available tools, initial
+   `/workspace` tree, selected properties, and immutable case-image identity. Author one
+   Bash oracle per property and bind every input, policy setting, and script hash into
+   `checks/manifest.json`. All methods that execute that case use these same scripts.
+2. **Run the agent.** The compiler never receives the resulting trace, diff, final tree,
+   or verdict.
+3. **Snapshot once, isolate every check.** Commit the finished container filesystem,
+   then launch each script in a fresh `--network=none`, capability-dropped child with
+   a host-enforced timeout. A script cannot contaminate a later script; timeout or
+   Docker failure is inconclusive, never a fabricated violation.
+4. **Run** fixed host checks and the precompiled scripts mechanically. Final-state
+   scripts inspect `/workspace`; trace scripts structurally parse exact `toolCall`
+   blocks in `/check/trace.jsonl`; diff evidence is available at
+   `/check/workspace.diff`.
+5. **Tear down** (the checker owns cleanup): remove every child and the temporary
+   snapshot, then `docker rm -f` the run container and `docker rmi -f` the env image
+   (skip the latter two with `--keep-container` for debugging). If the run left
    no live container (it timed out, or the runner's timebomb already removed it), state
    checks are `inconclusive`.
 
-### Compiler prompt
+### Compiler prompt and integrity boundary
 
-`COMPILER_SYS` (verbatim, fixed for every skill):
+The fixed production prompt is `SCRIPT_SYS` in `skillrace/compile_checks.py`, versioned
+as `compile-check-v3`. It asks for a Bash script whose exit code is the verdict. The
+user message supplies only the property, skill name, task prompt, tools available in the
+initial container, and initial workspace tree. It explicitly says the run has not
+happened and requires the script to discover final artifacts mechanically.
 
-```text
-You COMPILE one natural-language property about a coding-agent run into a single
-concrete, mechanical CHECK. You are given a SNAPSHOT of the finished run (the final
-file tree, the files the agent changed, and its tool-call trace), so use the ACTUAL
-filenames/commands. Output ONLY JSON for one check.
-Pick the cheapest kind that faithfully tests the property:
-  STATE (run a command in the final state):
-    {"kind":"state","command":"cd /workspace && <cmd>","pass_if":"exit_zero"|"exit_nonzero","rationale":"..."}
-    For a behavior property, do NOT settle for exit 0. Where the correct output is
-    computable from the task, ASSERT THE CONCRETE EXPECTED VALUE — make the command
-    create a known input inline and compare, e.g.
-    `cd /workspace && test "$(python cli.py reverse abc)" = "cba"`. Also fold in basic
-    sanity (the artifact compiles/imports and runs without a traceback), e.g.
-    `python -c "import mod"` or `python -m py_compile <file>`. Chain checks with && so
-    ANY failure exits non-zero. Prefer one self-contained command.
-  TRACE (mechanical over trace/diff):
-    {"kind":"trace","op":"must_run","patterns":["regex", ...],"rationale":"..."}
-    {"kind":"trace","op":"must_not_run","patterns":["regex", ...],"rationale":"..."}
-    {"kind":"trace","op":"must_not_touch","patterns":["filename-regex", ...],"rationale":"..."}
-    {"kind":"trace","op":"before","a":"regex","b":"regex","rationale":"..."}
-Regexes are Python re.search, case-insensitive, matched against tool-call text (tool
-name + command/args) or, for must_not_touch, against changed file paths. Ground
-patterns in the snapshot's real names. No prose, no code fences — just JSON.
-```
-
-Compiler **user** template — `«»` = placeholders (where the **skill** and the **NL
-property** plug in):
-
-```text
-PROPERTY (kind hint: «READS»):       ← the property's "reads": "trace" | "state"
-«PROPERTY_NL»                        ← the NL property/invariant (from properties.json)
-
-SKILL: «SKILL»                       ← skill name
-PROMPT: «PROMPT»                     ← the test case's prompt (so behavior checks are concrete)
-
-FINAL FILE TREE (/workspace):
-«FILE_TREE»                          ← find /workspace in the final-state image
-
-FILES THE AGENT CHANGED:
-«CHANGED_FILES»                      ← from logs/workspace.diff
-
-TOOL CALLS (in order):
-«TOOL_CALLS»                         ← name + command/args, in order, from the trace
-
-Return the JSON check.
-```
+The generated script must use only available tools, avoid network/package installation
+and privileged operations, treat absent conditional preconditions as vacuously holding,
+assert concrete outcomes when the prompt determines them, and print a short reason.
+For trace properties it must parse JSONL structurally and inspect exact tool calls; it
+cannot grep raw trace text. The artifact records the exact prompt version and every
+compile input in the cache fingerprint.
 
 ### Check kinds
 
-- **trace** (run on `raw/session.jsonl` / `workspace.diff`, no container):
-  `must_run`, `must_not_run`, `must_not_touch` (vs the diff), `before` (ordering).
-- **state** (`docker exec` a shell command in the live `run.json.container` — the
-  exact container the agent left, not a re-run of a commit): asserts concrete output
-  **values** + compile/import/run sanity; holds iff exit matches `pass_if`.
+- **trace-oriented scripts** inspect `/check/trace.jsonl` and, when appropriate,
+  `/check/workspace.diff`. They must structurally parse JSONL and select exact
+  `toolCall` blocks; raw grep is rejected because reasoning text can mention commands
+  that never ran.
+- **state-oriented scripts** execute against `/workspace` in a fresh child of the final
+  filesystem snapshot. They should assert concrete output values plus relevant
+  compile/import/run sanity. A check may create temporary input because its child is
+  discarded and cannot affect another verdict.
+
+Compiled scripts are accepted only after both `bash -n` and a fixed policy gate. The
+gate forbids network/package installation, nested containers or privileged commands,
+requires state checks to inspect `/workspace`, and requires structural trace parsing.
+The policy and 60-second default timeout are fingerprinted into the compile manifest.
 
 ---
 
 ## Cost
 
-Each compile call logs to the permanent ledger (`~/.skillrace/cost_ledger.jsonl`)
-with tag `check.compile` (`{ts, tag, skill, model, in, out, price_usd}`).
+Each compile call goes through the durable CloseAI journal and permanent cost ledger
+with operation tag `compile.check`, the exact model and request identity, provider
+usage when available, and either known cost or an explicit unknown-billing state.
 
 ---
 

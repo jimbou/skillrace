@@ -1,0 +1,17 @@
+[
+  {
+    "id": "regex-public-contract",
+    "reads": "state",
+    "nl": "The validator accepts exactly the values described as valid by the generated public task and rejects representative invalid values."
+  },
+  {
+    "id": "regex-anchored",
+    "reads": "state",
+    "nl": "A valid fragment embedded inside a larger invalid string is rejected rather than accepted through a partial match."
+  },
+  {
+    "id": "regex-terminates",
+    "reads": "state",
+    "nl": "The validator returns promptly on moderately long adversarial input without catastrophic backtracking."
+  }
+]

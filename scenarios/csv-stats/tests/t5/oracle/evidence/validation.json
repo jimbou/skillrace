@@ -1,0 +1,137 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "csv-stats/t5",
+  "state": "validated",
+  "contract_identity_sha256": "f96f7b4a85824aa10297d00a730d5400a8f761109666d31eae42ef23641a8470",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T00:10:56.264726+00:00",
+  "image_digest": "sha256:11e8894d14e5707b55c179d820b03f0258016256a663ff34f19967225cb924ca",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "4444c304261910f4a4548f2306d5ebbb32dc606e73e123f5753cd2653c03462b",
+    "criteria": {
+      "count": {
+        "command": [
+          "bash",
+          "/check/oracle/count.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.129943,
+        "script_sha256": "a94bb9d36061c7e4760e7d5f86bae5482a80e75eec486fcd09fc326cc7f2935d",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "not-other-col": {
+        "command": [
+          "bash",
+          "/check/oracle/not-other-col.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.14039,
+        "script_sha256": "32cb4b2e37255c980a08bd085b475c830e06aa8ea7138a3c38d60af9df44b78a",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "sum-qty": {
+        "command": [
+          "bash",
+          "/check/oracle/sum-qty.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.137415,
+        "script_sha256": "08bd6771b3f3e40f3a783d75bc924625f2af31054860235b535bffbea3cfff34",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "count": {
+        "command": [
+          "bash",
+          "/check/oracle/count.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL stats.py missing",
+        "duration_seconds": 0.090086,
+        "script_sha256": "a94bb9d36061c7e4760e7d5f86bae5482a80e75eec486fcd09fc326cc7f2935d",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "not-other-col": {
+        "command": [
+          "bash",
+          "/check/oracle/not-other-col.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL stats.py missing",
+        "duration_seconds": 0.079181,
+        "script_sha256": "32cb4b2e37255c980a08bd085b475c830e06aa8ea7138a3c38d60af9df44b78a",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "sum-qty": {
+        "command": [
+          "bash",
+          "/check/oracle/sum-qty.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL stats.py missing",
+        "duration_seconds": 0.099621,
+        "script_sha256": "08bd6771b3f3e40f3a783d75bc924625f2af31054860235b535bffbea3cfff34",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "crash": {
+      "overlay_sha256": "7f212b24a83dc321f4876f1d2f7859af348d42d1913cf3367f26650096e89627",
+      "criteria": {
+        "count": {
+          "command": [
+            "bash",
+            "/check/oracle/count.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "RuntimeError: negative implementation",
+          "duration_seconds": 0.103875,
+          "script_sha256": "a94bb9d36061c7e4760e7d5f86bae5482a80e75eec486fcd09fc326cc7f2935d",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "not-other-col": {
+          "command": [
+            "bash",
+            "/check/oracle/not-other-col.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "RuntimeError: negative implementation",
+          "duration_seconds": 0.104311,
+          "script_sha256": "32cb4b2e37255c980a08bd085b475c830e06aa8ea7138a3c38d60af9df44b78a",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "sum-qty": {
+          "command": [
+            "bash",
+            "/check/oracle/sum-qty.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "RuntimeError: negative implementation",
+          "duration_seconds": 0.119016,
+          "script_sha256": "08bd6771b3f3e40f3a783d75bc924625f2af31054860235b535bffbea3cfff34",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "count",
+        "not-other-col",
+        "sum-qty"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

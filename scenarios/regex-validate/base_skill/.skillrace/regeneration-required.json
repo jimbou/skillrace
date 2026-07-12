@@ -1,0 +1,7 @@
+{
+  "schema": "skillrace-base-regeneration-required/1",
+  "scenario_id": "regex-validate",
+  "status": "regeneration-required",
+  "current_skill_hash": "451a9144a14992b330bab04cc9a0f39593d4d07d9c0bb1811398f98421360ebb",
+  "reason": "original model-call provenance was not recoverable"
+}

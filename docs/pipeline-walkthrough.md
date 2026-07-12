@@ -22,7 +22,7 @@ files, so you can stop, inspect, and resume anywhere.
 | 5 fold | `skillrace.tree` | yes (purpose-merge/broaden) | no | `out/skillrace/<skill>/tree.json` |
 
 Prereqs: `CLOSE_API_KEY` set; Docker; `python3 -m skillrace.<x>` run from the repo root.
-The judgment model throughout is `qwen3.6-flash` (the single ablation-axis model).
+The judgment model throughout is `qwen3.6-flash` (the frozen single-model protocol setting).
 
 ---
 
@@ -93,6 +93,7 @@ PY
 ```bash
 python3 -m skillrace.run_case \
   --case out/mcp-gen/cases/cand-2ad8d3c60be3 \
+  --skill-dir skills/mcp-server-patterns \
   --model qwen3.6-flash \
   --out runs/mcp-tools-resources
 ```
@@ -206,7 +207,8 @@ python3 -m skillrace.generator --skill $SKILL --skill-dir skills/$SKILL \
 # 2–5 per case:
 for CASE in cand-AAA cand-BBB; do
   RUN=runs/$CASE
-  python3 -m skillrace.run_case   --case out/mcp-gen/cases/$CASE --model qwen3.6-flash --out $RUN
+  python3 -m skillrace.run_case   --case out/mcp-gen/cases/$CASE \
+    --skill-dir skills/mcp-server-patterns --model qwen3.6-flash --out $RUN
   python3 -m skillrace.check_properties --run $RUN --props skills/$SKILL/properties.json --model qwen3.6-flash
   python3 -m skillrace.segment_agent --run $RUN --model qwen3.6-flash
   python3 -m skillrace.tree --episodes $RUN/episodes.json --session $RUN/raw/session.jsonl \
@@ -239,8 +241,8 @@ python -m skillrace.loop --method skillrace \
     --skill fix-failing-test --skill-dir skills/fix-failing-test \
     --base skillrace/fix-failing-test:base \
     --props skills/fix-failing-test/properties.json \
-    --budget 20 --seed-count 6 --out out/campaign/skillrace/fix-failing-test
-# --method random | greybox (--greybox-level L0|L1|L2) | skillrace
+    --budget 30 --seed-count 10 --out out/campaign/skillrace/fix-failing-test
+# --method random | greybox (--greybox-level L1) | skillrace
 ```
 
 New / changed components:
@@ -251,7 +253,7 @@ New / changed components:
 | fixed core | `skillrace.fixed_checks` | universal invariants (force-push, destructive rm, repetition, budget) — pure Python, zero model |
 | checker | `skillrace.check_properties` | now EXECUTES precompiled checks + fixed core; post-hoc authoring only behind `--author-post-hoc` |
 | guards (C5) | `skillrace.guards` | branch → guard (outcome + opening-reasoning signals, disagreement flags) → property-guided frontier selection → synthesis → **agent-free validation** in the built container |
-| greybox rung | `skillrace.greybox` | VeriGrey feedback/energy/scheduling verbatim over schematized tool events (L0/L1/L2); see `docs/design/greybox-verigrey-adaptation.md` |
+| greybox rung | `skillrace.greybox` | VeriGrey feedback/energy/scheduling verbatim over schematized tool events (headline L1); see `docs/design/greybox-verigrey-adaptation.md` |
 | loop | `skillrace.loop` | seed phase + explore phase; per-iteration record in `campaign.json` incl. violations and (skillrace) divergence classification |
 | skill eval | `skillrace.skill_eval` / `skillrace.revise_skill` | hidden-test scenario harness + the condition-blind skill reviser (claim 2) |
 

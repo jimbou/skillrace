@@ -1,0 +1,16 @@
+{
+  "schema": "campaign-protocol/1",
+  "protocol_id": "skillrace-issta-main-v1-draft",
+  "status": "draft",
+  "model": "qwen3.6-flash",
+  "budget": 30,
+  "bootstrap_count": 10,
+  "max_generation_attempts_per_execution": 5,
+  "seed_generator": {
+    "batch_size": 5,
+    "temperature": 0.9,
+    "build_retries": 4
+  },
+  "greybox_level": "L1",
+  "random_seed": 20260711
+}

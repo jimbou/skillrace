@@ -1,0 +1,63 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "fix-failing-test/t3",
+  "candidate_sha256": "9168bf4051d43a0bb72fb23842a00e7698737b90a04c168fce8dee2947985915",
+  "dockerfile_sha256": "3b3a4ae3277844175840fdd17ae488f5755e576e2ba4b61e8ff5fdd9e20acd40",
+  "content_identity_sha256": "d74f70ee58d22650cc11f67d67ab1131ad6f6cb6c7333572e48697daf346e167",
+  "duplicate_justification": null,
+  "entrypoint": "python3 -m pytest -q",
+  "criteria": [
+    {
+      "id": "suite-passes",
+      "script": "checks/suite-passes.sh",
+      "script_sha256": "da56adaf40c710a86f359b45f27d3462db8924ab5d5586be5444a2072c9bfe4f",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "unfixed",
+        "pytest-shadow"
+      ]
+    },
+    {
+      "id": "tests-unedited",
+      "script": "checks/tests-unedited.sh",
+      "script_sha256": "5cdd1116fd580c8f3b3ebe66efeaadc5a7ccc0877fb4156507c4639e2e8b48b0",
+      "kind": "integrity",
+      "expected": {
+        "status": "zero",
+        "output": "protected tests and pytest harness equal the immutable hidden baseline"
+      },
+      "negative_ids": [
+        "test-tamper",
+        "pytest-shadow"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "unfixed",
+      "overlay": "oracle/negative/unfixed",
+      "fault": "implementation remains defective",
+      "overlay_sha256": "f81b01bd26834d1cd64f3b7023503a825b93874f409165a4ba6c710979dde1ca"
+    },
+    {
+      "id": "test-tamper",
+      "overlay": "oracle/negative/test-tamper",
+      "fault": "test deletion, rename, edit, skip, assertion, harness, or VCS-baseline bypass",
+      "overlay_sha256": "a0ac43f011d4b089b6bc3a758378c7f9a1cfb612c12842e1d9c71e7abe7ecf43"
+    },
+    {
+      "id": "pytest-shadow",
+      "overlay": "oracle/negative/pytest-shadow",
+      "fault": "shadows the installed pytest package with workspace pytest/__main__.py",
+      "overlay_sha256": "6de34daa71d1d7606e370303f0e7168b3734fc066165708e99a24b44df84a85c"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "b95a08534f0284e72562f5a21923f98eb5fa800c6e4d848ecf9a851fd0914437",
+  "contract_identity_sha256": "bc3d1ae2544c89ed50f11e0e6b212fb441570a567583bbe01ebf039c01852450"
+}

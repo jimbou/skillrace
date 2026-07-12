@@ -20,7 +20,9 @@ feedback quality, not to leakage or a better reviser.
 ```
 scenarios/<name>/
   scenario.md            target skill purpose + what a good SKILL.md must teach + rubric
-  base_skill/SKILL.md    the ONE zero-shot LLM-generated skill all conditions start from
+  base_skill/SKILL.md    the ONE zero-shot skill all conditions start from
+  base_skill/.skillrace/ complete model-call provenance (required before a headline run)
+  campaign/              public properties, applicability, and base-image configuration
   tests/<tk>/
     candidate.json       {"skill": "<name>", "prompt": "...", "base_image": "skillrace/skillgen-base:latest"}
     Dockerfile           FROM the base; build this test's starting /workspace
@@ -28,24 +30,29 @@ scenarios/<name>/
 ```
 
 A test **passes** iff every one of its `checks/*.sh` exits 0 (fixed invariants from the
-harness are reported separately, per `skillrace.skill_eval`). Checks run in the final
-container, which exposes `/workspace` (the agent's result), `/check/trace.jsonl`, and
-`/check/workspace.diff`, exactly as in the main property checker — so a check may assert
-on the artifact, run it on an example it constructs, or read the trace.
+harness are reported separately, per `skillrace.skill_eval`). The finished filesystem
+is snapshotted once and every check runs in a fresh isolated child exposing `/workspace`
+(the agent's result), `/check/trace.jsonl`, and `/check/workspace.diff`, exactly as in
+the main property checker. A check may assert on the artifact, run it on an example it
+constructs, or read the trace, but it cannot leave state that helps a later check.
 
 ## How a scenario is used
 
 ```bash
-# 1. revise the base skill from a campaign's findings (feedback-only; never sees tests/)
-python -m skillrace.revise_skill --skill-dir scenarios/<name>/base_skill \
-    --feedback out/campaign/<method>/<name>/campaign.json --out candidates/<name>-<method>
+python -m skillrace.rq3_pipeline run \
+  --scenario scenarios/<name> \
+  --scenarios-root scenarios \
+  --protocol experiments/protocols/issta-main.json \
+  --out out/rq3/<name>
 
-# 2. evaluate any skill version on the hidden tests
-python -m skillrace.skill_eval --scenario scenarios/<name> --skill-name <name> \
-    --skill-dir scenarios/<name>/base_skill      --out out/skill-eval/<name>-zeroshot
-python -m skillrace.skill_eval --scenario scenarios/<name> --skill-name <name> \
-    --skill-dir candidates/<name>-skillrace      --out out/skill-eval/<name>-skillrace
+python -m skillrace.rq3_pipeline verify \
+  --scenario scenarios/<name> --out out/rq3/<name>
 ```
+
+The orchestrator stages only `scenario.md`, `base_skill/`, and `campaign/`; runs the
+three 30-execution campaigns; confirms one representative per deduplicated
+property/failure signature outside that budget; creates equal byte-bounded feedback;
+revises blindly; then opens `tests/` only for the four-condition hidden evaluation.
 
 ## Base image
 
@@ -55,7 +62,7 @@ All tests use `base_image = skillrace/skillgen-base:latest`, which must provide 
 starting environments to the base toolchain (Python stdlib + `pytest`) so they build
 fast and check without extra dependencies.
 
-## Status (2026-07-05)
+## Validation status (2026-07-12)
 
 Ten scenarios, each with a target purpose, a zero-shot base skill, and **10 hidden tests**
 = **100 tests, 192 executable checks total**. Checks are **facet-driven**: each test gets
@@ -65,24 +72,47 @@ as many checks as it has real correctness facets (rich scenarios like `argparse-
 counts: regex 30, argparse/config/csv 26, fix-failing-test/sqlite 20, json-csv 12,
 interval-merge/log-parser 11, text-template 10.
 
-Three quality gates have been run and pass:
-1. **Structure + syntax** — `scenarios/lint_checks.sh`: every test has a valid
-   `candidate.json`, a `Dockerfile`, and ≥1 check; every check parses (`bash -n`).
-2. **Satisfiability** — every check was run against a hand-written *correct* reference
-   solution and accepts it (so no check is vacuously unsatisfiable), and, for
-   `fix-failing-test`, the shipped bug genuinely fails while the reference fix passes.
-3. **Build + in-container execution** — every environment builds against
-   `skillrace/skillgen-base:latest` and produces the expected starting files; **all 192
-   checks were run inside the built containers against hand-written reference solutions
-   and pass** (per scenario: csv 26, regex 30, sqlite 20, json-csv 12, argparse 26,
-   config 26, fix-failing-test 20, interval-merge 11, text-template 10, log-parser 11).
-   This confirms no check is vacuously unsatisfiable and every expected value is correct.
-   D2 is ready to drive a campaign; the only remaining step is running the agent under
-   test on it (an experiment).
+The original checked-in base-skill model calls did not retain recoverable provider
+provenance. Each package is therefore truthfully marked `regeneration-required`; the
+headline orchestrator fails closed until it is regenerated through
+`skillrace.rq3_base` and carries prompt, response, model, token, cost, and hash records.
+These markers are not presented as completed generation provenance.
 
-**Base image.** `skillrace/skillgen-base:latest` is derived offline from the existing
-`skillrace/fix-failing-test:base` (python3 + pytest + git + the `pi` harness) with an
-emptied `/workspace`; see the build recipe in `scenarios/build_base.sh`.
+The reviewable package is complete: ten `scenario.json` contracts, 100
+`test.json` contracts, 100 reference overlays, criterion-assigned negative overlays,
+and 100 validated Docker evidence records. `bash scenarios/lint_checks.sh` checks the
+exact scenario/test counts, IDs, candidate/Docker/check hashes, JSON and Bash syntax,
+safe paths, content identities, public/hidden boundary, oracle layout, and the strict
+static execution patterns for all 192 checks.
+
+Runtime oracle evidence was regenerated and persisted on 2026-07-12 after rebuilding
+the locked shared base. Every criterion was executed in a fresh container, matching the
+production checker's non-contamination boundary. All 100 reference implementations pass,
+all 100 starting states are rejected, and all 215 assigned negative-criterion pairs are
+killed. Each
+`oracle/evidence/validation.json` records the contract identity, built image digest,
+Docker version, commands, return codes, script hashes, isolation mode, timings, and
+negative results.
+The root validator reports `pending_docker=0`, `audit_failed=0`, and
+`runtime_ready=true`.
+
+To reproduce or refresh the Docker gate:
+
+```bash
+SKILLRACE_RUN_DOCKER=1 python3 -m pytest -m docker tests/test_scenario_oracles.py
+python3 -m skillrace.scenario_audit --root scenarios --persist
+python3 -m skillrace.scenario_contract validate scenarios --require-runtime-evidence
+```
+
+The final command must return zero before an RQ3 result is admitted. Changing the
+shared base, a candidate, Dockerfile, check, reference, negative overlay, or contract
+invalidates the bound evidence and requires this refresh.
+
+**Base image.** `skillrace/skillgen-base:latest` is built from the locked
+`skillrace/pi-base:0.62.0` parent with exact Debian Python and pytest packages and a
+deterministically initialized empty repository. The authoritative source and parent
+lock are in `images/skillgen-base/`; `scenarios/build_base.sh` delegates to that
+fail-closed build.
 
 | Scenario | Task family | Contingency | Tests / checks |
 |----------|-------------|:-----------:|:--------------:|

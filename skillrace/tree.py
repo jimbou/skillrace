@@ -48,6 +48,7 @@ import json
 import pathlib
 
 from .closeai import chat, extract_json
+from .io_utils import atomic_write_json
 from .simplify_trace import call_reasonings
 
 SAME_PURPOSE_SYS = (
@@ -314,8 +315,8 @@ def main():
     actions = fold(tree, eps, run_id, args.model, cache, run_meta=run_meta)
 
     tree_path.parent.mkdir(parents=True, exist_ok=True)
-    tree_path.write_text(json.dumps(tree, indent=2))
-    cache_path.write_text(json.dumps(cache, indent=2))
+    atomic_write_json(tree_path, tree)
+    atomic_write_json(cache_path, cache)
 
     merged = sum(1 for a in actions if a[0] == "merge")
     created = sum(1 for a in actions if a[0] == "new")

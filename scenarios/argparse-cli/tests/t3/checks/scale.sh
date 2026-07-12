@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+# skillrace-oracle-v1
 set -u
 cd /workspace
-o=$(python3 tool.py scale --factor 2.5 --value 4 2>/dev/null|tr -d '[:space:]'); [ "$o" = '10.0' ] && echo ok || { echo "FAIL scale=$o"; exit 1; }
+[ -f tool.py ] || { echo 'FAIL tool.py missing'; exit 1; }
+stdout=$(mktemp); stderr=$(mktemp)
+trap 'rm -f "$stdout" "$stderr"' EXIT
+python3 tool.py scale --factor 2.5 --value 4 >"$stdout" 2>"$stderr"
+rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL expected exit 0: rc=$rc"; cat "$stderr"; exit 1; }
+[ ! -s "$stderr" ] || { echo 'FAIL unexpected stderr'; cat "$stderr"; exit 1; }
+got=$(cat "$stdout")
+[ "$got" = '10.0' ] || { echo "FAIL output=[$got]"; exit 1; }
+echo ok

@@ -1,0 +1,165 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "fix-failing-test/t8",
+  "state": "validated",
+  "contract_identity_sha256": "94a93a625a948af223876ffc9c61ac3872239f6a415fadd6dfb18618f6a95869",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T00:12:17.278551+00:00",
+  "image_digest": "sha256:681b10b8ea597cd21a107373caaf5144d1cbc8aee86c3cc49acc286553c1a258",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "4938b14ebdce5b2080ace18451e260b90bf607e5cb44ca8ae1ea659ebdf503ad",
+    "criteria": {
+      "suite-passes": {
+        "command": [
+          "bash",
+          "/check/oracle/suite-passes.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.255468,
+        "script_sha256": "2e2b0aa3907bb458d58cf7549acf8d7d079f73908899b719bff967268de56256",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "tests-unedited": {
+        "command": [
+          "bash",
+          "/check/oracle/tests-unedited.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok: protected test content and harness are unchanged (VCS HEAD cannot bypass hashes)",
+        "duration_seconds": 0.11998,
+        "script_sha256": "730250b09cdef5ad0224c30fc31a14e729747d74eb32b99801c3cd42a6257d7c",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "suite-passes": {
+        "command": [
+          "bash",
+          "/check/oracle/suite-passes.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "1 failed in 0.01s",
+        "duration_seconds": 0.290113,
+        "script_sha256": "2e2b0aa3907bb458d58cf7549acf8d7d079f73908899b719bff967268de56256",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "tests-unedited": {
+        "command": [
+          "bash",
+          "/check/oracle/tests-unedited.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok: protected test content and harness are unchanged (VCS HEAD cannot bypass hashes)",
+        "duration_seconds": 0.115875,
+        "script_sha256": "730250b09cdef5ad0224c30fc31a14e729747d74eb32b99801c3cd42a6257d7c",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "unfixed": {
+      "overlay_sha256": "221691a901d5ad92381189d1ce84628433d8d21fea4e35777a714ff8a97e5df9",
+      "criteria": {
+        "suite-passes": {
+          "command": [
+            "bash",
+            "/check/oracle/suite-passes.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "1 error in 0.03s",
+          "duration_seconds": 0.292641,
+          "script_sha256": "2e2b0aa3907bb458d58cf7549acf8d7d079f73908899b719bff967268de56256",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "tests-unedited": {
+          "command": [
+            "bash",
+            "/check/oracle/tests-unedited.sh"
+          ],
+          "exit_code": 0,
+          "final_output_line": "ok: protected test content and harness are unchanged (VCS HEAD cannot bypass hashes)",
+          "duration_seconds": 0.110935,
+          "script_sha256": "730250b09cdef5ad0224c30fc31a14e729747d74eb32b99801c3cd42a6257d7c",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "suite-passes"
+      ],
+      "killed_assigned": true
+    },
+    "test-tamper": {
+      "overlay_sha256": "aff1e09678bfb97b36e4e0c5a95ac70eaa3ea0667a841a87d5385ad546ca9d04",
+      "criteria": {
+        "suite-passes": {
+          "command": [
+            "bash",
+            "/check/oracle/suite-passes.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "1 failed in 0.01s",
+          "duration_seconds": 0.278812,
+          "script_sha256": "2e2b0aa3907bb458d58cf7549acf8d7d079f73908899b719bff967268de56256",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "tests-unedited": {
+          "command": [
+            "bash",
+            "/check/oracle/tests-unedited.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL pytest/Python collection, config, or module override added: pyproject.toml",
+          "duration_seconds": 0.122598,
+          "script_sha256": "730250b09cdef5ad0224c30fc31a14e729747d74eb32b99801c3cd42a6257d7c",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "tests-unedited"
+      ],
+      "killed_assigned": true
+    },
+    "pytest-shadow": {
+      "overlay_sha256": "6de34daa71d1d7606e370303f0e7168b3734fc066165708e99a24b44df84a85c",
+      "criteria": {
+        "suite-passes": {
+          "command": [
+            "bash",
+            "/check/oracle/suite-passes.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "1 failed in 0.01s",
+          "duration_seconds": 0.262869,
+          "script_sha256": "2e2b0aa3907bb458d58cf7549acf8d7d079f73908899b719bff967268de56256",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "tests-unedited": {
+          "command": [
+            "bash",
+            "/check/oracle/tests-unedited.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL pytest package shadow added: pytest",
+          "duration_seconds": 0.126069,
+          "script_sha256": "730250b09cdef5ad0224c30fc31a14e729747d74eb32b99801c3cd42a6257d7c",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "suite-passes",
+        "tests-unedited"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

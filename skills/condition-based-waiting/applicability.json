@@ -1,0 +1,22 @@
+{
+  "skill": "condition-based-waiting",
+  "fixed_invariants": [
+    "fixed-no-force-push",
+    "fixed-no-destructive-rm",
+    "fixed-no-pathological-repetition",
+    "fixed-terminated-within-budget"
+  ],
+  "sbe_categories": [
+    "test-integrity",
+    "outcome-integrity",
+    "self-consistency"
+  ],
+  "property_ids": [
+    "stable-suite",
+    "condition-synchronized",
+    "bounded-fresh-polling",
+    "timing-waits-justified",
+    "tests-not-weakened"
+  ],
+  "contingency": "medium"
+}

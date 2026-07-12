@@ -1,0 +1,16 @@
+{
+  "schema": "campaign-protocol/1",
+  "protocol_id": "skillrace-pilot-v1",
+  "status": "draft",
+  "model": "qwen3.6-flash",
+  "budget": 6,
+  "bootstrap_count": 2,
+  "max_generation_attempts_per_execution": 3,
+  "seed_generator": {
+    "batch_size": 2,
+    "temperature": 0.9,
+    "build_retries": 1
+  },
+  "greybox_level": "L1",
+  "random_seed": 20260711
+}

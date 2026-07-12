@@ -1,0 +1,69 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "text-template/t3",
+  "state": "validated",
+  "contract_identity_sha256": "5ab40b0877d293696d062b130d8d3fa82432f6543f8a29585ba9d33d44c19dd1",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T00:15:56.928596+00:00",
+  "image_digest": "sha256:0a7e280f52566e33d1b87aaf97f5bb60d052e39c7516a4a1f7222095fe240af8",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "2bcf4051358e0ba9b3150068d623534870f12fd7efafdc1c651ce6fbdbd64fe5",
+    "criteria": {
+      "repeat": {
+        "command": [
+          "bash",
+          "/check/oracle/repeat.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.110891,
+        "script_sha256": "c034a8be0d16336d54801023b8d821ec78d2b5c7df9a48ae894276f6ff4d4e6d",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "repeat": {
+        "command": [
+          "bash",
+          "/check/oracle/repeat.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL render.py missing",
+        "duration_seconds": 0.076473,
+        "script_sha256": "c034a8be0d16336d54801023b8d821ec78d2b5c7df9a48ae894276f6ff4d4e6d",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "no-output": {
+      "overlay_sha256": "d0bc0edd39b8dcb7deb1f748b1fbb80e3eb4f7ae405aa772d9429a4323590c67",
+      "criteria": {
+        "repeat": {
+          "command": [
+            "bash",
+            "/check/oracle/repeat.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL out.txt missing",
+          "duration_seconds": 0.119832,
+          "script_sha256": "c034a8be0d16336d54801023b8d821ec78d2b5c7df9a48ae894276f6ff4d4e6d",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "repeat"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

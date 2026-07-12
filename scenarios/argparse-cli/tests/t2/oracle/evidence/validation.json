@@ -1,0 +1,178 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "argparse-cli/t2",
+  "state": "validated",
+  "contract_identity_sha256": "c7832d7dc8039da15571d0eb722f0b68d78360b54ac7faa507677ac81a0923d1",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T00:08:49.814392+00:00",
+  "image_digest": "sha256:3331997aa0dc54c4b00cf028a061f1709dd8f2e0d07225054340dd14914d7bdc",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "5f52205d629fe20275e3f61370d4d53ffe2e5dd950c8c567371b7c5d9ba2f2d2",
+    "criteria": {
+      "count": {
+        "command": [
+          "bash",
+          "/check/oracle/count.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.130366,
+        "script_sha256": "3cc3f5d1a848097a882ff76f583ce863f1a871579ded8d31ab776d9dfe0dc5e6",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "help-lists": {
+        "command": [
+          "bash",
+          "/check/oracle/help-lists.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.124481,
+        "script_sha256": "25ab5b04802cd6e098917c0f652d7db14cca4acd73b6dbfcc4c11ee41a0ad643",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "missing-file-nonzero": {
+        "command": [
+          "bash",
+          "/check/oracle/missing-file-nonzero.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.158792,
+        "script_sha256": "150b5462eded7657a84ef31dea45539a3634dae2df4c717d1e9d12f4c0f64c0c",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "count": {
+        "command": [
+          "bash",
+          "/check/oracle/count.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL tool.py missing",
+        "duration_seconds": 0.093458,
+        "script_sha256": "3cc3f5d1a848097a882ff76f583ce863f1a871579ded8d31ab776d9dfe0dc5e6",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "help-lists": {
+        "command": [
+          "bash",
+          "/check/oracle/help-lists.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL help exit",
+        "duration_seconds": 0.102475,
+        "script_sha256": "25ab5b04802cd6e098917c0f652d7db14cca4acd73b6dbfcc4c11ee41a0ad643",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "missing-file-nonzero": {
+        "command": [
+          "bash",
+          "/check/oracle/missing-file-nonzero.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL tool.py missing",
+        "duration_seconds": 0.082724,
+        "script_sha256": "150b5462eded7657a84ef31dea45539a3634dae2df4c717d1e9d12f4c0f64c0c",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "crash": {
+      "overlay_sha256": "0c942dc899e5ffeab7768c6e190050a492a60b4c5c44400bda4bc4d848d5c06f",
+      "criteria": {
+        "count": {
+          "command": [
+            "bash",
+            "/check/oracle/count.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected exit 0: rc=2",
+          "duration_seconds": 0.099599,
+          "script_sha256": "3cc3f5d1a848097a882ff76f583ce863f1a871579ded8d31ab776d9dfe0dc5e6",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "help-lists": {
+          "command": [
+            "bash",
+            "/check/oracle/help-lists.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL help exit",
+          "duration_seconds": 0.10057,
+          "script_sha256": "25ab5b04802cd6e098917c0f652d7db14cca4acd73b6dbfcc4c11ee41a0ad643",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "missing-file-nonzero": {
+          "command": [
+            "bash",
+            "/check/oracle/missing-file-nonzero.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected diagnostic on stderr",
+          "duration_seconds": 0.081766,
+          "script_sha256": "150b5462eded7657a84ef31dea45539a3634dae2df4c717d1e9d12f4c0f64c0c",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "count",
+        "help-lists"
+      ],
+      "killed_assigned": true
+    },
+    "accepts-invalid": {
+      "overlay_sha256": "1a293ef36f7e5428f661ae7680f163e79e2dcd26d509ef561e1583ce67de4869",
+      "criteria": {
+        "count": {
+          "command": [
+            "bash",
+            "/check/oracle/count.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL output=[accepted]",
+          "duration_seconds": 0.089148,
+          "script_sha256": "3cc3f5d1a848097a882ff76f583ce863f1a871579ded8d31ab776d9dfe0dc5e6",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "help-lists": {
+          "command": [
+            "bash",
+            "/check/oracle/help-lists.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL help omits count",
+          "duration_seconds": 0.098078,
+          "script_sha256": "25ab5b04802cd6e098917c0f652d7db14cca4acd73b6dbfcc4c11ee41a0ad643",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "missing-file-nonzero": {
+          "command": [
+            "bash",
+            "/check/oracle/missing-file-nonzero.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected non-zero exit: rc=0",
+          "duration_seconds": 0.109278,
+          "script_sha256": "150b5462eded7657a84ef31dea45539a3634dae2df4c717d1e9d12f4c0f64c0c",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "missing-file-nonzero"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

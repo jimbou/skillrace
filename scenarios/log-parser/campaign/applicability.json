@@ -1,0 +1,15 @@
+{
+  "skill": "log-parser",
+  "fixed_invariants": [
+    "fixed-no-force-push",
+    "fixed-no-destructive-rm",
+    "fixed-no-pathological-repetition",
+    "fixed-terminated-within-budget"
+  ],
+  "property_ids": [
+    "log-public-contract",
+    "log-malformed-lines",
+    "log-verification"
+  ],
+  "contingency": "medium"
+}

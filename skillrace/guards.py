@@ -38,12 +38,20 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import subprocess
 import uuid
 
+from .ablations import guard_view
 from .closeai import chat, extract_json
-from .generator import (skill_context, realize, repair_tail, containerfile_for,
-                        build_image)
+from .generator import (
+    DEFAULT_BUILD_RETRIES,
+    DEFAULT_BUILD_TIMEOUT,
+    realize,
+    realize_and_build,
+    skill_context,
+)
+from .io_utils import atomic_write_json
 
 GUARD_SYS = (
     "You analyze a BRANCH in a coding-agent behavior tree: runs that reached the "
@@ -71,6 +79,22 @@ GUARD_SYS = (
     " \"disagreements\": [{\"side\": N, \"note\": \"...\"}]}"
 )
 
+GUARD_OUTCOMES_SYS = (
+    "You analyze a BRANCH in a coding-agent behavior tree: runs that reached the "
+    "same situation continued into different next episodes. You receive only the "
+    "prior tool-grounded OUTCOME and initial-environment description for each side. "
+    "Distill the state condition that best explains which way a run went. Prefer an "
+    "EXECUTABLE grounding runnable in the initial container (exit 0 = condition "
+    "holds). Set decidable_from='E0' only when initial setup alone decides it; "
+    "otherwise use 'agent_runtime'. Return ONLY JSON:\n"
+    "{\"condition\": \"...\", \"grounding\": {\"kind\": \"executable|nl\", "
+    "\"check\": \"...bash or null...\", \"decidable_from\": "
+    "\"E0|agent_runtime\"}, \"value_space\": {\"type\": "
+    "\"binary|multivalued\", \"observed\": [\"...one per side...\"], "
+    "\"unobserved_siblings\": [\"...feasible unseen values...\"]}, "
+    "\"disagreements\": []}"
+)
+
 SELECT_SYS = (
     "You pick the next test to synthesize for a coding-agent skill. You get the "
     "skill's CORRECTNESS PROPERTIES and a FRONTIER of branch guards, each with "
@@ -93,6 +117,11 @@ SYNTH_SYS = (
     "skill's purpose and with reaching this branch),\n"
     "  env  — a natural-language description of the starting environment that makes "
     "the guard take the TARGET value while still requiring the path to the branch,\n"
+    "The test may change multiple coherent environment features when that creates a "
+    "realistic unsolved case; it need not minimally isolate only the named guard. "
+    "Reaching the intended branch is diagnostic evidence, not a requirement for the "
+    "test to count. A generated test is still valuable if execution instead exposes "
+    "a different branch or a confirmed defect.\n"
     "  validate_sh — a bash script that will run in the FRESHLY BUILT container "
     "(NO agent has run): exit 0 iff the TARGET condition genuinely holds in the "
     "initial state (e.g. the test really fails with the targeted error).\n"
@@ -150,7 +179,14 @@ def _path_intents(tree, node_id):
 
 # ------------------------------------------------------------------ 5a extraction
 
-def extract_guard(tree, branch, model, skill=None):
+def extract_guard(
+    tree,
+    branch,
+    model,
+    skill=None,
+    *,
+    signal_mode="reasoning-and-outcomes",
+):
     """One model call: distill the guard at a branch from signals A + B + env NL."""
     sides = []
     for i, cid in enumerate(branch["children"], 1):
@@ -158,18 +194,39 @@ def extract_guard(tree, branch, model, skill=None):
         recs = _edges_into(tree, branch["parent_id"], cid)
         runs = sorted({r["run"] for r in recs})
         rec = recs[0] if recs else {}
-        sides.append(
-            f"SIDE {i} (next episode: {child['intent']}):\n"
-            f"  prior outcome (from tool outputs): {rec.get('in_outcome') or '(run start)'}\n"
-            f"  opening reasoning: {(rec.get('reasoning') or '(none)')[:600]}\n"
-            f"  initial env of run(s) {','.join(runs)}: "
-            f"{'; '.join(filter(None, (_run_env_nl(tree, r) for r in runs))) or '(unknown)'}"
+        signal = guard_view(
+            {
+                "outcome": rec.get("in_outcome") or "(run start)",
+                "opening_reasoning": (rec.get("reasoning") or "(none)")[:600],
+                "environment": (
+                    "; ".join(
+                        filter(None, (_run_env_nl(tree, run) for run in runs))
+                    )
+                    or "(unknown)"
+                ),
+            },
+            signal_mode=signal_mode,
         )
+        lines = [
+            f"SIDE {i} (next episode: {child['intent']}):",
+            f"  prior outcome (from tool outputs): {signal['outcome']}",
+        ]
+        if "opening_reasoning" in signal:
+            lines.append(f"  opening reasoning: {signal['opening_reasoning']}")
+        lines.append(
+            f"  initial env of run(s) {','.join(runs)}: {signal['environment']}"
+        )
+        sides.append("\n".join(lines))
     user = ("BRANCH at situation path:\n  " +
             " -> ".join(_path_intents(tree, branch["parent_id"]) if branch["parent_id"]
                         else ["(run start)"]) +
             "\n\n" + "\n\n".join(sides) + "\n\nReturn ONLY the JSON.")
-    resp = chat([{"role": "system", "content": GUARD_SYS},
+    system_prompt = (
+        GUARD_SYS
+        if signal_mode == "reasoning-and-outcomes"
+        else GUARD_OUTCOMES_SYS
+    )
+    resp = chat([{"role": "system", "content": system_prompt},
                  {"role": "user", "content": user}],
                 model=model, temperature=0.0, reasoning=True, max_tokens=900,
                 tag="guards.extract", skill=skill)
@@ -180,26 +237,46 @@ def extract_guard(tree, branch, model, skill=None):
     return g, resp["cost_usd"]
 
 
-def load_guard_state(tree_path):
+def load_guard_state(tree_path, *, signal_mode="reasoning-and-outcomes"):
     p = pathlib.Path(str(tree_path).replace(".json", "") + ".guards.json")
-    return (json.loads(p.read_text()) if p.exists()
-            else {"guards": {}, "tried": {}, "deferred": []}), p
+    if p.exists():
+        state = json.loads(p.read_text())
+        stored_mode = state.get("signal_mode", "reasoning-and-outcomes")
+        if stored_mode != signal_mode:
+            raise ValueError("guard cache signal mode does not match strategy")
+    else:
+        state = {}
+    state.setdefault("schema", "skillrace-guard-state/1")
+    state.setdefault("signal_mode", signal_mode)
+    state.setdefault("guards", {})
+    state.setdefault("tried", {})
+    state.setdefault("deferred", [])
+    return state, p
 
 
-def extract_all_guards(tree, tree_path, model, skill=None):
+def extract_all_guards(
+    tree,
+    tree_path,
+    model,
+    skill=None,
+    *,
+    signal_mode="reasoning-and-outcomes",
+):
     """Extract guards for every branch not yet covered; persist next to the tree."""
-    state, p = load_guard_state(tree_path)
+    state, p = load_guard_state(tree_path, signal_mode=signal_mode)
     cost = 0.0
     for br in find_branches(tree):
         k = branch_key(br)
         if k in state["guards"]:
             continue
-        g, c = extract_guard(tree, br, model, skill=skill)
+        g, c = extract_guard(
+            tree, br, model, skill=skill, signal_mode=signal_mode
+        )
         cost += c
         state["guards"][k] = g
         if g.get("grounding", {}).get("decidable_from") != "E0":
             state["deferred"].append(k)   # counted, not targeted (tex §5)
-    p.write_text(json.dumps(state, indent=2))
+    atomic_write_json(p, state)
     return state, cost
 
 
@@ -221,6 +298,71 @@ def build_frontier(state):
         if untried:
             items.append({"branch_key": k, "guard": g, "mutations": untried})
     return items
+
+
+def diverse_target_batch(
+    frontier,
+    *,
+    limit,
+    tree_version,
+    epoch,
+    frozen_state_hash,
+):
+    """Round-robin distinct branches before taking a second mutation per branch."""
+    if any(
+        not isinstance(value, int) or isinstance(value, bool) or value < 0
+        for value in (limit, tree_version, epoch)
+    ):
+        raise ValueError("target batch bounds/version must be non-negative integers")
+    if not isinstance(frozen_state_hash, str) or not re.fullmatch(
+        r"[0-9a-f]{64}", frozen_state_hash
+    ):
+        raise ValueError("target batch requires a frozen state SHA-256 hash")
+    frontier = json.loads(json.dumps(list(frontier)))
+    selected = []
+    mutation_index = 0
+    while len(selected) < limit:
+        added = False
+        for item in frontier:
+            mutations = item.get("mutations") or []
+            if mutation_index >= len(mutations):
+                continue
+            branch_key_ = item.get("branch_key")
+            mutation = mutations[mutation_index]
+            if not isinstance(branch_key_, str) or not isinstance(mutation, str):
+                raise ValueError("malformed guard frontier target")
+            selected.append(
+                {
+                    "kind": "target",
+                    "item": item,
+                    "branch_key": branch_key_,
+                    "mutation": mutation,
+                    "tree_version": tree_version,
+                    "epoch": epoch,
+                    "frozen_state_hash": frozen_state_hash,
+                }
+            )
+            added = True
+            if len(selected) == limit:
+                break
+        if not added:
+            break
+        mutation_index += 1
+    while len(selected) < limit:
+        selected.append(
+            {
+                "kind": "fallback",
+                "fallback_slot": len(
+                    [item for item in selected if item.get("kind") == "fallback"]
+                ),
+                "branch_key": None,
+                "mutation": None,
+                "tree_version": tree_version,
+                "epoch": epoch,
+                "frozen_state_hash": frozen_state_hash,
+            }
+        )
+    return selected
 
 
 def select_target(frontier, properties, model, skill=None):
@@ -260,8 +402,19 @@ def _validate_in_image(image, validate_sh):
     return p.returncode == 0, out[-800:]
 
 
-def synthesize(tree, target, skill, skill_dir, base_image, model,
-               out_dir, build_retries=3, validate_retries=2):
+def synthesize(
+    tree,
+    target,
+    skill,
+    skill_dir,
+    base_image,
+    model,
+    out_dir,
+    *,
+    requested_base_image=None,
+    proposal_id=None,
+    provenance=None,
+):
     """Draft -> realize -> build -> VALIDATE (no agent) -> case dir. Returns
     (case_dir|None, info, cost)."""
     g = target["item"]["guard"]
@@ -281,52 +434,72 @@ def synthesize(tree, target, skill, skill_dir, base_image, model,
     draft = extract_json(resp["content"])
     task_nl, env_nl, validate_sh = draft["task"], draft["env"], draft["validate_sh"]
 
-    prompt, tail, c = realize(ctx, task_nl, env_nl, model)
-    cost += c
-    cid = "cand-" + uuid.uuid4().hex[:12]
-    tag = f"skillrace/{cid}:built"
-    last = ""
-    for attempt in range(build_retries + validate_retries + 1):
-        cf = containerfile_for(base_image, tail)
-        ok, out = build_image(cf, tag)
-        if ok:
-            ok, out = _validate_in_image(tag, validate_sh)
-            if ok:
-                case = pathlib.Path(out_dir) / cid
-                case.mkdir(parents=True, exist_ok=True)
-                (case / "Dockerfile").write_text(cf)
-                (case / "validate.sh").write_text(validate_sh)
-                (case / "candidate.json").write_text(json.dumps({
-                    "candidate_id": cid, "skill": skill, "prompt": prompt,
-                    "base_image": base_image, "built_image": tag,
-                    "provenance": {"source": "skillrace",
-                                   "branch_key": g["branch_key"],
-                                   "guard": g["condition"],
-                                   "mutation": target["mutation"],
-                                   "targeted_property": target.get("targeted_property"),
-                                   "rationale": target.get("rationale"),
-                                   "task_nl": task_nl, "env_nl": env_nl,
-                                   "attempts": attempt + 1},
-                }, indent=2))
-                return str(case), {"validated": True, "attempts": attempt + 1}, cost
-            last = f"validation failed:\n{out}"
-        else:
-            last = f"build failed:\n{out[-1200:]}"
-        if attempt < build_retries + validate_retries:
-            try:
-                tail, c = repair_tail(
-                    ctx, tail,
-                    last + f"\n\n(The environment MUST satisfy: {target['mutation']} — "
-                    f"the validation script is:\n{validate_sh})", model)
-                cost += c
-            except Exception as e:
-                return None, {"validated": False, "error": f"repair failed: {e}"}, cost
-    return None, {"validated": False, "error": last[-400:]}, cost
+    cid = proposal_id or ("cand-" + uuid.uuid4().hex[:12])
+    if not isinstance(cid, str) or not cid:
+        raise ValueError("proposal_id must be a nonempty string")
+    try:
+        artifact, build_cost, last_error = realize_and_build(
+            ctx,
+            task_nl,
+            env_nl,
+            model,
+            base_image,
+            cid,
+            build_retries=DEFAULT_BUILD_RETRIES,
+            build_timeout=DEFAULT_BUILD_TIMEOUT,
+            validator=lambda image: _validate_in_image(image, validate_sh),
+            repair_hint=(
+                f"\n\n(The environment MUST satisfy: {target['mutation']} — "
+                f"the validation script is:\n{validate_sh})"
+            ),
+        )
+        cost = round(cost + build_cost, 12)
+    except Exception as error:
+        return None, {"validated": False, "error": str(error)[:400]}, cost
+    if artifact is None:
+        return None, {"validated": False, "error": str(last_error)[-400:]}, cost
+
+    case = pathlib.Path(out_dir) / cid
+    case.mkdir(parents=True, exist_ok=True)
+    (case / "Dockerfile").write_text(artifact["containerfile"])
+    (case / "validate.sh").write_text(validate_sh)
+    extra_provenance = dict(provenance or {})
+    candidate_provenance = {
+                       **extra_provenance,
+                       "source": "skillrace",
+                       "requested_base_image": requested_base_image or base_image,
+                       "base_image_identity": base_image,
+                       "branch_key": g["branch_key"],
+                       "target_parent": g.get("parent_id"),
+                       "guard": g["condition"],
+                       "mutation": target["mutation"],
+                       "targeted_property": target.get("targeted_property"),
+                       "rationale": target.get("rationale"),
+                       "tree_version": target.get("tree_version"),
+                       "frozen_state_hash": target.get("frozen_state_hash"),
+                       "validation": {
+                           "validated": True,
+                           "validate_sh": validate_sh,
+                           "target_condition": target["mutation"],
+                       },
+                       "epoch": target.get("epoch", extra_provenance.get("epoch")),
+                       "task_nl": task_nl, "env_nl": env_nl,
+                       "attempts": artifact["build_attempts"]}
+    (case / "candidate.json").write_text(json.dumps({
+        "candidate_id": cid, "skill": skill, "prompt": artifact["prompt"],
+        "base_image": base_image, "containerfile": artifact["containerfile"],
+        "built_image": artifact["built_image"], "sanity": artifact["sanity"],
+        "provenance": candidate_provenance,
+    }, indent=2))
+    return str(case), {
+        "validated": True,
+        "attempts": artifact["build_attempts"],
+    }, cost
 
 
 def mark_tried(state, state_path, branch_key_, mutation):
     state["tried"].setdefault(branch_key_, []).append(mutation)
-    state_path.write_text(json.dumps(state, indent=2))
+    atomic_write_json(state_path, state)
 
 
 # ------------------------------------------------------------------ CLI
@@ -378,7 +551,8 @@ def main():
     mark_tried(state, state_path, g["branch_key"], target["mutation"])
     if case:
         print(f"\nVALIDATED candidate (no agent spent) -> {case}  (${cost:.4f})")
-        print(f"  → run: python -m skillrace.run_case --case {case} --out runs/<name>")
+        print(f"  → run: python -m skillrace.run_case --case {case} "
+              f"--skill-dir {args.skill_dir} --out runs/<name>")
     else:
         print(f"\nsynthesis FAILED after retries: {info.get('error')}  (${cost:.4f})")
 

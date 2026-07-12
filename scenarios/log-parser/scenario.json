@@ -1,0 +1,37 @@
+{
+  "schema": "skillrace-scenario/1",
+  "scenario_id": "log-parser",
+  "purpose_sha256": "949a9660e5a9bc03fed49dcdb2d8d2287fcd7ebd3b53117fe8d66f52518bfad4",
+  "base_skill_sha256": "fbc7b9831d5be2c1251c364044031a534721bff83bef3970c7cfd3c415adb082",
+  "public_paths": [
+    "scenario.md",
+    "base_skill",
+    "campaign"
+  ],
+  "hidden_tests": {
+    "path": "tests",
+    "count": 10,
+    "ids": [
+      "log-parser/t1",
+      "log-parser/t2",
+      "log-parser/t3",
+      "log-parser/t4",
+      "log-parser/t5",
+      "log-parser/t6",
+      "log-parser/t7",
+      "log-parser/t8",
+      "log-parser/t9",
+      "log-parser/t10"
+    ]
+  },
+  "boundary": {
+    "public_can_read": [
+      "scenario.md",
+      "base_skill",
+      "campaign"
+    ],
+    "forbidden_to_campaign": [
+      "tests"
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "skill": "csv-stats",
+  "fixed_invariants": [
+    "fixed-no-force-push",
+    "fixed-no-destructive-rm",
+    "fixed-no-pathological-repetition",
+    "fixed-terminated-within-budget"
+  ],
+  "property_ids": [
+    "csv-stats-public-contract",
+    "csv-robust-parsing",
+    "csv-stats-verification"
+  ],
+  "contingency": "high"
+}

@@ -1,0 +1,37 @@
+{
+  "schema": "skillrace-scenario/1",
+  "scenario_id": "csv-stats",
+  "purpose_sha256": "3eb2fa18083586210abbbb03a9e8441271e3b929c4c644dee26d5d00a6c01222",
+  "base_skill_sha256": "57686ef6aaccda9a6802fae67798802b5ca71614e5a5d70379b6cf9c7028def0",
+  "public_paths": [
+    "scenario.md",
+    "base_skill",
+    "campaign"
+  ],
+  "hidden_tests": {
+    "path": "tests",
+    "count": 10,
+    "ids": [
+      "csv-stats/t1",
+      "csv-stats/t2",
+      "csv-stats/t3",
+      "csv-stats/t4",
+      "csv-stats/t5",
+      "csv-stats/t6",
+      "csv-stats/t7",
+      "csv-stats/t8",
+      "csv-stats/t9",
+      "csv-stats/t10"
+    ]
+  },
+  "boundary": {
+    "public_can_read": [
+      "scenario.md",
+      "base_skill",
+      "campaign"
+    ],
+    "forbidden_to_campaign": [
+      "tests"
+    ]
+  }
+}

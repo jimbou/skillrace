@@ -1,0 +1,17 @@
+[
+  {
+    "id": "json-csv-public-contract",
+    "reads": "state",
+    "nl": "The converter reads the public task's JSON input and writes a CSV whose headers, rows, and missing values match the requested contract."
+  },
+  {
+    "id": "json-csv-roundtrip",
+    "reads": "state",
+    "nl": "Commas, quotes, newlines, nulls, booleans, and empty inputs remain valid and parse correctly through standard JSON and CSV libraries."
+  },
+  {
+    "id": "json-csv-errors",
+    "reads": "state",
+    "nl": "Malformed or structurally invalid public input is rejected cleanly when validation is required, without producing a misleading successful artifact."
+  }
+]
