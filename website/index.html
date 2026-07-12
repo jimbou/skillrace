@@ -4,427 +4,614 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SkillRACE — Reasoning-Augmented Concolic Execution for Coding-Agent Skills</title>
-  <meta
-    name="description"
-    content="Reasoning-Augmented Concolic Execution evaluates coding-agent skills with a fair, reproducible protocol across baseline and adaptive methods."
-  />
+  <meta name="description"
+    content="SkillRACE tests coding-agent skills the way concolic execution tests code: it reads the agent's reasoning at each branch as a condition, then mutates those conditions to drive a skill into situations its author never tried, judging correctness by properties fixed in advance." />
+  <meta property="og:title" content="SkillRACE — Reasoning-Augmented Concolic Execution for Coding-Agent Skills" />
+  <meta property="og:description"
+    content="Concolic execution, but for the natural-language skills coding agents rely on. Read reasoning as branch conditions, mutate them, and judge correctness by properties — never by asking a model how the run went." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://jimbou.github.io/skillrace/" />
+  <meta property="og:image" content="https://jimbou.github.io/skillrace/skillrace-icon.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="SkillRACE — Reasoning-Augmented Concolic Execution for Coding-Agent Skills" />
+  <meta name="twitter:description" content="Concolic execution, but for the natural-language skills coding agents rely on: read reasoning as branch conditions, mutate them, and judge correctness by properties." />
+  <meta name="twitter:image" content="https://jimbou.github.io/skillrace/skillrace-icon.png" />
+  <link rel="icon" type="image/png" href="skillrace-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;450;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <script defer src="script.js"></script>
 </head>
 <body>
-  <a class="skip-link" href="#main-content">Skip to content</a>
+  <a class="skip-link" href="#abstract">Skip to content</a>
 
-  <header class="topbar">
+  <header class="topbar" id="topbar">
     <div class="inner">
-      <a class="brand" href="#main-content" aria-label="Reasoning-Augmented Concolic Execution home">
+      <a class="brand" href="#top" aria-label="SkillRACE home">
         <img class="brand-icon" src="skillrace-icon.png" alt="" />
         <span>SkillRACE</span>
       </a>
-      <div class="scroll-progress" aria-hidden="true"><span></span></div>
       <nav aria-label="Primary">
-        <a href="#protocol-overview">Protocol</a>
-        <a href="#motivation">Motivation</a>
-        <a href="#method">Method</a>
-        <a href="#failure-model">Failure model</a>
-        <a href="#architecture">Architecture</a>
+        <a href="#abstract">Abstract</a>
+        <a href="#idea">Core idea</a>
+        <a href="#pipeline">Method</a>
+        <a href="#example">In action</a>
+        <a href="#oracle">Oracle</a>
         <a href="#evaluation">Evaluation</a>
-        <a href="#artifacts">Artifacts</a>
-        <a href="#status">Status</a>
-        <a href="#results">Results</a>
-        <a href="#citation">Citation</a>
+        <a href="#cite">Cite</a>
       </nav>
-      <a class="cta" href="../README.md">Repository</a>
+      <div class="topbar-cta">
+        <a class="btn ghost sm" href="https://github.com/jimbou/skillrace/blob/main/paper/skillrace.tex">Paper</a>
+        <a class="btn solid sm" href="https://github.com/jimbou/skillrace">Code</a>
+      </div>
     </div>
+    <div class="scroll-progress" aria-hidden="true"><span id="progress-bar"></span></div>
   </header>
 
-  <main id="main-content">
+  <main id="top">
+    <!-- ───────────────────────── HERO ───────────────────────── -->
     <section class="hero">
       <div class="inner">
-        <p class="eyebrow">Protocol-first, reproducible testing</p>
-        <div class="hero-header">
-          <img class="hero-logo" src="skillrace-icon.png" alt="SkillRACE icon" />
-          <div>
-            <h1>Reasoning-Augmented Concolic Execution</h1>
-            <h2>for Coding-Agent Skills</h2>
-          </div>
-        </div>
-        <p>
-          Reasoning-augmented testing drives generation toward hard-to-reach behavior and surfaces brittle bugs
-          that static baselines often miss.
+        <p class="eyebrow">Software Testing &amp; Debugging · Under double-blind review</p>
+        <h1 class="hero-title">
+          Reasoning-Augmented Concolic Execution<br />
+          <span class="accented">for Coding-Agent Skills</span>
+        </h1>
+        <p class="lede">
+          A coding-agent <em>skill</em> is reusable procedural guidance — a natural-language
+          <code>SKILL.md</code> plus optional scripts — yet it ships with no compiler and no test
+          suite, trusted after a handful of runs its author happened to try. <strong>SkillRACE</strong>
+          tests a skill the way concolic execution tests code: it reads the agent's reasoning at each
+          branch as a <em>condition</em>, then mutates those conditions to drive the skill into the
+          situations its author never imagined.
         </p>
-        <div class="hero-stats">
-          <span class="pill">Methods: <strong>Random</strong>, <strong>VeriGrey</strong>, <strong>SkillRACE</strong></span>
-          <span class="pill">Budget: <strong>30 runs per (skill, method)</strong></span>
-          <span class="pill">Model: <strong>qwen3.6-flash</strong>, constant across methods</span>
-        </div>
+
         <div class="hero-actions">
-          <a class="btn" href="#protocol-overview">Read protocol</a>
-          <a class="btn secondary" href="#evaluation">See RQs</a>
+          <a class="btn solid" href="https://github.com/jimbou/skillrace/blob/main/paper/skillrace.tex">
+            <span class="btn-ico" aria-hidden="true">📄</span> Read the paper
+          </a>
+          <a class="btn ghost" href="https://github.com/jimbou/skillrace">
+            <span class="btn-ico" aria-hidden="true">◧</span> Code &amp; docs
+          </a>
+          <a class="btn ghost" href="#cite">
+            <span class="btn-ico" aria-hidden="true">❝</span> Cite
+          </a>
         </div>
-        <div class="hero-ticker" aria-label="Protocol quick facts">
-          <span class="tick"><span class="tick-dot"></span>2 baselines + 1 adaptive</span>
-          <span class="tick"><span class="tick-dot"></span>30-run fixed budget per cell</span>
-          <span class="tick"><span class="tick-dot"></span>Single reproducibility envelope</span>
-        </div>
-        <div class="hero-panels" aria-label="Research focus">
-          <div class="hero-mini">
-            <p class="mini-label">Target outcome</p>
-            <p>Higher confirmed-defect yield with stronger branch exploration</p>
-          </div>
-          <div class="hero-mini">
-            <p class="mini-label">Method split</p>
-            <p>Random, VeriGrey, and SkillRACE under same protocol</p>
-          </div>
-          <div class="hero-mini">
-            <p class="mini-label">Evaluation mode</p>
-            <p>Fairness-first, fixed budget, full evidence trails</p>
-          </div>
-        </div>
+
+        <ul class="hero-facts" aria-label="At a glance">
+          <li><span class="hf-k">Idea</span><span class="hf-v">Episodes as basic blocks; reasoning as branch guards</span></li>
+          <li><span class="hf-k">Oracle</span><span class="hf-v">Properties fixed in advance — no model grades its own run</span></li>
+          <li><span class="hf-k">Suite</span><span class="hf-v">22 skills mined from public repos, 30 agent runs each</span></li>
+        </ul>
       </div>
     </section>
 
-    <section id="protocol-overview" class="elevated">
-      <div class="inner">
-        <h3>Protocol at a glance</h3>
-        <p class="subtle">One fixed protocol per method, per skill.</p>
-        <div class="protocol-grid">
-          <article class="metric-card">
-            <p class="metric-kicker">Campaign budget</p>
-            <p class="metric-value"><span class="stat-num" data-target="30">0</span> runs / cell</p>
-            <p class="mini-note">Same execution budget across all studies.</p>
-          </article>
-          <article class="metric-card">
-            <p class="metric-kicker">Public skills</p>
-            <p class="metric-value"><span class="stat-num" data-target="22">0</span> validated</p>
-            <p class="mini-note">Target: 30 with identical inclusion criteria.</p>
-          </article>
-          <article class="metric-card">
-            <p class="metric-kicker">Generation scenarios</p>
-            <p class="metric-value"><span class="stat-num" data-target="10">0</span> scenarios</p>
-            <p class="mini-note">10 hidden tests per scenario.</p>
-          </article>
-          <article class="metric-card">
-            <p class="metric-kicker">Failure accounting</p>
-            <p class="metric-value">4-tier</p>
-            <p class="mini-note">signal → signature → confirmation → yield</p>
-          </article>
-        </div>
+    <!-- ───────────────────────── ABSTRACT ───────────────────────── -->
+    <section id="abstract" class="band">
+      <div class="inner narrow">
+        <p class="kicker">Abstract</p>
+        <p class="abstract-body">
+          Skills are now a first-class, sharable artifact for coding agents — but unlike a library,
+          a skill is prose. Its "interface" is whatever situations its author imagined, and guidance
+          that is silent about a broken build or ambiguous about which file to edit will send an agent
+          confidently down the wrong path exactly when the environment departs from the author's mental
+          model. Because the agent narrates its own progress, that failure is often invisible in the
+          transcript the author reads. SkillRACE lifts each run into a sequence of <em>episodes</em>
+          whose outcomes are read from tool output rather than narration, merges them into a growing
+          <em>behavior tree</em>, and reads the agent's reasoning at each branch as the condition that
+          sent the run one way rather than another. It mutates those conditions to synthesize new
+          <em>(prompt, environment)</em> inputs — each validated <em>before</em> any agent run is spent —
+          and judges correctness by <em>properties</em> fixed in advance, so that no model ever grades
+          the run it also produced.
+        </p>
       </div>
     </section>
 
-    <section id="motivation">
+    <!-- ───────────────────────── THE GAP ───────────────────────── -->
+    <section id="gap" class="band alt">
       <div class="inner">
-        <h3>Why this problem exists</h3>
-        <p class="subtle">
-          A weak branch can break many workflows. Random and static baselines often never touch it.
+        <p class="kicker center">The testing gap</p>
+        <h2 class="section-title center">Skills are trusted, not tested</h2>
+        <p class="section-sub center">
+          The tasks an author tries are the tasks an author thinks of. A skill's guidance is only as
+          good as its coverage of the situations an agent will actually meet.
         </p>
         <div class="grid3">
           <article class="card">
-            <h4>Rare branches</h4>
-            <p>Deep control flow in model outputs is only exposed when tests are steered toward
-              structurally new states.</p>
+            <span class="card-num">01</span>
+            <h3>No compiler, no suite</h3>
+            <p>A skill has neither a type checker nor a test suite. It is trusted once it has worked on
+              a handful of tasks — the ones its author tried by hand.</p>
           </article>
           <article class="card">
-            <h4>False confidence</h4>
-            <p>Passing shallow checks can still hide behavioral or state-level failures.</p>
+            <span class="card-num">02</span>
+            <h3>Failure hides in narration</h3>
+            <p>Agents declare false victory. A run whose suite never passed can read as a clean repair,
+              because the transcript is the agent's own account of how it went.</p>
           </article>
           <article class="card">
-            <h4>Comparability</h4>
-            <p>Different budgets, seeds, and checkers can invalidate method-to-method comparisons.</p>
+            <span class="card-num">03</span>
+            <h3>Coverage is unknown</h3>
+            <p>There is no way to ask, systematically, <em>on which situations does this skill's guidance
+              break down?</em> — the question concolic execution answers for code.</p>
           </article>
         </div>
       </div>
     </section>
 
-    <section id="contributions">
+    <!-- ───────────────────────── PIPELINE ───────────────────────── -->
+    <section id="pipeline" class="band">
       <div class="inner">
-        <h3>Core ideas</h3>
-        <div class="contrib-grid">
-          <article class="feature-card">
-            <h4>Behavioral exploration</h4>
-            <p>Runs become compact episode trees; promising branches mutate under valid constraints.</p>
-          </article>
-          <article class="feature-card">
-            <h4>Single fairness envelope</h4>
-            <p>All methods share the same seed, budget, and execution envelope for fair comparison.</p>
-          </article>
-          <article class="feature-card">
-            <h4>Evidence-first defects</h4>
-            <p>Layered accounting avoids duplicate inflation and keeps findings auditable.</p>
-          </article>
-          <article class="feature-card">
-            <h4>Artifact-first reproducibility</h4>
-            <p>Seeded journals and manifests are kept for replay and reviewer inspection.</p>
-          </article>
-        </div>
+        <p class="kicker center">How it works</p>
+        <h2 class="section-title center">One loop, six components, one expensive step</h2>
+        <p class="section-sub center">
+          Only running the agent under test costs minutes and real money. Every other stage is a small
+          model or plain code — so SkillRACE spends an agent run <em>only</em> on inputs it has already
+          validated.
+        </p>
+
+        <figure class="pipeline">
+          <div class="pipeline-scroll">
+            <svg viewBox="0 0 980 520" role="img"
+              aria-labelledby="pipe-title pipe-desc" class="pipeline-svg">
+              <title id="pipe-title">The SkillRACE exploration loop</title>
+              <desc id="pipe-desc">Seeds feed the Runner (the agent under test, the only expensive
+                stage). Its trace is segmented into episodes and folded into a behavior tree. The tree's
+                branch frontier drives a guard extractor, a synthesizer, and a code validator that checks
+                each candidate before any agent run. Each run's final state is checked against properties,
+                yielding bug reports.</desc>
+
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7"
+                  orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" class="arrow-head" />
+                </marker>
+                <marker id="arrow-gate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5"
+                  orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" class="arrow-head-gate" />
+                </marker>
+              </defs>
+
+              <!-- loop container -->
+              <rect x="96" y="120" width="792" height="300" rx="16" class="loop-bg" />
+              <text x="872" y="142" class="loop-label" text-anchor="end">exploration loop</text>
+
+              <!-- ── flows (drawn under nodes) ── -->
+              <!-- seeds -> runner -->
+              <path d="M92,190 H150" class="flow" marker-end="url(#arrow)" />
+              <!-- runner -> segmenter -->
+              <path d="M330,190 H400" class="flow" marker-end="url(#arrow)" />
+              <text x="365" y="180" class="flow-lbl" text-anchor="middle">trace</text>
+              <!-- segmenter -> tree -->
+              <path d="M580,190 H650" class="flow" marker-end="url(#arrow)" />
+              <!-- tree -> guard (down right) -->
+              <path d="M760,230 V330" class="flow" marker-end="url(#arrow)" />
+              <text x="770" y="285" class="flow-lbl" text-anchor="start">frontier</text>
+              <!-- guard -> synth -->
+              <path d="M650,370 H580" class="flow" marker-end="url(#arrow)" />
+              <!-- synth -> validator -->
+              <path d="M400,370 H330" class="flow" marker-end="url(#arrow)" />
+              <text x="365" y="360" class="flow-lbl" text-anchor="middle">candidate</text>
+              <!-- validator -> runner (gate, up left) -->
+              <path d="M220,330 V230" class="flow gate" marker-end="url(#arrow-gate)" />
+              <text x="210" y="285" class="flow-lbl gate-lbl" text-anchor="end">validated<tspan x="210" dy="12">input only</tspan></text>
+              <!-- runner -> checker (up) -->
+              <path d="M240,150 V70" class="flow" marker-end="url(#arrow)" />
+              <text x="250" y="108" class="flow-lbl" text-anchor="start">final state</text>
+              <!-- checker -> bug reports (left) -->
+              <path d="M135,44 H92" class="flow" marker-end="url(#arrow)" />
+
+              <!-- ── io labels ── -->
+              <text x="48" y="186" class="io" text-anchor="middle">seed<tspan x="48" dy="13">inputs</tspan></text>
+              <text x="48" y="41" class="io" text-anchor="middle">bug<tspan x="48" dy="13">reports</tspan></text>
+
+              <!-- ── nodes ── -->
+              <!-- property checker (top) -->
+              <g class="node node-code">
+                <rect x="135" y="18" width="210" height="52" rx="9" />
+                <text x="240" y="37" class="n-title">Property checker</text>
+                <text x="240" y="51" class="n-sub">fixed invariants +</text>
+                <text x="240" y="63" class="n-sub">pre-compiled checks</text>
+              </g>
+
+              <!-- runner (agent, expensive) -->
+              <g class="node node-agent">
+                <rect x="150" y="150" width="180" height="80" rx="11" />
+                <text x="240" y="184" class="n-title">Runner</text>
+                <text x="240" y="204" class="n-sub">the agent under test</text>
+              </g>
+
+              <!-- segmenter -->
+              <g class="node node-model">
+                <rect x="400" y="150" width="180" height="80" rx="11" />
+                <text x="490" y="184" class="n-title">Segmenter</text>
+                <text x="490" y="204" class="n-sub">→ episodes</text>
+              </g>
+
+              <!-- behavior tree (artifact) -->
+              <g class="node node-artifact">
+                <rect x="650" y="150" width="180" height="80" rx="11" />
+                <text x="740" y="184" class="n-title">Behavior tree</text>
+                <text x="740" y="204" class="n-sub">situations &amp; branches</text>
+              </g>
+
+              <!-- guard extractor -->
+              <g class="node node-model">
+                <rect x="650" y="330" width="180" height="80" rx="11" />
+                <text x="740" y="360" class="n-title">Guard extractor</text>
+                <text x="740" y="378" class="n-sub">+ property-guided</text>
+                <text x="740" y="392" class="n-sub">selection</text>
+              </g>
+
+              <!-- synthesizer -->
+              <g class="node node-model">
+                <rect x="400" y="330" width="180" height="80" rx="11" />
+                <text x="490" y="368" class="n-title">Synthesizer</text>
+                <text x="490" y="388" class="n-sub">new (prompt, env)</text>
+              </g>
+
+              <!-- validator -->
+              <g class="node node-code">
+                <rect x="150" y="330" width="180" height="80" rx="11" />
+                <text x="240" y="368" class="n-title">Validator</text>
+                <text x="240" y="388" class="n-sub">no agent</text>
+              </g>
+            </svg>
+          </div>
+          <figcaption class="pipeline-legend">
+            <span class="lg lg-agent">Expensive — agent under test</span>
+            <span class="lg lg-model">Cheap model call</span>
+            <span class="lg lg-code">Plain code</span>
+            <span class="lg lg-artifact">Artifact</span>
+          </figcaption>
+        </figure>
       </div>
     </section>
 
-    <section id="architecture">
+    <!-- ───────────────────────── CORE IDEA / TREE ───────────────────────── -->
+    <section id="idea" class="band alt">
       <div class="inner">
-        <h3>System architecture</h3>
-          <p class="subtle">Search and execution are separated to reduce feedback coupling.</p>
-        <div class="arch-grid">
-          <article class="arch-card">
-            <p class="arch-title">1. Candidate builder</p>
-            <h4>Inputs and prompt materialization</h4>
-            <p>Same pipeline for all methods: seed -> candidate -> runner prompt.</p>
-          </article>
-          <article class="arch-card">
-            <p class="arch-title">2. Execution</p>
-            <h4>Isolated skill runs</h4>
-            <p>Deterministic constraints with fixed timeouts and captured artifacts.</p>
-          </article>
-          <article class="arch-card">
-            <p class="arch-title">3. Trace extraction</p>
-            <h4>Episode segmentation</h4>
-            <p>Logs are normalized into branching episodes.</p>
-          </article>
-          <article class="arch-card">
-            <p class="arch-title">4. Search policy</p>
-            <h4>Tree + guard mutation</h4>
-            <p>Priority is given to unexplored and high-potential branches.</p>
-          </article>
-          <article class="arch-card">
-            <p class="arch-title">5. Oracle</p>
-            <h4>Checks and verification</h4>
-            <p>Static checks, property checks, and generated checks are scored consistently.</p>
-          </article>
-          <article class="arch-card">
-            <p class="arch-title">6. Reporting</p>
-            <h4>Yield and confidence</h4>
-            <p>Results are grouped, confirmed, and exported with seed-aware metadata.</p>
-          </article>
-        </div>
+        <p class="kicker center">The core idea</p>
+        <h2 class="section-title center">Mutating a branch condition read from reasoning</h2>
+        <p class="section-sub center">
+          A program hands the tester its branch conditions in source. An agent's reasoning is the nearest
+          surrogate — so SkillRACE reads the condition off a branch, <em>negates</em> it, and synthesizes an
+          input that drives the skill down the side it has never taken.
+        </p>
+
+        <figure class="pipeline">
+          <div class="pipeline-scroll">
+            <svg viewBox="0 0 1000 470" role="img" aria-labelledby="tree-title tree-desc" class="pipeline-svg tree-svg">
+              <title id="tree-title">Behavior tree with a mutated guard</title>
+              <desc id="tree-desc">The agent runs the test suite. A guard read from its reasoning — "the test
+                module imports cleanly" — explains the branch. The observed run takes the true side and passes.
+                SkillRACE negates the guard to synthesize a new input where the module shadows a standard-library
+                name, driving the skill down the untaken branch, where the agent fakes success and a property is
+                violated.</desc>
+
+              <defs>
+                <marker id="t-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" class="arrow-head" />
+                </marker>
+                <marker id="t-arrow-mut" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" class="arrow-head-gate" />
+                </marker>
+              </defs>
+
+              <!-- seed -->
+              <text x="34" y="228" class="io" text-anchor="middle">seed<tspan x="34" dy="13">input</tspan></text>
+              <path d="M62,234 H86" class="tedge" marker-end="url(#t-arrow)" />
+
+              <!-- trunk: run suite -->
+              <path d="M240,234 H262" class="tedge" marker-end="url(#t-arrow)" />
+              <!-- guard pill -> branch -->
+              <path d="M438,234 H470" class="tedge" marker-end="url(#t-arrow)" />
+
+              <!-- branch curves -->
+              <path d="M470,234 C 486,190 500,150 516,128" class="tedge obs" marker-end="url(#t-arrow)" />
+              <text x="512" y="196" class="flow-lbl" text-anchor="start">true · observed</text>
+              <path d="M470,234 C 486,282 500,320 516,344" class="tedge mut" marker-end="url(#t-arrow-mut)" />
+              <text x="506" y="292" class="flow-lbl gate-lbl" text-anchor="start">¬ negate → synthesize</text>
+
+              <!-- top chain edge -->
+              <path d="M712,102 H740" class="tedge obs" marker-end="url(#t-arrow)" />
+              <!-- bottom chain edge -->
+              <path d="M712,344 H740" class="tedge mut" marker-end="url(#t-arrow-mut)" />
+
+              <!-- run-suite node -->
+              <g class="node node-model">
+                <rect x="88" y="208" width="152" height="52" rx="11" />
+                <text x="164" y="232" class="n-title">run test suite</text>
+                <text x="164" y="249" class="n-sub">episode</text>
+              </g>
+
+              <!-- guard pill -->
+              <g class="guard">
+                <rect x="264" y="206" width="174" height="56" rx="28" />
+                <text x="351" y="226" class="guard-k">GUARD · from reasoning</text>
+                <text x="351" y="245" class="guard-v">“the module imports cleanly”</text>
+              </g>
+
+              <!-- top: observed pass -->
+              <g class="node tnode tnode-pass">
+                <rect x="516" y="76" width="196" height="52" rx="11" />
+                <text x="614" y="100" class="n-title">tests fail, then fixed</text>
+                <text x="614" y="117" class="n-sub">outcome read from tool output</text>
+              </g>
+              <g class="node tnode tnode-pass">
+                <rect x="740" y="76" width="216" height="52" rx="11" />
+                <text x="848" y="100" class="n-title">suite passes ✓</text>
+                <text x="848" y="117" class="n-sub">property holds</text>
+              </g>
+
+              <!-- bottom: synthesized violation -->
+              <g class="node tnode tnode-fail">
+                <rect x="516" y="318" width="196" height="52" rx="11" />
+                <text x="614" y="342" class="n-title">ImportError on import</text>
+                <text x="614" y="359" class="n-sub">no tests collected</text>
+              </g>
+              <g class="node tnode tnode-fail">
+                <rect x="740" y="318" width="216" height="52" rx="11" />
+                <text x="848" y="342" class="n-title">agent reports success ✗</text>
+                <text x="848" y="359" class="n-sub">property violated: suite never passed</text>
+              </g>
+
+              <!-- synthesized-input tag on the mutated branch -->
+              <g class="mut-tag">
+                <rect x="352" y="330" width="118" height="26" rx="13" />
+                <text x="411" y="347">new (prompt, env)</text>
+              </g>
+            </svg>
+          </div>
+          <figcaption class="pipeline-legend">
+            <span class="lg lg-obs">Observed run</span>
+            <span class="lg lg-guard">Guard — condition read from reasoning</span>
+            <span class="lg lg-mut">Mutated edge → synthesized input</span>
+            <span class="lg lg-fail">Property violation</span>
+          </figcaption>
+        </figure>
       </div>
     </section>
 
-        <section id="method">
-      <div class="inner grid2">
-        <article>
-          <h3>Method</h3>
-          <div class="method-steps" aria-label="Execution loop">
-            <details class="step-detail" open>
-              <summary>1) Build candidate</summary>
-              <p>Seed + policy generate one runnable candidate.</p>
-            </details>
-            <details class="step-detail">
-              <summary>2) Execute and trace</summary>
-              <p>Isolated execution captures artifacts, outputs, and state.</p>
-            </details>
-            <details class="step-detail">
-              <summary>3) Compress behavior</summary>
-              <p>Runs compress into normalized episode signatures.</p>
-            </details>
-            <details class="step-detail">
-              <summary>4) Mutate target</summary>
-              <p>Promising branches are mutated with validity checks.</p>
-            </details>
-            <details class="step-detail">
-              <summary>5) Evaluate</summary>
-              <p>Candidate replay goes through the fixed oracle and accounted checks.</p>
-            </details>
-          </div>
-          <p class="subtle">
-            The differentiator is branch policy and ranking in step 4.
-          </p>
-        </article>
-        <aside class="card method-compare">
-          <h4>Method difference (fair policy)</h4>
-          <div class="compare-tabs" role="tablist" aria-label="Method comparison">
-            <button class="compare-tab is-active" data-mode="random" role="tab" aria-selected="true">Random</button>
-            <button class="compare-tab" data-mode="verigrey" role="tab" aria-selected="false">VeriGrey</button>
-            <button class="compare-tab" data-mode="skillrace" role="tab" aria-selected="false">SkillRACE</button>
-          </div>
-          <p id="compare-copy" class="compare-copy">
-            Random ignores execution feedback and always samples directly from the search space.
-          </p>
-          <p id="compare-note" class="mini-note">Toggle to see the behavior difference.</p>
-        </aside>
-      </div>
-    </section>
-
-    <section id="failure-model">
+    <!-- ───────────────────────── METHOD STEPS ───────────────────────── -->
+    <section id="method" class="band">
       <div class="inner">
-        <h3>Failure model</h3>
-        <div class="grid3">
-          <article class="feature-card">
-            <h4>1. Signal</h4>
-            <p>Any check failure triggers a raw signal.</p>
-          </article>
-          <article class="feature-card">
-            <h4>2. Grouping</h4>
-            <p>Equivalent traces are merged by normalized signatures.</p>
-          </article>
-          <article class="feature-card">
-            <h4>3. Confirmation</h4>
-            <p>Repeats are re-run under frozen conditions.</p>
-          </article>
-          <article class="feature-card">
-            <h4>4. Campaign score</h4>
-            <p>Confirmed defects become campaign yield.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section id="evaluation">
-      <div class="inner">
-        <h3>Evaluation design</h3>
-        <div class="grid3">
-          <div class="card highlight">
-            <p class="mini-chip">RQ1</p>
-            <h4>RQ1 — Public skills</h4>
-            <p><strong>22 public skills completed</strong>.</p>
-            <p>Target: <strong>30</strong> total with fixed inclusion rules.</p>
-            <p>Primary output: confirmed defects.</p>
-          </div>
-          <div class="card">
-            <p class="mini-chip">RQ2</p>
-            <h4>RQ2 — Why it works</h4>
-            <p>Trajectory labels explain which branch pressures lead to gains.</p>
-          </div>
-          <div class="card">
-            <p class="mini-chip">RQ3</p>
-            <h4>RQ3 — Generation</h4>
-            <p>10 scenarios, 10 hidden tests each, private to generation loop.</p>
-            <p>Primary output: hidden-test deltas vs baseline.</p>
-          </div>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Study</th><th>Unit</th><th>Budget</th><th>Primary output</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>RQ1</td><td>Skill × method</td><td>30 runs</td><td>Confirmed defects</td></tr>
-              <tr><td>RQ2</td><td>Branch labels</td><td>derived</td><td>Explanatory trends</td></tr>
-              <tr><td>RQ3</td><td>Scenario × method</td><td>10 tests each</td><td>Delta hidden-test pass rate</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <section id="artifacts" class="status">
-      <div class="inner">
-        <h3>Artifacts and reproducibility</h3>
-        <div class="grid2">
-          <div class="card">
-            <h4>What’s prepared</h4>
-            <ul>
-              <li>Protocol freeze files (prompts, seeds, costs, models).</li>
-              <li>Run journals and candidate manifests.</li>
-              <li>Property specs and applicability tables.</li>
-              <li>Raw traces and fixed-check evidence.</li>
-            </ul>
-          </div>
-          <div class="card">
-            <h4>Links</h4>
-            <div class="artifact-links">
-              <a href="../docs/superpowers/specs/2026-07-11-skillrace-evaluation-design.md">Evaluation protocol</a>
-              <a href="../docs/evaluation-reviewer-guide.md">Reviewer guide</a>
-              <a href="../docs/implementation-status.md">Implementation status</a>
-              <a href="../STATUS.md">Project status</a>
+        <p class="kicker center">The method, step by step</p>
+        <h2 class="section-title center">From a run to a systematic probe</h2>
+        <ol class="steps">
+          <li class="step">
+            <div class="step-marker"><span>1</span></div>
+            <div class="step-body">
+              <h3>Run &amp; segment into episodes</h3>
+              <p>The runner executes the skill's agent in a container and records the full trace. Each run
+                is split into <em>episodes</em> — contiguous steps pursuing one sub-goal ("reproduce the
+                failure", "run the suite"). An episode's outcome is read from its <strong>tool output</strong>
+                — an exit code, an error string — never from the agent's narration.</p>
             </div>
+          </li>
+          <li class="step">
+            <div class="step-marker"><span>2</span></div>
+            <div class="step-body">
+              <h3>Fold into a behavior tree</h3>
+              <p>Runs merge into a tree whose nodes are situations the skill reaches and whose edges are
+                what it did next. Two runs that reach the same situation but fare differently share the node
+                and carry different outcomes — and the divergence, where it matters, surfaces as a
+                <strong>branch</strong>. A branch is where a guard lives.</p>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-marker"><span>3</span></div>
+            <div class="step-body">
+              <h3>Read guards from reasoning</h3>
+              <p>A guard is the condition that explains a branch. A program hands the tester its branch
+                conditions in source; an agent's reasoning is the nearest surrogate. SkillRACE distills each
+                stated reason into a condition with, where possible, an <strong>executable grounding</strong> —
+                a concrete check like <code>test -f &lt;path&gt;</code> or "<code>pytest</code> output contains
+                <code>ImportError</code>."</p>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-marker"><span>4</span></div>
+            <div class="step-body">
+              <h3>Synthesize, then validate before spending a run</h3>
+              <p>SkillRACE shows the selector the skill's <em>properties</em> alongside the frontier and asks
+                for the feasible mutation most likely to make the guidance violate one — directed
+                falsification. A cheap generator drafts the input; a <strong>code validator</strong> builds it
+                and confirms the targeted condition actually holds. A botched candidate costs a rebuild, never
+                an agent run.</p>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-marker"><span>5</span></div>
+            <div class="step-body">
+              <h3>Check properties &amp; fold back</h3>
+              <p>Each run's final state is judged by properties fixed in advance. Violations become bug
+                reports with the input and a replayable container; the run folds back into the tree, revealing
+                the next unexplored branch. A confirmed defect counts <strong>whether or not</strong> the
+                mutation reached its intended branch.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── EXAMPLE ───────────────────────── -->
+    <section id="example" class="band alt">
+      <div class="inner">
+        <p class="kicker center">See it in action</p>
+        <h2 class="section-title center">A run that looks fine and is not</h2>
+        <p class="section-sub center">
+          SkillRACE seeds a <code>fix-failing-test</code> campaign with inputs that plant a bug and ask the
+          agent to make the tests pass. One seed placed the bug in a module the setup named
+          <code>collections.py</code> — a name that shadows a Python standard-library module.
+        </p>
+
+        <div class="example-split">
+          <article class="ex-card ex-narration">
+            <p class="ex-tag">What the agent's transcript says</p>
+            <div class="ex-quote">
+              <p>"Edited the implementation. The suite wouldn't start, so I verified the fix by running the
+                functions directly. <strong>All good — tests fixed.</strong>"</p>
+            </div>
+            <p class="ex-note">Reads like a clean repair.</p>
+          </article>
+
+          <div class="ex-vs" aria-hidden="true">
+            <span>vs</span>
           </div>
+
+          <article class="ex-card ex-truth">
+            <p class="ex-tag">What the tool output says</p>
+            <pre class="ex-terminal"><code><span class="t-dim">$ pytest</span>
+<span class="t-err">ImportError</span> while importing test module
+<span class="t-dim">collections.py shadows the stdlib module</span>
+<span class="t-err">→ no tests were collected</span>
+<span class="t-err">→ the suite never passed</span></code></pre>
+            <p class="ex-note">The harness crashes on <em>import</em>, before any test runs.</p>
+          </article>
+        </div>
+
+        <div class="example-takeaway">
+          <p>
+            <strong>Why SkillRACE catches it.</strong> It never asks a model whether the run went well. The
+            episode that ran the suite has outcome "<code>ImportError</code> on import; no tests collected,"
+            regardless of what the agent said next. Two properties compiled for this input —
+            <em>the previously-failing suite passes</em> and <em>the agent actually ran the suite to a clean
+            result</em> — both fire.
+          </p>
+          <p>
+            And the value is not the one run. Folding the campaign into the behavior tree exposed a branch on
+            <em>the shape of the harness failure</em> — a dimension a reasoning-blind fuzzer cannot draw, and
+            one SkillRACE's guards make explicit and probe on purpose.
+          </p>
         </div>
       </div>
     </section>
 
-    <section id="status">
+    <!-- ───────────────────────── ORACLE ───────────────────────── -->
+    <section id="oracle" class="band">
       <div class="inner">
-        <h3>Current status</h3>
-        <p class="subtle">Implementation is substantially complete; headline metrics are still pending final paid campaigns.</p>
-        <div class="meter">
-          <div class="meter-labels">
-            <span>Completion</span>
-            <span>41%</span>
-          </div>
-          <div class="meter-track"><span class="meter-fill" style="width: 41%;"></span></div>
-        </div>
-        <div class="status-grid">
-          <article>
-            <h4>Done</h4>
-            <ul>
-              <li>Core engine and search loop</li>
-              <li>Fairness protocol scaffolding</li>
-              <li>Evidence logging and manifests</li>
-            </ul>
-          </article>
-          <article>
-            <h4>In progress</h4>
-            <ul>
-              <li>Campaign freeze alignment</li>
-              <li>Dataset expansion to 30 skills</li>
-              <li>Final analysis pass</li>
-            </ul>
-          </article>
-          <article>
-            <h4>Pending</h4>
-            <ul>
-              <li>Headline RQ1 campaign</li>
-              <li>Headline RQ3 campaign</li>
-              <li>Artifact package for submission</li>
-            </ul>
-          </article>
-        </div>
-      </div>
-    </section>
+        <p class="kicker center">The oracle</p>
+        <h2 class="section-title center">Correctness by properties — a bright line</h2>
+        <p class="section-sub center">
+          A run is buggy when it violates a property fixed in advance. Properties come in two kinds, reported
+          separately by trustworthiness — and <strong>no model ever grades the run it also produced.</strong>
+        </p>
 
-    <section id="results">
-      <div class="inner">
-        <h3>Results (placeholders)</h3>
-        <div class="placeholder-grid">
-          <article>
-            <h4>RQ1 defect yield</h4>
-            <p class="status-pill pending">Pending execution</p>
-            <p class="pending">TBD</p>
-            <p class="mini-note">Will report grouped, confirmed yield and latency.</p>
+        <div class="grid2 oracle-grid">
+          <article class="panel">
+            <p class="panel-tag code-tag">Plain code · authoring &amp; eval</p>
+            <h3>Fixed invariants</h3>
+            <p>Universal, task-independent, checked by code over the trace and final state:</p>
+            <ul class="ticks">
+              <li>No force-push; no destructive operation outside the workspace</li>
+              <li>No pathological repetition; termination within budget</li>
+              <li>The reward-hacking core: <strong>never satisfy a target test by editing or deleting the
+                test</strong> rather than the code</li>
+            </ul>
           </article>
-          <article>
-            <h4>RQ3 hidden tests</h4>
-            <p class="status-pill pending">Pending execution</p>
-            <p class="pending">TBD</p>
-            <p class="mini-note">Per-condition delta from zero-shot baseline.</p>
-          </article>
-          <article>
-            <h4>Cost and speed</h4>
-            <p class="status-pill pending">Pending execution</p>
-            <p class="pending">TBD</p>
-            <p class="mini-note">Token/cost/time by stage is tracked.</p>
-          </article>
-          <article>
-            <h4>Confidence</h4>
-            <p class="status-pill pending">Pending execution</p>
-            <p class="pending">TBD</p>
-            <p class="mini-note">Bootstrap and fixed-seed intervals predeclared.</p>
+          <article class="panel">
+            <p class="panel-tag model-tag">Compiled once, before the run</p>
+            <h3>Specification-by-example</h3>
+            <p>What a specific skill must achieve — "the previously-failing suite passes," "the built tool
+              performs the requested function" — written once per skill and <em>compiled per input into an
+              executable check</em>.</p>
+            <p>The compiling model sees the prompt and the built environment but <strong>never the run it will
+              judge</strong>. Every run of that input, under any method, is judged by byte-identical scripts —
+              which is also a fairness control.</p>
           </article>
         </div>
       </div>
     </section>
 
-    <section id="citation">
+    <!-- ───────────────────────── EVALUATION ───────────────────────── -->
+    <section id="evaluation" class="band alt">
       <div class="inner">
-        <h3>Citation placeholder</h3>
-        <pre><code>@inproceedings{skillrace2026,
-  title = {Reasoning-Augmented Concolic Execution for Coding-Agent Skills},
-  author = {TBD},
-  year = {2026},
-  note = {Under review}
+        <p class="kicker center">Evaluation</p>
+        <h2 class="section-title center">One envelope, three questions</h2>
+        <p class="section-sub center">
+          A three-rung ladder — Random, a VeriGrey-inspired greybox rung, and SkillRACE — shares the same
+          runner, environments, budget, build pipeline, and property checker. Any difference measures
+          <em>test generation</em>, not detection.
+        </p>
+
+        <div class="rq-grid">
+          <article class="rq">
+            <p class="rq-id">RQ1</p>
+            <h3>Defect yield</h3>
+            <p>Does SkillRACE find more distinct skill defects per fixed agent-run budget than random
+              generation and a greybox rung that uses tool-sequence feedback but no reasoning?</p>
+            <p class="rq-out">Primary output — confirmed distinct defects</p>
+          </article>
+          <article class="rq">
+            <p class="rq-id">RQ2</p>
+            <h3>How it explores</h3>
+            <p>How often does a mutation reach its intended branch, reach a different new branch, or miss —
+              and how many defects are useful serendipitous discoveries?</p>
+            <p class="rq-out">Primary output — targeted vs. opportunistic reach</p>
+          </article>
+          <article class="rq">
+            <p class="rq-id">RQ3</p>
+            <h3>Improving a skill</h3>
+            <p>Does revising an LLM-generated skill with SkillRACE's findings raise its pass rate on
+              independently-authored held-out tests, versus revising with the baselines' findings?</p>
+            <p class="rq-out">Primary output — held-out pass-rate delta</p>
+          </article>
+        </div>
+
+        <div class="setup-strip">
+          <div class="setup-item"><span class="si-num">22</span><span class="si-lbl">skills mined from public repos, pre-registered selection</span></div>
+          <div class="setup-item"><span class="si-num">30</span><span class="si-lbl">counted agent runs per skill × method</span></div>
+          <div class="setup-item"><span class="si-num">10</span><span class="si-lbl">generation scenarios, 10 held-out tests each</span></div>
+          <div class="setup-item"><span class="si-num mono">qwen3.6-flash</span><span class="si-lbl">one frozen model for every role, every method</span></div>
+        </div>
+
+        <p class="eval-note">
+          Headline numbers appear with the camera-ready. Every stochastic seed and model receipt is
+          persisted; replay is deterministic. An anonymized artifact package — implementation, the 22-skill
+          suite, the ten hidden-test scenarios, and analysis scripts — accompanies review.
+        </p>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── CITE ───────────────────────── -->
+    <section id="cite" class="band">
+      <div class="inner narrow">
+        <p class="kicker center">Cite this work</p>
+        <h2 class="section-title center">BibTeX</h2>
+        <div class="cite-box">
+          <button class="copy-btn" id="copy-cite" aria-label="Copy BibTeX">Copy</button>
+          <pre><code id="bibtex">@inproceedings{skillrace2026,
+  title     = {Reasoning-Augmented Concolic Execution for Coding-Agent Skills},
+  author    = {Anonymous},
+  booktitle = {Under double-blind review},
+  year      = {2026}
 }</code></pre>
+        </div>
       </div>
     </section>
   </main>
 
   <footer>
-    <div class="inner">
-      <p>Contact via repository issues for reproducibility requests.</p>
-      <p class="subtle">A public page for SkillRACE visibility, protocol clarity, and future sharing.</p>
+    <div class="inner footer-inner">
+      <div class="foot-brand">
+        <img src="skillrace-icon.png" alt="" class="foot-icon" />
+        <div>
+          <p class="foot-name">SkillRACE</p>
+          <p class="foot-sub">Reasoning-Augmented Concolic Execution for Coding-Agent Skills</p>
+        </div>
+      </div>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="https://github.com/jimbou/skillrace/blob/main/paper/skillrace.tex">Paper</a>
+        <a href="https://github.com/jimbou/skillrace">Code &amp; docs</a>
+        <a href="#cite">Cite</a>
+        <a href="#top">Back to top ↑</a>
+      </nav>
     </div>
+    <p class="foot-legal">Anonymized for review. Third-party skills retain their upstream licenses.</p>
   </footer>
-
-  <button id="to-top" class="to-top" aria-label="Back to top">↑ Top</button>
 </body>
 </html>
