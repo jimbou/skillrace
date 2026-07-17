@@ -286,7 +286,10 @@ def patch_skill(
         "First read /skill/SKILL.md and /evidence/evidence.json. evidence.json includes the "
         "exact task and authoritative results; their audit copies are at "
         "/evidence/common/test/prompt.txt and /evidence/common/results/check_results.json. "
-        "After those two reads, edit unless one additional file listed in evidence.json is essential. "
+        "The authoritative executable check defines the required behavior even when the "
+        "current skill contradicts it. Do not reread evidence already included in evidence.json. "
+        "After those two reads, edit immediately when the diagnostic identifies the failure; "
+        "otherwise read at most one essential NL-check or executable-check file, then edit. "
         "Briefly explain the failure in your saved reasoning before editing. "
         "Edit only /skill/SKILL.md, make a small general correction, do not copy or memorize "
         "test-specific values, do not execute the benchmark, and stop after the edit.\n",

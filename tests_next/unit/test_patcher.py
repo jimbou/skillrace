@@ -116,6 +116,8 @@ def test_patcher_reads_inputs_then_changes_only_skill_md(tmp_path: Path) -> None
     assert "/evidence/common/results/check_results.json" in prompt
     assert "/evidence/common/test/prompt.txt" in prompt
     assert "After those two reads, edit" in prompt
+    assert "authoritative executable check defines the required behavior" in prompt
+    assert "Do not reread evidence already included in evidence.json" in prompt
     assert {destination: mode for _, destination, mode in request.mounts} == {
         "/skill": "rw",
         "/evidence": "ro",
