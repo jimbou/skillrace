@@ -295,7 +295,7 @@ def test_run_agent_routes_lab_provider_and_upstream_model(
     spec = captured["spec"]
     assert spec.environment == ("LAB_KEY_UNLIMITED",)
     assert any(
-        destination == "/root/.pi/agent/models.json" and mode == "ro"
+        destination == "/home/node/.pi/agent/models.json" and mode == "ro"
         for _, destination, mode in spec.mounts
     )
     assert captured["argv"][captured["argv"].index("--provider") + 1] == "lab"

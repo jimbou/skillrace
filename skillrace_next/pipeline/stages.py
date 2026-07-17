@@ -604,7 +604,7 @@ def run_agent(
                 (artifact, "/workspace", "rw"),
                 (runtime_evidence, "/evidence", "rw"),
                 (skill.directory_path, "/skill", "ro"),
-                (models_path, "/root/.pi/agent/models.json", "ro"),
+                (models_path, "/home/node/.pi/agent/models.json", "ro"),
             ),
             network=config.network_policy,
             cpus=str(cpus),
