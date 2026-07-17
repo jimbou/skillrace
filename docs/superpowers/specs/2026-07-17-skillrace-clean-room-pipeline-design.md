@@ -696,6 +696,45 @@ replay are explicit scientific stages with new IDs and costs.
 Offline tests remain necessary but cannot complete a model/runtime milestone by
 themselves. Use development-only fixtures, never headline/held-out data, for these gates.
 
+### Individual live contract rule
+
+Every self-contained component must pass its own online contract test immediately after
+it is implemented and before a downstream component depends on it. A later whole-pipeline
+run does not substitute for these component tests. Each test gets a named command, its own
+saved evidence directory under `out/live-contracts/<component>/<run-id>/`, and explicit
+semantic assertions in addition to schema validation.
+
+Use the real online service belonging to the component:
+
+| Component | Required individual online test |
+|---|---|
+| Yunwu transport and Pi adapter | One direct Yunwu call and one real Pi tool call |
+| Test proposer/generator | One Pi/Yunwu proposal that passes deterministic test validation |
+| Weak task agent/runner | One Pi/Yunwu Docker task producing a preserved artifact and trace |
+| Part II `S0` skill generator | One Pi/Yunwu generation producing a valid isolated skill |
+| Episode creator/segmenter | One Pi/Yunwu segmentation of a real saved agent trace; verify ordered, source-grounded episodes |
+| SkillRACE tree merger/alignment | One Pi/Yunwu merge/alignment using real episodes; verify nodes, reasoning-labelled edges, membership, and reach state |
+| VeriGrey state/proposal path | One real Yunwu-backed proposal using saved tool-sequence novelty evidence |
+| Pi patcher | One Pi/Yunwu patch from a defensible saved failure; verify only `SKILL.md` changes |
+| Codex verifier/check author | One real Codex invocation over an artifact produced by a real Yunwu run; verify inputs remain unchanged and a valid check bundle is written |
+| Docker check executor | Execute that real Codex-authored bundle with `docker exec`; verify authoritative results and artifact immutability |
+| Exact replay/acceptance | One real Yunwu replay of the patched skill using the exact saved checks; verify the deterministic decision |
+
+The checker is intentionally **not** tested by replacing Codex with Yunwu. Its individual
+test uses real Codex for check authoring, a real artifact produced by the Yunwu task agent,
+and real Docker execution. Pure deterministic helpers such as hashing, JSON parsing,
+deduplication, and acceptance predicates receive focused offline tests; making an
+irrelevant paid model call does not improve their validation.
+
+Each model-facing component contract test is bounded to one normal model invocation plus
+the single retry already allowed in Section 15. The first successful live output from the
+episode creator, tree merger, test proposer, skill generator, patcher, and verifier must
+also receive a brief human semantic review; syntactically valid nonsense is not a pass.
+
+The component's live test command and saved evidence path must be recorded in the phase
+commit message or its accompanying phase note. Do not defer individual online testing
+until the complete Part I or Part II loop exists.
+
 ### Gate A — provider and Pi boundary
 
 - one minimal direct Yunwu call;
@@ -877,6 +916,7 @@ Each phase must end with:
 
 - a small reviewable diff;
 - focused offline tests;
+- a separate live contract test for every model-facing component completed in that phase;
 - the required real online run when the boundary is model/runtime-facing;
 - saved evidence paths and costs; and
 - a short note stating what was deliberately not generalized.
@@ -887,7 +927,8 @@ The clean-room rebuild is ready to replace the old package only when:
 
 1. no `skillrace_next` module imports old `skillrace` code;
 2. all new unit and Docker integration tests pass;
-3. Gates A-G have fresh saved evidence;
+3. every row in the individual live-contract matrix and Gates A-G have fresh saved
+   evidence;
 4. Part I proves all three methods run against immutable `S0`, group before patching, use
    the shared Pi patcher, and report discovery separately from repair;
 5. Part II proves accepted skills evolve across at least two iterations and held-out data
