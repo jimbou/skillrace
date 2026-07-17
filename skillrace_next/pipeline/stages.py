@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 from typing import Any, Callable
 import uuid
@@ -11,12 +12,139 @@ import uuid
 from ..records import ExperimentConfig, RunRecord, SkillVersion, TestCase
 from ..runtime.artifacts import freeze_artifact
 from ..runtime.docker import ContainerSpec, exec_task, start_task_container
-from ..runtime.pi import _load_usage
+from ..runtime.pi import PiRequest, PiResult, _load_usage, run_pi
 from ..storage import atomic_write_json, file_hash, tree_hash
 
 
 _PROPERTY_ID = re.compile(r"P[1-9][0-9]*")
 SubprocessRunner = Callable[..., subprocess.CompletedProcess[str]]
+PiRunner = Callable[[PiRequest], PiResult]
+
+
+def _assistant_skill(trace_path: Path) -> str:
+    responses: list[str] = []
+    for line in trace_path.read_text(encoding="utf-8").splitlines():
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        message = record.get("message", {})
+        if message.get("role") != "assistant":
+            continue
+        content = message.get("content", [])
+        if not isinstance(content, list):
+            continue
+        text = "".join(
+            item.get("text", "")
+            for item in content
+            if isinstance(item, dict) and item.get("type") == "text"
+        )
+        if text:
+            responses.append(text)
+    if not responses:
+        raise ValueError("generated SKILL.md is empty")
+    skill = responses[-1].strip()
+    if not skill or "\x00" in skill or skill.startswith("```"):
+        raise ValueError("generated SKILL.md is empty, fenced, or contains NUL")
+    lines = skill.splitlines()
+    if not lines or lines[0].strip() != "---":
+        raise ValueError("generated SKILL.md must start with YAML front matter")
+    try:
+        closing = next(
+            index for index, line in enumerate(lines[1:], 1) if line.strip() == "---"
+        )
+    except StopIteration as error:
+        raise ValueError("generated SKILL.md front matter is not closed") from error
+    metadata: dict[str, str] = {}
+    for line in lines[1:closing]:
+        if ":" in line:
+            key, value = line.split(":", 1)
+            metadata[key.strip()] = value.strip()
+    if not metadata.get("name") or not metadata.get("description"):
+        raise ValueError("generated SKILL.md needs nonempty name and description")
+    if not "\n".join(lines[closing + 1 :]).strip():
+        raise ValueError("generated SKILL.md body is empty")
+    return skill + "\n"
+
+
+def generate_base_skill(
+    scenario: str | Path,
+    config: ExperimentConfig,
+    output_dir: str | Path,
+    *,
+    pi_runner: PiRunner = run_pi,
+) -> SkillVersion:
+    scenario_path = Path(scenario)
+    if scenario_path.is_symlink() or not scenario_path.is_file():
+        raise ValueError("scenario must be a regular file")
+    scenario_text = scenario_path.read_text(encoding="utf-8")
+    if not scenario_text.strip():
+        raise ValueError("scenario must be nonempty")
+    output = Path(output_dir)
+    if output.exists():
+        raise ValueError("base-skill output directory already exists")
+    generation = output / "generation"
+    pi_output = generation / "pi"
+    generation.mkdir(parents=True)
+    prompt_path = generation / "prompt.txt"
+    prompt_path.write_text(
+        "Create one concise, general coding-agent skill for the public scenario below. "
+        "Include practical steps, validation, and guardrails without inventing evaluation "
+        "cases. Return only the complete SKILL.md. It must start with YAML front matter "
+        "containing nonempty name and description fields, followed by a nonempty Markdown "
+        "body. Do not use Markdown fences or tools.\n\n"
+        f"PUBLIC SCENARIO:\n---\n{scenario_text.rstrip()}\n---\n",
+        encoding="utf-8",
+    )
+    result = pi_runner(
+        PiRequest(
+            operation_id=f"base-skill.{config.experiment_id}.{uuid.uuid4().hex}",
+            model=config.model_id,
+            prompt_path=prompt_path,
+            output_dir=pi_output,
+            image=config.docker_image,
+            allowed_tools=("read",),
+            max_turns=config.role_budgets["skill_generator"],
+            timeout_seconds=config.timeouts["pi"],
+        )
+    )
+    if result.status != "completed":
+        raise RuntimeError(f"Pi base-skill generation failed: {result.status}")
+    skill_text = _assistant_skill(result.trace_path)
+    base = output / "base"
+    base.mkdir()
+    skill_path = base / "SKILL.md"
+    skill_path.write_text(skill_text, encoding="utf-8")
+    copies: dict[str, str] = {}
+    for method in config.methods:
+        method_dir = output / "methods" / method
+        method_dir.mkdir(parents=True)
+        shutil.copyfile(skill_path, method_dir / "SKILL.md")
+        copies[method] = str(method_dir)
+    version = SkillVersion(
+        skill_id=f"{config.experiment_id}-base",
+        version_id="S0",
+        parent_version_id=None,
+        directory_path=base,
+        tree_hash=tree_hash(base),
+        creation_role="skill_generator",
+        model_id=config.model_id,
+        receipt_path=result.receipt_path,
+    )
+    atomic_write_json(output / "skill-version.json", version.to_dict())
+    atomic_write_json(
+        output / "generation.json",
+        {
+            "schema": "skillrace-base-skill-generation/1",
+            "scenario_path": str(scenario_path),
+            "model": config.model_id,
+            "trace_path": str(result.trace_path),
+            "pi_receipt_path": str(result.receipt_path),
+            "usage": result.usage,
+            "method_copy_paths": copies,
+        },
+    )
+    return version
 
 
 def validate_nl_checks(path: str | Path) -> list[dict[str, Any]]:
