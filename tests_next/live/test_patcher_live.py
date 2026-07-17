@@ -26,22 +26,23 @@ from tests_next.live.test_tree_merge_live import live_config
 pytestmark = pytest.mark.live
 
 
+@pytest.mark.parametrize("model", ["deepseek-v4-flash", "qwen3.6-flash"])
 def test_real_lab_weak_model_patches_from_real_codex_and_docker_failure(
-    live_evidence_root: Path,
+    model: str, live_evidence_root: Path,
 ) -> None:
     secret = os.environ.get("LAB_KEY_UNLIMITED")
     if not secret:
         pytest.fail("LAB_KEY_UNLIMITED is required for the real patcher contract")
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
-    evidence = live_evidence_root / "patcher" / run_id
+    evidence = live_evidence_root / "patcher" / model / run_id
     evidence.mkdir(parents=True)
     config = replace(
-        live_config(evidence, {"weak_agent": 4, "patcher": 6}),
+        live_config(evidence, {"weak_agent": 4, "patcher": 10}),
         experiment_id="live-patcher",
         methods=("random",),
         network_policy="host",
         provider="lab",
-        model_id="deepseek-v4-flash",
+        model_id=model,
     )
     base_image_id = subprocess.run(
         ["docker", "image", "inspect", "--format", "{{.Id}}", config.docker_image],
@@ -72,7 +73,7 @@ def test_real_lab_weak_model_patches_from_real_codex_and_docker_failure(
         directory_path=skill_dir,
         tree_hash=tree_hash(skill_dir),
         creation_role="fixture",
-        model_id="deepseek-v4-flash",
+        model_id=model,
         receipt_path=skill_receipt,
     )
     case = evidence / "test"
@@ -174,10 +175,11 @@ def test_real_lab_weak_model_patches_from_real_codex_and_docker_failure(
 
     assert attempt.patch_status == "patched"
     assert attempt.evidence_bundle_hash == patch_evidence_hash
-    assert attempt.model_id == "deepseek-v4-flash"
+    assert attempt.model_id == model
     receipt = json.loads(attempt.cost_receipt_path.read_text(encoding="utf-8"))
     assert receipt["provider"] == "lab"
-    assert receipt["model"] == "deepseek-v4-flash"
+    assert receipt["model"] == model
+    assert receipt["max_turns"] == 10
     assert receipt["status"] == "completed"
     assert receipt["usage"]["total_tokens"] > 0
     candidate = evidence / "patch" / "candidate"
