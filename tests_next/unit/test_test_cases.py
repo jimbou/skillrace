@@ -238,6 +238,8 @@ def test_run_agent_reuses_validated_image_and_returns_live_container_identity(
     assert captured["spec"].image_id == "sha256:validated-image"
     model_index = captured["argv"].index("--model")
     assert captured["argv"][model_index + 1] == "deepseek-v3.2"
+    skill_index = captured["argv"].index("--skill")
+    assert captured["argv"][skill_index + 1] == "/skill/SKILL.md"
     assert record.container_id == "container-1"
     assert record.image_id == "sha256:validated-image"
     assert record.termination_status == "completed"

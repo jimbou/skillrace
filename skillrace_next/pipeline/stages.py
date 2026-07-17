@@ -635,7 +635,7 @@ def run_agent(
             "--session",
             "/evidence/trace.jsonl",
             "--skill",
-            "/skill",
+            "/skill/SKILL.md",
             prompt,
         ],
         timeout_seconds=config.timeouts["pi"],
