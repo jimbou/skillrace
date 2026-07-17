@@ -104,6 +104,7 @@ def test_author_checks_invokes_isolated_codex_and_changes_only_output(
     input_hash = tree_hash(workspace / "input")
     captured: dict[str, Any] = {}
     monkeypatch.setenv("yunwu_key", "unit-secret")
+    monkeypatch.setenv("LAB_KEY_UNLIMITED", "lab-unit-secret")
 
     def fake_codex(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
         captured["command"] = command
@@ -127,6 +128,7 @@ def test_author_checks_invokes_isolated_codex_and_changes_only_output(
     assert captured["kwargs"]["cwd"] == workspace / "output"
     assert captured["kwargs"]["env"]["DOCKER_HOST"].endswith("nonexistent.sock")
     assert "yunwu_key" not in captured["kwargs"]["env"]
+    assert "LAB_KEY_UNLIMITED" not in captured["kwargs"]["env"]
     assert tree_hash(workspace / "input") == input_hash
     assert bundle.manifest_path.is_file()
     assert bundle.codex_receipt_path.is_file()

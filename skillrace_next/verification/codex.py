@@ -185,6 +185,7 @@ def _invoke_codex(
     ]
     environment = os.environ.copy()
     environment.pop("yunwu_key", None)
+    environment.pop("LAB_KEY_UNLIMITED", None)
     environment.pop("DOCKER_CONTEXT", None)
     environment["DOCKER_HOST"] = "unix:///nonexistent.sock"
     return runner(
