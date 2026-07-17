@@ -1,0 +1,127 @@
+from datetime import UTC, datetime
+import json
+import os
+from pathlib import Path
+import subprocess
+import uuid
+
+import pytest
+
+from skillrace_next.methods.random import propose_test
+from skillrace_next.pipeline.stages import validate_test
+from skillrace_next.records import ExperimentConfig, SkillVersion
+from skillrace_next.storage import atomic_write_json, tree_hash
+
+
+pytestmark = pytest.mark.live
+
+
+def test_real_random_proposal_passes_deterministic_validation(
+    live_evidence_root: Path,
+) -> None:
+    secret = os.environ.get("yunwu_key")
+    if not secret:
+        pytest.skip("yunwu_key is required for the live contract")
+
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    evidence = live_evidence_root / "test-proposer" / run_id
+    evidence.mkdir(parents=True)
+    image = "skillrace-next/task-fixture:test"
+    subprocess.run(
+        [
+            "docker",
+            "build",
+            "-q",
+            "-t",
+            image,
+            str(Path("tests_next/fixtures/task").resolve()),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    skill_dir = evidence / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        "# Exact file creation\n"
+        "Follow the user's requested path and content exactly. Use the write tool, then "
+        "read the file to confirm it.\n",
+        encoding="utf-8",
+    )
+    skill_receipt = evidence / "skill-receipt.json"
+    atomic_write_json(skill_receipt, {"source": "development fixture"})
+    skill = SkillVersion(
+        skill_id="development-file-creation",
+        version_id="S0",
+        parent_version_id=None,
+        directory_path=skill_dir,
+        tree_hash=tree_hash(skill_dir),
+        creation_role="fixture",
+        model_id="deepseek-v3.2",
+        receipt_path=skill_receipt,
+    )
+    config = ExperimentConfig(
+        experiment_id="live-test-proposer",
+        part="part1",
+        methods=("random",),
+        replicate_count=1,
+        provider="yunwu",
+        model_id="deepseek-v3.2",
+        pi_version="0.73.1",
+        role_budgets={"proposer": 4, "weak_agent": 4, "patcher": 6},
+        verifier_backend="codex",
+        verifier_command=("codex", "exec"),
+        verifier_model="gpt-5.6",
+        verifier_reasoning="high",
+        docker_image=image,
+        resource_limits={"cpus": "1", "memory_mb": 512},
+        network_policy="host",
+        timeouts={
+            "provider": 60,
+            "pi": 180,
+            "docker": 180,
+            "codex": 300,
+            "check": 60,
+            "patch": 300,
+        },
+        suite_path=evidence,
+        scenario_path=evidence,
+        iteration_budget=1,
+        live=True,
+        output_root=evidence,
+        heldout_repetitions=1,
+    )
+    properties = [
+        {
+            "property_id": "P1",
+            "description": "The task creates the requested output file.",
+        },
+        {
+            "property_id": "P2",
+            "description": "The output file contains the exact requested text.",
+        },
+    ]
+
+    proposed = propose_test(skill, properties, config, evidence / "proposal")
+    validated = validate_test(proposed, config)
+    atomic_write_json(evidence / "validated-test.json", validated.to_dict())
+
+    assert validated.validation_status == "valid", validated.validation_diagnostic
+    assert validated.container_image_id.startswith("sha256:")
+    assert validated.origin_method == "random"
+    prompt = validated.prompt_path.read_text(encoding="utf-8")
+    assert "file" in prompt.lower()
+    checks = json.loads(validated.nl_check_path.read_text(encoding="utf-8"))
+    assert checks
+    assert {check["property_id"] for check in checks} <= {"P1", "P2"}
+    proposal_receipt = json.loads(
+        validated.proposal_receipt.read_text(encoding="utf-8")
+    )
+    assert proposal_receipt["status"] == "completed"
+    assert proposal_receipt["model"] == "deepseek-v3.2"
+    assert proposal_receipt["usage"]["input_tokens"] > 0
+    assert Path(proposal_receipt["trace_path"]).is_file()
+    for path in evidence.rglob("*"):
+        if path.is_file():
+            assert secret not in path.read_text(encoding="utf-8", errors="replace")
