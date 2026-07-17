@@ -81,7 +81,7 @@ def test_validate_episodes_rejects_ungrounded_range() -> None:
 
 
 def test_validate_episodes_rejects_missing_relevant_event_coverage() -> None:
-    with pytest.raises(ValueError, match="coverage"):
+    with pytest.raises(ValueError, match=r"coverage.*e3, e4"):
         validate_episodes(valid_episodes()[:1], TRACE)
 
 
@@ -155,6 +155,9 @@ def test_create_episodes_uses_same_track_pi_and_saves_validated_output(
     assert "Do not create episodes for text-only assistant messages" in prompt
     assert '"episode_id":"episode-1"' in prompt
     assert "All IDs must be JSON strings" in prompt
+    assert "top-level JSON type must be an array" in prompt
+    assert "Do not return JSONL or NDJSON" in prompt
+    assert "Reason internally and verify the array" in prompt
     assert json.loads((tmp_path / "episodes" / "episodes.json").read_text()) == episodes
 
 

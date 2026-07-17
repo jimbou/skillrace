@@ -121,7 +121,11 @@ def validate_episodes(
             }
         )
     if covered != relevant:
-        raise ValueError("episode coverage omits relevant reasoning/tool events")
+        missing_ids = [events[index]["id"] for index in sorted(relevant - covered)]
+        raise ValueError(
+            "episode coverage omits relevant reasoning/tool events: "
+            + ", ".join(missing_ids)
+        )
     return validated
 
 
@@ -173,7 +177,10 @@ def _episode_prompt(
         "thinking/toolCall event and every toolResult event. Only those events are relevant. "
         "Do not create episodes for text-only assistant messages. Every episode range must "
         "contain at least one relevant event, and the final episode must end at the last "
-        "relevant event rather than a later text-only confirmation. Return only one JSON array. "
+        "relevant event rather than a later text-only confirmation. Reason internally and "
+        "verify the array before answering, but output no reasoning. The top-level JSON type "
+        "must be an array. The entire response must begin with [ and end with ]. Do not return "
+        "JSONL or NDJSON, multiple root objects, prose, or Markdown fences. "
         "Every item must contain exactly episode_id, start_event_id, end_event_id, "
         "purpose, outcome, and reason_for_next. All IDs must be JSON strings. For example: "
         "{\"episode_id\":\"episode-1\",\"start_event_id\":\"event-id\","
