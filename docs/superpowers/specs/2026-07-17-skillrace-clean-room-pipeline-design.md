@@ -714,6 +714,7 @@ Use the real online service belonging to the component:
 | Part II `S0` skill generator | One Pi/Yunwu generation producing a valid isolated skill |
 | Episode creator/segmenter | One Pi/Yunwu segmentation of a real saved agent trace; verify ordered, source-grounded episodes |
 | SkillRACE tree merger/alignment | One Pi/Yunwu merge/alignment using real episodes; verify nodes, reasoning-labelled edges, membership, and reach state |
+| SkillRACE branch selector/proposal path | Select an unreached branch from a real saved tree and obtain one valid Pi/Yunwu test proposal targeting it |
 | VeriGrey state/proposal path | One real Yunwu-backed proposal using saved tool-sequence novelty evidence |
 | Pi patcher | One Pi/Yunwu patch from a defensible saved failure; verify only `SKILL.md` changes |
 | Codex verifier/check author | One real Codex invocation over an artifact produced by a real Yunwu run; verify inputs remain unchanged and a valid check bundle is written |
