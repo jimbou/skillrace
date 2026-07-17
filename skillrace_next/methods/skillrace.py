@@ -163,7 +163,7 @@ def _episode_prompt(
     correction: str | None = None,
 ) -> str:
     suffix = (
-        f"\nThe previous response was not valid JSON: {correction}. Correct only JSON syntax."
+        f"\nThe previous response was invalid: {correction}. Return corrected raw JSON."
         if correction
         else ""
     )
@@ -220,12 +220,12 @@ def create_episodes(
             raise RuntimeError(f"Pi episode creation failed: {result.status}")
         try:
             parsed = _assistant_json(result.trace_path)
-        except json.JSONDecodeError as error:
+            episodes = validate_episodes(parsed, run.trace_path)
+        except (json.JSONDecodeError, ValueError) as error:
             correction = str(error)
             if ordinal == 1:
                 continue
-            raise ValueError("two invalid JSON episode responses") from error
-        episodes = validate_episodes(parsed, run.trace_path)
+            raise ValueError("two invalid episode responses") from error
         atomic_write_json(output / "episodes.json", episodes)
         atomic_write_json(
             output / "episode-creation.json",
