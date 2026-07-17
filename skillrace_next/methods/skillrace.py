@@ -198,6 +198,7 @@ def create_episodes(
         result = pi_runner(
             PiRequest(
                 operation_id=f"episodes.{run.run_id}.{uuid.uuid4().hex}",
+                provider=config.provider,
                 model=config.model_id,
                 prompt_path=prompt_path,
                 output_dir=attempt,
@@ -331,6 +332,7 @@ def _alignment_parent(
     result = pi_runner(
         PiRequest(
             operation_id=f"tree-alignment.{run_id}.{uuid.uuid4().hex}",
+            provider=config.provider,
             model=config.model_id,
             prompt_path=prompt_path,
             output_dir=attempt,
@@ -514,6 +516,7 @@ def propose_test(
     result = pi_runner(
         PiRequest(
             operation_id=f"proposal.skillrace.{target['node_id']}.{uuid.uuid4().hex}",
+            provider=config.provider,
             model=config.model_id,
             prompt_path=prompt_path,
             output_dir=attempt,

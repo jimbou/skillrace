@@ -243,3 +243,69 @@ def test_run_agent_reuses_validated_image_and_returns_live_container_identity(
     assert record.termination_status == "completed"
     assert record.artifact_path.joinpath("result.txt").is_file()
     assert record.cost_totals["input_tokens"] == 10
+
+
+def test_run_agent_routes_lab_provider_and_upstream_model(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test = replace(
+        pending_test(tmp_path),
+        validation_status="valid",
+        validation_diagnostic="validated",
+        container_image_id="sha256:validated-image",
+    )
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# Test skill\n", encoding="utf-8")
+    receipt = tmp_path / "skill.json"
+    receipt.write_text("{}\n", encoding="utf-8")
+    skill = SkillVersion(
+        skill_id="skill-1",
+        version_id="S0",
+        parent_version_id=None,
+        directory_path=skill_dir,
+        tree_hash=tree_hash(skill_dir),
+        creation_role="fixture",
+        model_id="qwen3.6-flash",
+        receipt_path=receipt,
+    )
+    config = replace(
+        config_for(tmp_path), provider="lab", model_id="qwen3.6-flash"
+    )
+    output = tmp_path / "run"
+    captured: dict[str, Any] = {}
+
+    def fake_start(spec: Any) -> RunningContainer:
+        captured["spec"] = spec
+        return RunningContainer("container-1", spec.name, spec.image_id)
+
+    def fake_exec(
+        container: RunningContainer, argv: list[str], timeout_seconds: int
+    ) -> ExecResult:
+        captured["argv"] = argv
+        (output / "artifact" / "result.txt").write_text("ok\n", encoding="utf-8")
+        (output / "runtime" / "trace.jsonl").write_text("", encoding="utf-8")
+        return ExecResult(tuple(argv), 0, "", "", 0.1, False)
+
+    monkeypatch.setattr(stages, "start_task_container", fake_start)
+    monkeypatch.setattr(stages, "exec_task", fake_exec)
+
+    record = run_agent(skill, test, config, output)
+
+    spec = captured["spec"]
+    assert spec.environment == ("LAB_KEY_UNLIMITED",)
+    assert any(
+        destination == "/root/.pi/agent/models.json" and mode == "ro"
+        for _, destination, mode in spec.mounts
+    )
+    assert captured["argv"][captured["argv"].index("--provider") + 1] == "lab"
+    assert (
+        captured["argv"][captured["argv"].index("--model") + 1]
+        == "ali/qwen3.6-flash"
+    )
+    assert len(record.provider_receipt_paths) == 1
+    provider_receipt = json.loads(
+        record.provider_receipt_paths[0].read_text(encoding="utf-8")
+    )
+    assert provider_receipt["qualified_model"] == "lab/qwen3.6-flash"
+    assert provider_receipt["upstream_model"] == "ali/qwen3.6-flash"

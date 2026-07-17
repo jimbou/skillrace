@@ -12,9 +12,14 @@ import urllib.request
 import uuid
 
 from ..storage import atomic_write_json
+from .providers import (
+    estimate_cost,
+    qualified_model,
+    resolve_model,
+    write_pi_models,
+)
 
 
-YUNWU_URL = "https://yunwu.ai/v1/chat/completions"
 _AVAILABLE_TOOLS = {"read", "bash", "edit", "write", "grep", "find", "ls"}
 
 
@@ -42,6 +47,7 @@ async function loadPiSdk() {
 
 const provider = argument("--provider");
 const modelId = argument("--model");
+const keyEnvironment = argument("--key-environment");
 const maxTurns = Number.parseInt(argument("--max-turns"), 10);
 const allowedTools = argument("--allowed-tools").split(",").filter(Boolean);
 const promptPath = argument("--prompt-path");
@@ -74,6 +80,7 @@ function collectUsage() {
     input_tokens: 0,
     output_tokens: 0,
     cache_read_tokens: 0,
+    cache_write_tokens: 0,
     total_tokens: 0,
     turns: 0,
     tool_call_count: toolCallCount,
@@ -88,6 +95,7 @@ function collectUsage() {
       usage.input_tokens += Number(item.input || 0);
       usage.output_tokens += Number(item.output || 0);
       usage.cache_read_tokens += Number(item.cacheRead || 0);
+      usage.cache_write_tokens += Number(item.cacheWrite || 0);
       usage.total_tokens += Number(item.totalTokens || 0);
       usage.turns += 1;
       if (!usage.model && message.model) usage.model = message.model;
@@ -97,7 +105,6 @@ function collectUsage() {
 }
 
 try {
-  if (provider !== "yunwu") throw new Error("provider must be yunwu");
   if (!Number.isInteger(maxTurns) || maxTurns < 1 || maxTurns > 12) {
     throw new Error("max turns must be in 1..12");
   }
@@ -111,8 +118,8 @@ try {
     SettingsManager,
   } = await loadPiSdk();
   const authStorage = AuthStorage.create(authPath);
-  const providerKey = process.env.yunwu_key;
-  if (!providerKey) throw new Error("yunwu_key is not set");
+  const providerKey = process.env[keyEnvironment];
+  if (!providerKey) throw new Error(`${keyEnvironment} is not set`);
   authStorage.setRuntimeApiKey(provider, providerKey);
   const modelCatalog = "/root/.pi/agent/models.json";
   const modelRegistry = ModelRegistry.create(authStorage, modelCatalog);
@@ -198,12 +205,14 @@ class PiRequest:
     max_turns: int
     timeout_seconds: int
     mounts: tuple[tuple[Path, str, str], ...] = ()
+    provider: str = "yunwu"
 
     def __post_init__(self) -> None:
         if not self.operation_id or len(self.operation_id) > 256:
             raise ValueError("operation_id must be bounded nonempty text")
         if not self.model or not self.image:
             raise ValueError("model and image are required")
+        resolve_model(self.provider, self.model)
         if not self.prompt_path.is_file():
             raise ValueError("prompt_path must name a file")
         if not self.allowed_tools or not set(self.allowed_tools) <= _AVAILABLE_TOOLS:
@@ -261,6 +270,7 @@ def _load_usage(accounting: Path, trace: Path) -> dict[str, Any]:
         "input_tokens": 0,
         "output_tokens": 0,
         "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
         "total_tokens": 0,
         "turns": 0,
     }
@@ -276,6 +286,7 @@ def _load_usage(accounting: Path, trace: Path) -> dict[str, Any]:
             totals["input_tokens"] += int(item.get("input", 0) or 0)
             totals["output_tokens"] += int(item.get("output", 0) or 0)
             totals["cache_read_tokens"] += int(item.get("cacheRead", 0) or 0)
+            totals["cache_write_tokens"] += int(item.get("cacheWrite", 0) or 0)
             totals["total_tokens"] += int(item.get("totalTokens", 0) or 0)
             totals["turns"] += 1
     return totals
@@ -285,15 +296,17 @@ def run_pi(
     request: PiRequest,
     injected_subprocess_runner: SubprocessRunner = subprocess.run,
 ) -> PiResult:
-    key = os.environ.get("yunwu_key")
+    selected = resolve_model(request.provider, request.model)
+    key = os.environ.get(selected.key_environment)
     if not key:
-        raise RuntimeError("yunwu_key is not set")
+        raise RuntimeError(f"{selected.key_environment} is not set")
     output = request.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
     accounting = output / "accounting"
     accounting.mkdir(exist_ok=True)
     runner_path = output / "pi_runner.mjs"
     runner_path.write_text(_PI_RUNNER, encoding="utf-8")
+    models_path = write_pi_models(output / "models.json", selected)
     trace_path = output / "trace.jsonl"
     mounts = [
         "-v",
@@ -302,6 +315,8 @@ def run_pi(
         f"{accounting.resolve()}:/accounting",
         "-v",
         f"{runner_path.resolve()}:/runtime/pi_runner.mjs:ro",
+        "-v",
+        f"{models_path.resolve()}:/root/.pi/agent/models.json:ro",
     ]
     for source, destination, mode in request.mounts:
         mounts.extend(("-v", f"{source.resolve()}:{destination}:{mode}"))
@@ -311,7 +326,7 @@ def run_pi(
         "--rm",
         "--network=host",
         "-e",
-        "yunwu_key",
+        selected.key_environment,
         *mounts,
         "-w",
         "/workspace",
@@ -319,9 +334,11 @@ def run_pi(
         "node",
         "/runtime/pi_runner.mjs",
         "--provider",
-        "yunwu",
+        selected.provider,
         "--model",
-        request.model,
+        selected.upstream_model,
+        "--key-environment",
+        selected.key_environment,
         "--max-turns",
         str(request.max_turns),
         "--allowed-tools",
@@ -361,6 +378,7 @@ def run_pi(
     if not trace_path.exists() and accounting_trace.exists():
         shutil.copy2(accounting_trace, trace_path)
     usage = _load_usage(accounting, trace_path)
+    estimated_cost = estimate_cost(selected, usage)
     receipt_path = output / "receipt.json"
     atomic_write_json(
         receipt_path,
@@ -368,7 +386,9 @@ def run_pi(
             "schema": "skillrace-pi-result/1",
             "operation_id": request.operation_id,
             "model": request.model,
-            "provider": "yunwu",
+            "provider": selected.provider,
+            "qualified_model": qualified_model(selected),
+            "upstream_model": selected.upstream_model,
             "status": status,
             "return_code": return_code,
             "timeout_seconds": request.timeout_seconds,
@@ -376,6 +396,9 @@ def run_pi(
             "allowed_tools": list(request.allowed_tools),
             "trace_path": str(trace_path),
             "usage": usage,
+            "estimated_cost_usd": (
+                str(estimated_cost) if estimated_cost is not None else "unpriced"
+            ),
             "wall_seconds": wall_seconds,
             "stderr": sanitized_stderr[-1000:],
         },
@@ -402,16 +425,19 @@ def _request_id_hash(headers: Any) -> str | None:
     return None
 
 
-def direct_yunwu_preflight(model: str, evidence_dir: str | Path) -> ProviderProbe:
-    key = os.environ.get("yunwu_key")
+def direct_provider_preflight(
+    provider: str, model: str, evidence_dir: str | Path
+) -> ProviderProbe:
+    selected = resolve_model(provider, model)
+    key = os.environ.get(selected.key_environment)
     if not key:
-        raise RuntimeError("yunwu_key is not set")
+        raise RuntimeError(f"{selected.key_environment} is not set")
     output = Path(evidence_dir)
     output.mkdir(parents=True, exist_ok=True)
     operation_id = f"preflight.{uuid.uuid4().hex}"
     body = json.dumps(
         {
-            "model": model,
+            "model": selected.upstream_model,
             "messages": [
                 {
                     "role": "user",
@@ -419,7 +445,7 @@ def direct_yunwu_preflight(model: str, evidence_dir: str | Path) -> ProviderProb
                 }
             ],
             "temperature": 0,
-            "max_tokens": 32,
+            "max_tokens": 128,
         },
         separators=(",", ":"),
     ).encode("utf-8")
@@ -433,7 +459,7 @@ def direct_yunwu_preflight(model: str, evidence_dir: str | Path) -> ProviderProb
         attempt: dict[str, Any] = {"ordinal": ordinal, "timeout_seconds": 60}
         try:
             request = urllib.request.Request(
-                YUNWU_URL,
+                selected.base_url.rstrip("/") + "/chat/completions",
                 data=body,
                 headers={
                     "Authorization": f"Bearer {key}",
@@ -444,16 +470,21 @@ def direct_yunwu_preflight(model: str, evidence_dir: str | Path) -> ProviderProb
                 raw = response.read()
                 attempt["http_status"] = int(response.status)
                 attempt["request_id_sha256"] = _request_id_hash(response.headers)
+                actual_cost = response.headers.get("x-litellm-response-cost")
+                attempt["actual_cost_usd"] = (
+                    str(actual_cost) if actual_cost is not None else None
+                )
             value = json.loads(raw)
             provider_model = value.get("model")
             choices = value.get("choices")
-            if provider_model != model or not isinstance(choices, list) or not choices:
+            if not isinstance(provider_model, str) or not isinstance(choices, list) or not choices:
                 raise ValueError("malformed provider response")
             message = choices[0].get("message", {})
             content = message.get("content") or ""
             if not isinstance(content, str) or "SKILLRACE_PREFLIGHT_OK" not in content:
                 raise ValueError("preflight response content did not match")
             usage = dict(value.get("usage") or {})
+            estimated_cost = estimate_cost(selected, usage)
             attempt["provider_model"] = provider_model
             attempt["response_id_sha256"] = (
                 hashlib.sha256(str(value["id"]).encode("utf-8")).hexdigest()
@@ -461,6 +492,9 @@ def direct_yunwu_preflight(model: str, evidence_dir: str | Path) -> ProviderProb
                 else None
             )
             attempt["usage"] = usage
+            attempt["estimated_cost_usd"] = (
+                str(estimated_cost) if estimated_cost is not None else "unpriced"
+            )
             attempt["status"] = "completed"
             status = "completed"
         except urllib.error.HTTPError as error:
@@ -486,8 +520,10 @@ def direct_yunwu_preflight(model: str, evidence_dir: str | Path) -> ProviderProb
         {
             "schema": "skillrace-provider-probe/1",
             "operation_id": operation_id,
-            "provider": "yunwu",
+            "provider": selected.provider,
             "model": model,
+            "qualified_model": qualified_model(selected),
+            "upstream_model": selected.upstream_model,
             "status": status,
             "content": content,
             "usage": usage,
@@ -503,3 +539,7 @@ def direct_yunwu_preflight(model: str, evidence_dir: str | Path) -> ProviderProb
         attempts=len(attempt_records),
         receipt_path=receipt_path,
     )
+
+
+def direct_yunwu_preflight(model: str, evidence_dir: str | Path) -> ProviderProbe:
+    return direct_provider_preflight("yunwu", model, evidence_dir)

@@ -2,6 +2,8 @@ from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Any, ClassVar, Mapping
 
+from .runtime.providers import resolve_model
+
 
 def _json_value(value: Any) -> Any:
     if isinstance(value, Path):
@@ -63,8 +65,7 @@ class ExperimentConfig:
     def __post_init__(self) -> None:
         if self.part not in {"part1", "part2"}:
             raise ValueError("part must be part1 or part2")
-        if self.provider != "yunwu":
-            raise ValueError("provider must be yunwu")
+        resolve_model(self.provider, self.model_id)
         if self.verifier_backend != "codex":
             raise ValueError("verifier backend must be codex, not Pi")
         required_timeouts = {"provider", "pi", "docker", "codex", "check", "patch"}

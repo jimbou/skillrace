@@ -21,6 +21,12 @@ from ..records import (
 from ..runtime.artifacts import freeze_artifact
 from ..runtime.docker import RunningContainer, ContainerSpec, exec_task, start_task_container
 from ..runtime.pi import PiRequest, PiResult, _load_usage, run_pi
+from ..runtime.providers import (
+    estimate_cost,
+    qualified_model,
+    resolve_model,
+    write_pi_models,
+)
 from ..storage import atomic_write_json, canonical_json_hash, file_hash, tree_hash
 
 
@@ -299,6 +305,7 @@ def patch_skill(
     result = pi_runner(
         PiRequest(
             operation_id=f"patch.{uuid.uuid4().hex}",
+            provider=config.provider,
             model=config.model_id,
             prompt_path=prompt_path,
             output_dir=pi_output,
@@ -425,6 +432,7 @@ def generate_base_skill(
     result = pi_runner(
         PiRequest(
             operation_id=f"base-skill.{config.experiment_id}.{uuid.uuid4().hex}",
+            provider=config.provider,
             model=config.model_id,
             prompt_path=prompt_path,
             output_dir=pi_output,
@@ -583,6 +591,8 @@ def run_agent(
     runtime_evidence = output / "runtime"
     artifact.mkdir(parents=True)
     runtime_evidence.mkdir()
+    selected_model = resolve_model(config.provider, config.model_id)
+    models_path = write_pi_models(runtime_evidence / "models.json", selected_model)
     memory_mb = config.resource_limits.get("memory_mb", 512)
     cpus = config.resource_limits.get("cpus", "1")
     running = start_task_container(
@@ -594,13 +604,14 @@ def run_agent(
                 (artifact, "/workspace", "rw"),
                 (runtime_evidence, "/evidence", "rw"),
                 (skill.directory_path, "/skill", "ro"),
+                (models_path, "/root/.pi/agent/models.json", "ro"),
             ),
             network=config.network_policy,
             cpus=str(cpus),
             memory=f"{memory_mb}m",
             working_directory="/workspace",
             user=f"{os.getuid()}:{os.getgid()}",
-            environment=("yunwu_key",),
+            environment=(selected_model.key_environment,),
         )
     )
     prompt = test.prompt_path.read_text(encoding="utf-8")
@@ -610,9 +621,9 @@ def run_agent(
         [
             "pi",
             "--provider",
-            "yunwu",
+            selected_model.provider,
             "--model",
-            config.model_id,
+            selected_model.upstream_model,
             "--thinking",
             "medium",
             "--print",
@@ -630,7 +641,7 @@ def run_agent(
         timeout_seconds=config.timeouts["pi"],
     )
     ended_at = datetime.now(UTC).isoformat()
-    secret = os.environ.get("yunwu_key", "")
+    secret = os.environ.get(selected_model.key_environment, "")
     stdout = result.stdout.replace(secret, "[REDACTED]") if secret else result.stdout
     stderr = result.stderr.replace(secret, "[REDACTED]") if secret else result.stderr
     stdout_path = runtime_evidence / "stdout.txt"
@@ -656,6 +667,22 @@ def run_agent(
         encoding="utf-8",
     )
     usage = _load_usage(runtime_evidence, trace_path)
+    estimated_cost = estimate_cost(selected_model, usage)
+    provider_receipt = runtime_evidence / "provider.json"
+    atomic_write_json(
+        provider_receipt,
+        {
+            "schema": "skillrace-provider-usage/1",
+            "provider": selected_model.provider,
+            "model": selected_model.friendly_model,
+            "qualified_model": qualified_model(selected_model),
+            "upstream_model": selected_model.upstream_model,
+            "usage": usage,
+            "estimated_cost_usd": (
+                str(estimated_cost) if estimated_cost is not None else "unpriced"
+            ),
+        },
+    )
     frozen = freeze_artifact(artifact, checker_uid=65534)
     if result.timed_out:
         termination_status = "agent_timeout"
@@ -684,7 +711,7 @@ def run_agent(
         tool_log_path=tool_log_path,
         stdout_path=stdout_path,
         stderr_path=stderr_path,
-        provider_receipt_paths=(),
+        provider_receipt_paths=(provider_receipt,),
         cost_totals=usage,
     )
     atomic_write_json(output / "run.json", run.to_dict())

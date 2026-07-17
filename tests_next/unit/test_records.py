@@ -1,3 +1,4 @@
+from dataclasses import replace
 import json
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,16 @@ def valid_config() -> ExperimentConfig:
         output_root=Path("out/development"),
         heldout_repetitions=1,
     )
+
+
+def test_experiment_config_accepts_lab_and_rejects_unsupported_pair() -> None:
+    lab = replace(
+        valid_config(), provider="lab", model_id="qwen3.6-flash"
+    )
+    assert lab.provider == "lab"
+
+    with pytest.raises(ValueError, match="unsupported provider/model"):
+        replace(valid_config(), provider="lab", model_id="deepseek-v3.2")
 
 
 def all_records() -> list[Any]:

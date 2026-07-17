@@ -101,6 +101,7 @@ def propose_test(
         result = pi_runner(
             PiRequest(
                 operation_id=f"proposal.random.{uuid.uuid4().hex}{suffix}",
+                provider=config.provider,
                 model=config.model_id,
                 prompt_path=prompt_path,
                 output_dir=attempt,
