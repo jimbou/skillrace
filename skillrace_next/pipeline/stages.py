@@ -19,7 +19,7 @@ from ..records import (
     TestCase,
 )
 from ..runtime.artifacts import freeze_artifact
-from ..runtime.docker import ContainerSpec, exec_task, start_task_container
+from ..runtime.docker import RunningContainer, ContainerSpec, exec_task, start_task_container
 from ..runtime.pi import PiRequest, PiResult, _load_usage, run_pi
 from ..storage import atomic_write_json, canonical_json_hash, file_hash, tree_hash
 
@@ -27,6 +27,37 @@ from ..storage import atomic_write_json, canonical_json_hash, file_hash, tree_ha
 _PROPERTY_ID = re.compile(r"P[1-9][0-9]*")
 SubprocessRunner = Callable[..., subprocess.CompletedProcess[str]]
 PiRunner = Callable[[PiRequest], PiResult]
+
+
+def accept_patch(
+    before: list[dict[str, Any]] | tuple[dict[str, Any], ...],
+    replay: list[dict[str, Any]] | tuple[dict[str, Any], ...],
+    regressions: list[list[dict[str, Any]] | tuple[dict[str, Any], ...]],
+) -> str:
+    all_after = [*replay, *(item for group in regressions for item in group)]
+    if any(
+        item.get("status") == "inconclusive"
+        and "infrastructure" in str(item.get("diagnostic", "")).lower()
+        for item in all_after
+    ):
+        return "unresolved"
+    replay_by_id = {item.get("check_id"): item for item in replay}
+    if len(replay_by_id) != len(replay) or set(replay_by_id) != {
+        item.get("check_id") for item in before
+    }:
+        return "unresolved"
+    repaired = False
+    for prior in before:
+        after_status = replay_by_id[prior.get("check_id")].get("status")
+        if prior.get("status") == "fail":
+            if after_status != "pass":
+                return "rejected"
+            repaired = True
+        elif prior.get("status") == "pass" and after_status != "pass":
+            return "rejected"
+    if any(item.get("status") != "pass" for item in all_after[len(replay) :]):
+        return "rejected"
+    return "accepted" if repaired else "rejected"
 
 
 def _copy_file(source: Path, destination: Path) -> None:
@@ -653,3 +684,78 @@ def run_agent(
     )
     atomic_write_json(output / "run.json", run.to_dict())
     return run
+
+
+def replay(
+    skill: SkillVersion,
+    test: TestCase,
+    bundle: CheckBundle,
+    config: ExperimentConfig,
+    output_dir: str | Path,
+    *,
+    agent_runner: Callable[..., RunRecord] = run_agent,
+    check_runner: Callable[..., CheckResults] | None = None,
+) -> CheckResults:
+    if check_runner is None:
+        from ..verification.executor import execute_checks
+
+        check_runner = execute_checks
+    output = Path(output_dir)
+    if output.exists():
+        raise ValueError("replay output already exists")
+    output.mkdir(parents=True)
+    fresh_run = agent_runner(skill, test, config, output / "run")
+    atomic_write_json(output / "run" / "run.json", fresh_run.to_dict())
+    if fresh_run.termination_status != "completed":
+        raise RuntimeError(
+            f"replay agent did not complete: {fresh_run.termination_status}"
+        )
+    manifest = json.loads(bundle.manifest_path.read_text(encoding="utf-8"))
+    manifest["run_id"] = fresh_run.run_id
+    manifest["artifact_hash"] = fresh_run.artifact_hash
+    rebound_root = output / "check-bundle"
+    rebound_scripts = rebound_root / "checks"
+    rebound_scripts.mkdir(parents=True)
+    copied_scripts: list[Path] = []
+    for script in bundle.script_paths:
+        copied = rebound_scripts / script.name
+        shutil.copyfile(script, copied)
+        copied_scripts.append(copied)
+    rebound_manifest = rebound_root / "check_manifest.json"
+    atomic_write_json(rebound_manifest, manifest)
+    rebound_receipt = rebound_root / "codex-receipt.jsonl"
+    shutil.copyfile(bundle.codex_receipt_path, rebound_receipt)
+    rebound = CheckBundle(
+        bundle_id="bundle-" + canonical_json_hash(manifest),
+        run_id=fresh_run.run_id,
+        artifact_hash=fresh_run.artifact_hash,
+        input_hashes={**bundle.input_hashes, "artifact": fresh_run.artifact_hash},
+        manifest_path=rebound_manifest,
+        script_paths=tuple(copied_scripts),
+        codex_receipt_path=rebound_receipt,
+    )
+    atomic_write_json(output / "check-bundle.json", rebound.to_dict())
+    running = RunningContainer(
+        fresh_run.container_id,
+        f"skillrace-replay-{fresh_run.run_id}",
+        fresh_run.image_id,
+    )
+    results = check_runner(
+        running,
+        fresh_run.artifact_path,
+        rebound,
+        output / "results",
+    )
+    atomic_write_json(
+        output / "replay.json",
+        {
+            "schema": "skillrace-exact-replay/1",
+            "run_id": fresh_run.run_id,
+            "skill_version_id": skill.version_id,
+            "test_id": test.test_id,
+            "source_bundle_id": bundle.bundle_id,
+            "rebound_bundle_id": rebound.bundle_id,
+            "results_id": results.results_id,
+        },
+    )
+    return results
