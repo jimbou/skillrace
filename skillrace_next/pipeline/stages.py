@@ -9,16 +9,306 @@ import subprocess
 from typing import Any, Callable
 import uuid
 
-from ..records import ExperimentConfig, RunRecord, SkillVersion, TestCase
+from ..records import (
+    CheckBundle,
+    CheckResults,
+    ExperimentConfig,
+    PatchAttempt,
+    RunRecord,
+    SkillVersion,
+    TestCase,
+)
 from ..runtime.artifacts import freeze_artifact
 from ..runtime.docker import ContainerSpec, exec_task, start_task_container
 from ..runtime.pi import PiRequest, PiResult, _load_usage, run_pi
-from ..storage import atomic_write_json, file_hash, tree_hash
+from ..storage import atomic_write_json, canonical_json_hash, file_hash, tree_hash
 
 
 _PROPERTY_ID = re.compile(r"P[1-9][0-9]*")
 SubprocessRunner = Callable[..., subprocess.CompletedProcess[str]]
 PiRunner = Callable[[PiRequest], PiResult]
+
+
+def _copy_file(source: Path, destination: Path) -> None:
+    if source.is_symlink() or not source.is_file():
+        raise ValueError(f"evidence source is not a regular file: {source}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, destination)
+
+
+def _make_tree_read_only(root: Path) -> None:
+    for path in sorted(root.rglob("*"), key=lambda item: len(item.parts), reverse=True):
+        path.chmod(path.stat().st_mode & ~0o222)
+    root.chmod(root.stat().st_mode & ~0o222)
+
+
+def build_patch_evidence(
+    method: str,
+    state: dict[str, Any],
+    skill: SkillVersion,
+    test: TestCase,
+    run: RunRecord,
+    check_bundle: CheckBundle,
+    results: CheckResults,
+    output_dir: str | Path,
+) -> tuple[Path, str]:
+    if method not in {"random", "verigrey", "skillrace"}:
+        raise ValueError("unknown patch evidence method")
+    if run.skill_id != skill.skill_id or run.skill_version_id != skill.version_id:
+        raise ValueError("run and skill identity do not match")
+    if run.test_id != test.test_id:
+        raise ValueError("run and test identity do not match")
+    if check_bundle.run_id != run.run_id or results.run_id != run.run_id:
+        raise ValueError("run and checker identities do not match")
+    if (
+        run.artifact_hash != tree_hash(run.artifact_path)
+        or check_bundle.artifact_hash != run.artifact_hash
+        or results.artifact_hash_before != run.artifact_hash
+        or results.artifact_hash_after != run.artifact_hash
+        or not results.artifact_unchanged
+    ):
+        raise ValueError("artifact provenance does not match")
+    manifest_value = json.loads(check_bundle.manifest_path.read_text(encoding="utf-8"))
+    if canonical_json_hash(manifest_value) != results.check_bundle_hash:
+        raise ValueError("check bundle does not match authoritative results")
+    if skill.tree_hash != tree_hash(skill.directory_path):
+        raise ValueError("skill hash does not match")
+    if (
+        test.prompt_hash != file_hash(test.prompt_path)
+        or test.environment_hash != tree_hash(test.environment_directory)
+        or test.nl_check_hash != file_hash(test.nl_check_path)
+    ):
+        raise ValueError("test hashes do not match")
+    output = Path(output_dir)
+    if output.exists():
+        raise ValueError("patch evidence output already exists")
+    common = output / "common"
+    shutil.copytree(skill.directory_path, common / "skill")
+    atomic_write_json(common / "skill" / "skill-version.json", skill.to_dict())
+    _copy_file(test.prompt_path, common / "test" / "prompt.txt")
+    shutil.copytree(test.environment_directory, common / "test" / "environment")
+    _copy_file(test.nl_check_path, common / "test" / "nl_checks.json")
+    _copy_file(test.proposal_receipt, common / "test" / "proposal-receipt.json")
+    atomic_write_json(common / "test" / "test-case.json", test.to_dict())
+    shutil.copytree(run.artifact_path, common / "artifact")
+    atomic_write_json(common / "run" / "run.json", run.to_dict())
+    for source, name in (
+        (run.trace_path, "trace.jsonl"),
+        (run.tool_log_path, "tool_outputs.jsonl"),
+        (run.stdout_path, "stdout.txt"),
+        (run.stderr_path, "stderr.txt"),
+    ):
+        _copy_file(source, common / "run" / name)
+    _copy_file(check_bundle.manifest_path, common / "checks" / "check_manifest.json")
+    for script in check_bundle.script_paths:
+        _copy_file(script, common / "checks" / "scripts" / script.name)
+    _copy_file(
+        check_bundle.codex_receipt_path,
+        common / "checks" / "codex-receipt.jsonl",
+    )
+    _copy_file(results.results_path, common / "results" / "check_results.json")
+    result_root = results.results_path.parent.resolve()
+    copied_result_streams: list[str] = []
+    for item in results.results:
+        for field in ("stdout_path", "stderr_path"):
+            source = (results.results_path.parent / item[field]).resolve()
+            try:
+                relative = source.relative_to(result_root)
+            except ValueError:
+                raise ValueError("authoritative result stream escapes results directory") from None
+            _copy_file(source, common / "results" / relative)
+            copied_result_streams.append(
+                (Path("common") / "results" / relative).as_posix()
+            )
+    if method == "verigrey":
+        observation = state.get("last_observation")
+        if not isinstance(observation, dict):
+            raise ValueError("VeriGrey patch evidence lacks last observation")
+        atomic_write_json(output / "method" / "verigrey.json", observation)
+    elif method == "skillrace":
+        if set(state) != {"episodes", "tree", "branch"}:
+            raise ValueError("SkillRACE patch evidence fields are invalid")
+        atomic_write_json(output / "method" / "skillrace.json", state)
+    elif state:
+        raise ValueError("Random patch evidence must not include method state")
+    atomic_write_json(
+        output / "evidence.json",
+        {
+            "schema": "skillrace-patch-evidence/1",
+            "method": method,
+            "run_id": run.run_id,
+            "common_hash": tree_hash(common),
+            "task_prompt": test.prompt_path.read_text(encoding="utf-8"),
+            "authoritative_results": [dict(item) for item in results.results],
+            "method_evidence": (
+                None
+                if method == "random"
+                else f"method/{method}.json"
+            ),
+            "files": {
+                "skill": "common/skill/SKILL.md",
+                "test_prompt": "common/test/prompt.txt",
+                "environment": "common/test/environment",
+                "artifact": "common/artifact",
+                "trace": "common/run/trace.jsonl",
+                "tool_outputs": "common/run/tool_outputs.jsonl",
+                "nl_checks": "common/test/nl_checks.json",
+                "check_manifest": "common/checks/check_manifest.json",
+                "check_scripts": [
+                    f"common/checks/scripts/{script.name}"
+                    for script in check_bundle.script_paths
+                ],
+                "check_results": "common/results/check_results.json",
+                "result_streams": sorted(set(copied_result_streams)),
+                "method": (
+                    None if method == "random" else f"method/{method}.json"
+                ),
+            },
+        },
+    )
+    _make_tree_read_only(output)
+    return output, tree_hash(output)
+
+
+def _patch_trace_is_ordered(trace_path: Path) -> bool:
+    read_skill = False
+    read_evidence = False
+    explained = False
+    edited = False
+    for line in trace_path.read_text(encoding="utf-8").splitlines():
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        message = record.get("message", {})
+        if message.get("role") != "assistant":
+            continue
+        content = message.get("content", [])
+        if not isinstance(content, list):
+            continue
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            if item.get("type") in {"thinking", "text"} and any(
+                isinstance(item.get(field), str) and item[field].strip()
+                for field in ("thinking", "text")
+            ):
+                explained = True
+            if item.get("type") != "toolCall":
+                continue
+            name = item.get("name")
+            arguments = item.get("arguments", {})
+            path = arguments.get("path", "") if isinstance(arguments, dict) else ""
+            if name == "read" and path == "/skill/SKILL.md":
+                read_skill = True
+            elif name == "read" and isinstance(path, str) and path.startswith("/evidence/"):
+                read_evidence = True
+            elif name == "edit":
+                if path != "/skill/SKILL.md" or not (
+                    read_skill and read_evidence and explained
+                ):
+                    return False
+                edited = True
+    return edited
+
+
+def _relative_file_hashes(root: Path, *, omit_skill: bool = False) -> dict[str, str]:
+    return {
+        path.relative_to(root).as_posix(): file_hash(path)
+        for path in root.rglob("*")
+        if path.is_file()
+        and not (omit_skill and path.relative_to(root).as_posix() == "SKILL.md")
+    }
+
+
+def patch_skill(
+    skill: SkillVersion,
+    evidence: str | Path,
+    method: str,
+    config: ExperimentConfig,
+    output_dir: str | Path,
+    *,
+    pi_runner: PiRunner = run_pi,
+) -> PatchAttempt:
+    if method not in {"random", "verigrey", "skillrace"}:
+        raise ValueError("unknown patch method")
+    if skill.tree_hash != tree_hash(skill.directory_path):
+        raise ValueError("patch input skill hash does not match")
+    evidence_path = Path(evidence)
+    evidence_record = json.loads(
+        (evidence_path / "evidence.json").read_text(encoding="utf-8")
+    )
+    if evidence_record.get("method") != method:
+        raise ValueError("patch method does not match evidence")
+    evidence_hash = tree_hash(evidence_path)
+    output = Path(output_dir)
+    if output.exists():
+        raise ValueError("patch output already exists")
+    candidate = output / "candidate"
+    candidate.parent.mkdir(parents=True)
+    shutil.copytree(skill.directory_path, candidate)
+    original_other_files = _relative_file_hashes(skill.directory_path, omit_skill=True)
+    original_skill_hash = file_hash(skill.directory_path / "SKILL.md")
+    prompt_path = output / "prompt.txt"
+    prompt_path.write_text(
+        "Patch the mounted coding-agent skill using only the mounted failure evidence. "
+        "First read /skill/SKILL.md and /evidence/evidence.json. evidence.json includes the "
+        "exact task and authoritative results; their audit copies are at "
+        "/evidence/common/test/prompt.txt and /evidence/common/results/check_results.json. "
+        "After those two reads, edit unless one additional file listed in evidence.json is essential. "
+        "Briefly explain the failure in your saved reasoning before editing. "
+        "Edit only /skill/SKILL.md, make a small general correction, do not copy or memorize "
+        "test-specific values, do not execute the benchmark, and stop after the edit.\n",
+        encoding="utf-8",
+    )
+    pi_output = output / "pi"
+    result = pi_runner(
+        PiRequest(
+            operation_id=f"patch.{uuid.uuid4().hex}",
+            model=config.model_id,
+            prompt_path=prompt_path,
+            output_dir=pi_output,
+            image=config.docker_image,
+            allowed_tools=("read", "edit"),
+            max_turns=config.role_budgets["patcher"],
+            timeout_seconds=config.timeouts["patch"],
+            mounts=((candidate, "/skill", "rw"), (evidence_path, "/evidence", "ro")),
+        )
+    )
+    candidate_hash = tree_hash(candidate)
+    valid = result.status == "completed"
+    valid = valid and tree_hash(evidence_path) == evidence_hash
+    valid = valid and _relative_file_hashes(candidate, omit_skill=True) == original_other_files
+    candidate_skill = candidate / "SKILL.md"
+    valid = valid and candidate_skill.is_file()
+    if candidate_skill.is_file():
+        value = candidate_skill.read_text(encoding="utf-8")
+        valid = valid and bool(value.strip()) and "\x00" not in value
+        valid = valid and file_hash(candidate_skill) != original_skill_hash
+    valid = valid and result.trace_path.is_file()
+    if result.trace_path.is_file():
+        valid = valid and _patch_trace_is_ordered(result.trace_path)
+    if result.status == "timeout":
+        patch_status = "patch_timeout"
+    elif valid:
+        patch_status = "patched"
+    else:
+        patch_status = "patch_invalid"
+    attempt = PatchAttempt(
+        patch_attempt_id="patch-" + uuid.uuid4().hex,
+        input_skill_hash=skill.tree_hash,
+        evidence_bundle_hash=evidence_hash,
+        method=method,
+        model_id=config.model_id,
+        pi_trace_path=result.trace_path,
+        cost_receipt_path=result.receipt_path,
+        candidate_skill_hash=candidate_hash,
+        patch_status=patch_status,
+        replay_path=None,
+        acceptance_status="pending",
+    )
+    atomic_write_json(output / "patch-attempt.json", attempt.to_dict())
+    return attempt
 
 
 def _assistant_skill(trace_path: Path) -> str:
