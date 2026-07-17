@@ -31,6 +31,7 @@ def test_real_random_proposal_passes_deterministic_validation(
         [
             "docker",
             "build",
+            "--network=none",
             "-q",
             "-t",
             image,
@@ -39,7 +40,7 @@ def test_real_random_proposal_passes_deterministic_validation(
         check=True,
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=300,
     )
     skill_dir = evidence / "skill"
     skill_dir.mkdir()

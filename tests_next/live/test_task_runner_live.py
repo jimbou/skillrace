@@ -37,11 +37,11 @@ def test_real_task_container_preserves_weak_agent_artifact_and_trace(
     image = "skillrace-next/task-fixture:test"
     fixture = Path("tests_next/fixtures/task").resolve()
     subprocess.run(
-        ["docker", "build", "-q", "-t", image, str(fixture)],
+        ["docker", "build", "--network=none", "-q", "-t", image, str(fixture)],
         check=True,
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=300,
     )
     inspected = subprocess.run(
         ["docker", "image", "inspect", image, "--format", "{{.Id}}"],

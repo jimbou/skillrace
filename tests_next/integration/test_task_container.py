@@ -20,11 +20,11 @@ def task_image() -> tuple[str, str]:
     tag = "skillrace-next/task-fixture:test"
     fixture = Path("tests_next/fixtures/task").resolve()
     subprocess.run(
-        ["docker", "build", "-q", "-t", tag, str(fixture)],
+        ["docker", "build", "--network=none", "-q", "-t", tag, str(fixture)],
         check=True,
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=300,
     )
     inspected = subprocess.run(
         ["docker", "image", "inspect", tag, "--format", "{{.Id}}"],
