@@ -163,7 +163,10 @@ def _episode_prompt(
     return (
         "Segment the supplied trace's reasoning and tool activity "
         "into ordered, non-overlapping, source-grounded episodes. Cover every assistant "
-        "thinking/toolCall event and every toolResult event. Return only one JSON array. "
+        "thinking/toolCall event and every toolResult event. Only those events are relevant. "
+        "Do not create episodes for text-only assistant messages. Every episode range must "
+        "contain at least one relevant event, and the final episode must end at the last "
+        "relevant event rather than a later text-only confirmation. Return only one JSON array. "
         "Every item must contain exactly episode_id, start_event_id, end_event_id, "
         "purpose, outcome, and reason_for_next. Event boundaries must use IDs from the "
         "trace. purpose and outcome must be nonempty. reason_for_next is a nonempty "
