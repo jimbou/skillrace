@@ -1,0 +1,6 @@
+{"type":"message","id":"e0","message":{"role":"user","content":[{"type":"text","text":"Create and verify result.txt"}]}}
+{"type":"message","id":"e1","message":{"role":"assistant","content":[{"type":"thinking","thinking":"Write the requested file first."},{"type":"toolCall","id":"call-1","name":"write","arguments":{"path":"/workspace/result.txt","content":"ok"}}]}}
+{"type":"message","id":"e2","message":{"role":"toolResult","toolCallId":"call-1","toolName":"write","content":[{"type":"text","text":"wrote 2 bytes"}],"isError":false}}
+{"type":"message","id":"e3","message":{"role":"assistant","content":[{"type":"thinking","thinking":"Read the file to verify the result."},{"type":"toolCall","id":"call-2","name":"read","arguments":{"path":"/workspace/result.txt"}}]}}
+{"type":"message","id":"e4","message":{"role":"toolResult","toolCallId":"call-2","toolName":"read","content":[{"type":"text","text":"ok"}],"isError":false}}
+{"type":"message","id":"e5","message":{"role":"assistant","content":[{"type":"text","text":"Done."}]}}
