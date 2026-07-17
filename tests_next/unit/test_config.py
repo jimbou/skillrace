@@ -21,8 +21,8 @@ def valid_config_dict() -> dict[str, object]:
         "role_budgets": {"proposer": 4, "weak_agent": 4, "patcher": 6},
         "verifier_backend": "codex",
         "verifier_command": ["codex", "exec"],
-        "verifier_model": "gpt-5.6",
-        "verifier_reasoning": "high",
+        "verifier_model": "gpt-5.6-terra",
+        "verifier_reasoning": "medium",
         "docker_image": "skillrace-next-development:latest",
         "resource_limits": {"cpus": "1", "memory_mb": 512},
         "network_policy": "none",
@@ -106,6 +106,6 @@ def test_development_fixture_freezes_required_model_roles() -> None:
     assert config.model_id == "deepseek-v3.2"
     assert config.pi_version == "0.73.1"
     assert config.verifier_backend == "codex"
-    assert config.verifier_model == "gpt-5.6"
-    assert config.verifier_reasoning == "high"
+    assert config.verifier_model == "gpt-5.6-terra"
+    assert config.verifier_reasoning == "medium"
     assert config.output_root == Path("out/development")

@@ -24,8 +24,8 @@
     "codex",
     "exec"
   ],
-  "verifier_model": "gpt-5.6",
-  "verifier_reasoning": "high",
+  "verifier_model": "gpt-5.6-terra",
+  "verifier_reasoning": "medium",
   "docker_image": "skillrace-next-development:latest",
   "resource_limits": {
     "cpus": "1",
