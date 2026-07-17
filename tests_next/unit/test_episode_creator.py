@@ -203,3 +203,45 @@ def test_create_episodes_allows_one_json_correction(tmp_path: Path) -> None:
 
     assert episodes == valid_episodes()
     assert calls == 2
+
+
+def test_create_episodes_accepts_one_json_code_fence(tmp_path: Path) -> None:
+    def fenced_pi(request: PiRequest) -> PiResult:
+        request.output_dir.mkdir(parents=True, exist_ok=True)
+        trace = request.output_dir / "trace.jsonl"
+        response = f"```json\n{json.dumps(valid_episodes())}\n```"
+        trace.write_text(
+            json.dumps(
+                {
+                    "type": "message",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": response}],
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        receipt = request.output_dir / "receipt.json"
+        receipt.write_text("{}\n", encoding="utf-8")
+        return PiResult(
+            operation_id=request.operation_id,
+            model=request.model,
+            status="completed",
+            trace_path=trace,
+            usage={},
+            stderr="",
+            receipt_path=receipt,
+            return_code=0,
+            wall_seconds=0.1,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+    config = replace(config_for(tmp_path), role_budgets={"segmenter": 4})
+
+    episodes, _ = create_episodes(
+        run_record(tmp_path), config, tmp_path / "episodes", fenced_pi
+    )
+
+    assert episodes == valid_episodes()

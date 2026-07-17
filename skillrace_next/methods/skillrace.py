@@ -147,7 +147,14 @@ def _assistant_json(trace_path: Path) -> Any:
             responses.append(text)
     if not responses:
         raise ValueError("episode response contains no assistant JSON")
-    return json.loads(responses[-1])
+    response = responses[-1].strip()
+    if (
+        response.startswith("```json\n")
+        and response.endswith("\n```")
+        and response.count("```") == 2
+    ):
+        response = response[len("```json\n") : -len("\n```")]
+    return json.loads(response)
 
 
 def _episode_prompt(
