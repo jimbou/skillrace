@@ -153,6 +153,8 @@ def test_create_episodes_uses_same_track_pi_and_saves_validated_output(
     prompt = requests[0].prompt_path.read_text(encoding="utf-8")
     assert '"id":"e1"' in prompt
     assert "Do not create episodes for text-only assistant messages" in prompt
+    assert '"episode_id":"episode-1"' in prompt
+    assert "All IDs must be JSON strings" in prompt
     assert json.loads((tmp_path / "episodes" / "episodes.json").read_text()) == episodes
 
 
