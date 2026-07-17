@@ -32,7 +32,37 @@ This document also fixes four decisions made after `updated_pipeline.md` was wri
 - The finished checks are executed in the task container with `docker exec`; the
   deterministic runner, not Codex, records the authoritative verdicts.
 
-## 2. Non-negotiable simplicity rules
+## 2. Non-negotiable simplicity and anti-overthinking rules
+
+**This pipeline is intentionally straightforward. It is a pair of sequential research
+loops, not a platform, framework, distributed system, or general benchmark product.** The
+implementation should look boring: ordinary functions called in order, a few dataclasses,
+JSON files, subprocesses, and explicit `if` statements. That is the desired design.
+
+The complete control flow is:
+
+```text
+Part I
+for each method and budget slot:
+    propose test -> validate -> run S0 -> author/execute checks -> update method state
+group failures
+for each confirmed group:
+    patch a fresh copy of S0 -> exact replay -> record accepted/rejected repair
+
+Part II
+S = identical copy of generated S0
+for each development iteration:
+    choose test -> run S -> execute predefined checks -> update method state
+    if failed:
+        candidate = patch(S)
+        if exact replay passes and retained tests do not regress:
+            S = candidate
+evaluate final S on held-out tests
+```
+
+An implementation that directly expresses those two loops is preferable to a more
+abstract implementation, even if a little code is duplicated. Do not spend time finding
+a more sophisticated architecture for a control flow that is already settled.
 
 The implementation agent must follow these rules even when a more general abstraction
 looks attractive:
@@ -65,6 +95,22 @@ looks attractive:
     generalized benchmark SDK, or compatibility facade.
 15. A passing mocked/offline test is not sufficient for any Yunwu, Pi, Docker, verifier,
     patch, or replay boundary. The live gates in Section 16 are mandatory.
+16. Do not re-plan, re-litigate, or compare alternative architectures after beginning
+    implementation. This document already contains those decisions. Reason about whether
+    the code matches the contract, not about replacing the contract.
+17. Do not create an abstraction for one call site or for a hypothetical future method,
+    provider, model, storage backend, scheduler, or experiment.
+18. Small local duplication is acceptable when removing it would hide the order of the
+    pipeline or require configuration indirection.
+19. Implement one thin working vertical slice before adding exhaustive validation,
+    reporting, convenience commands, or additional fixtures.
+20. Do not generate empty modules, interfaces, factories, registries, managers, services,
+    adapters, or repositories in anticipation of later phases.
+21. Handle the required and observed failure modes in Section 15. Do not build machinery
+    for imagined crashes, distributed workers, process migration, or arbitrary resumption.
+22. Do not write another architecture document, migration proposal, or meta-plan during
+    implementation. Record only short phase evidence and genuine decisions forced by an
+    ambiguity in this contract.
 
 When uncertain, implement the smallest behavior explicitly required by this document and
 record the uncertainty. Do not invent a general solution.
@@ -806,6 +852,9 @@ legacy code.
 ## 20. Build order and checkpoints
 
 Implement in this order. Do not start a later phase until the named gate passes.
+Each phase is an implementation checkpoint, not an invitation to redesign or broaden the
+phase. Build the direct happy path first, then add only the error handling named in this
+document.
 
 1. **Boundary skeleton:** package, config, records, storage, import guard, and tiny CLI.
 2. **Runtime vertical slice:** selective Yunwu/Pi/Docker/artifact port. Pass Gates A-B.
@@ -857,7 +906,13 @@ suite remains the legacy package's responsibility.
 ## 22. Instructions for the implementation agent
 
 Use this document as the contract. Implement it phase by phase, beginning with one thin
-end-to-end vertical slice. Do not redesign the experiment while coding.
+end-to-end vertical slice. Do not begin by writing another plan or conducting another
+whole-repository architecture review. The old implementation has already been audited.
+Inspect an old module only when extracting one specific behavior from the whitelist.
+
+Do not redesign the experiment while coding. If running with a high-reasoning or Max
+model, spend that reasoning on implementation correctness, evidence, and debugging—not on
+inventing abstractions or reconsidering settled choices.
 
 Before adding any abstraction, answer all three questions:
 
@@ -873,6 +928,9 @@ Additional instructions:
 - Do not refactor the old package as part of the rebuild.
 - Do not add compatibility adapters to the new package.
 - Do not batch many phases into one unreviewable change.
+- Do not scaffold later phases before the current vertical slice works.
+- Do not replace obvious loops and conditionals with generic dispatch or workflow code.
+- Do not expand a task because nearby old code looks inconsistent or untidy.
 - Do not mark a model/runtime phase complete from mocks.
 - Do not run headline campaigns during development.
 - Do not spend paid calls after a failed preflight or beyond the smallest bounded fixture.
