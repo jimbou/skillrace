@@ -180,7 +180,7 @@ def _infrastructure_result(
     }
 
 
-def execute_checks(
+def _execute_checks(
     container: RunningContainer,
     artifact: str | Path,
     bundle: CheckBundle,
@@ -271,15 +271,30 @@ def execute_checks(
         **result_value,
     )
     atomic_write_json(results_path, record.to_dict())
-    cleanup = remove_container(container)
-    atomic_write_json(
-        output / "cleanup.json",
-        {
-            "success": cleanup.success,
-            "removed": cleanup.removed,
-            "stderr": cleanup.stderr,
-        },
-    )
-    if not cleanup.success:
-        raise RuntimeError("checker container cleanup failed")
     return record
+
+
+def execute_checks(
+    container: RunningContainer,
+    artifact: str | Path,
+    bundle: CheckBundle,
+    output_dir: str | Path,
+) -> CheckResults:
+    output = Path(output_dir)
+    failed = True
+    try:
+        result = _execute_checks(container, artifact, bundle, output)
+        failed = False
+        return result
+    finally:
+        cleanup = remove_container(container)
+        atomic_write_json(
+            output / "cleanup.json",
+            {
+                "success": cleanup.success,
+                "removed": cleanup.removed,
+                "stderr": cleanup.stderr,
+            },
+        )
+        if not cleanup.success and not failed:
+            raise RuntimeError("checker container cleanup failed")

@@ -9,7 +9,7 @@ import pytest
 from skillrace_next.pipeline import stages
 from skillrace_next.pipeline.stages import run_agent, validate_nl_checks, validate_test
 from skillrace_next.records import ExperimentConfig, SkillVersion, TestCase as SkillTestCase
-from skillrace_next.runtime.docker import ExecResult, RunningContainer
+from skillrace_next.runtime.docker import CleanupResult, ExecResult, RunningContainer
 from skillrace_next.storage import file_hash, tree_hash
 
 
@@ -311,3 +311,52 @@ def test_run_agent_routes_lab_provider_and_upstream_model(
     )
     assert provider_receipt["qualified_model"] == "lab/qwen3.6-flash"
     assert provider_receipt["upstream_model"] == "ali/qwen3.6-flash"
+
+
+def test_run_agent_removes_started_container_when_evidence_capture_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test = replace(
+        pending_test(tmp_path),
+        validation_status="valid",
+        validation_diagnostic="validated",
+        container_image_id="sha256:validated-image",
+    )
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# Test skill\n", encoding="utf-8")
+    receipt = tmp_path / "skill.json"
+    receipt.write_text("{}\n", encoding="utf-8")
+    skill = SkillVersion(
+        skill_id="skill-1",
+        version_id="S0",
+        parent_version_id=None,
+        directory_path=skill_dir,
+        tree_hash=tree_hash(skill_dir),
+        creation_role="fixture",
+        model_id="deepseek-v3.2",
+        receipt_path=receipt,
+    )
+    running = RunningContainer(
+        "container-that-must-be-removed",
+        "skillrace-run-test",
+        test.container_image_id,
+    )
+    removed: list[RunningContainer] = []
+
+    monkeypatch.setattr(stages, "start_task_container", lambda spec: running)
+
+    def broken_exec(*args: object, **kwargs: object) -> ExecResult:
+        raise RuntimeError("evidence capture failed")
+
+    def fake_remove(container: RunningContainer) -> CleanupResult:
+        removed.append(container)
+        return CleanupResult(success=True, removed=True, stderr="")
+
+    monkeypatch.setattr(stages, "exec_task", broken_exec)
+    monkeypatch.setattr(stages, "remove_container", fake_remove, raising=False)
+
+    with pytest.raises(RuntimeError, match="evidence capture failed"):
+        run_agent(skill, test, config_for(tmp_path), tmp_path / "run")
+
+    assert removed == [running]

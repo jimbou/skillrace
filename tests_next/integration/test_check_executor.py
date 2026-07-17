@@ -257,3 +257,29 @@ def test_bundle_artifact_hash_mismatch_is_inconclusive(
     assert results.results[0]["status"] == "inconclusive"
     assert "artifact hash" in results.results[0]["diagnostic"]
     assert_container_removed(running.container_id)
+
+
+def test_execute_checks_removes_container_when_bundle_processing_raises(
+    tmp_path: Path, task_image: tuple[str, str]
+) -> None:
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    (artifact / "result.txt").write_text("current\n", encoding="utf-8")
+    bundle = make_bundle(tmp_path / "bundle", tree_hash(artifact), [("P1-C1", 5)])
+    manifest = json.loads(bundle.manifest_path.read_text(encoding="utf-8"))
+    del manifest["checks"]
+    atomic_write_json(bundle.manifest_path, manifest)
+    running = start_container(task_image, artifact)
+
+    try:
+        with pytest.raises(KeyError, match="checks"):
+            execute_checks(running, artifact, bundle, tmp_path / "results")
+
+        assert_container_removed(running.container_id)
+        cleanup = json.loads(
+            (tmp_path / "results" / "cleanup.json").read_text(encoding="utf-8")
+        )
+        assert cleanup["success"] is True
+        assert cleanup["removed"] is True
+    finally:
+        remove_container(running)

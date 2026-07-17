@@ -19,7 +19,13 @@ from ..records import (
     TestCase,
 )
 from ..runtime.artifacts import freeze_artifact
-from ..runtime.docker import RunningContainer, ContainerSpec, exec_task, start_task_container
+from ..runtime.docker import (
+    RunningContainer,
+    ContainerSpec,
+    exec_task,
+    remove_container,
+    start_task_container,
+)
 from ..runtime.pi import PiRequest, PiResult, _load_usage, run_pi
 from ..runtime.providers import (
     estimate_cost,
@@ -616,30 +622,42 @@ def run_agent(
     )
     prompt = test.prompt_path.read_text(encoding="utf-8")
     started_at = datetime.now(UTC).isoformat()
-    result = exec_task(
-        running,
-        [
-            "pi",
-            "--provider",
-            selected_model.provider,
-            "--model",
-            selected_model.upstream_model,
-            "--thinking",
-            "medium",
-            "--print",
-            "--tools",
-            "read,bash,edit,write",
-            "--no-extensions",
-            "--no-prompt-templates",
-            "--no-themes",
-            "--session",
-            "/evidence/trace.jsonl",
-            "--skill",
-            "/skill/SKILL.md",
-            prompt,
-        ],
-        timeout_seconds=config.timeouts["pi"],
-    )
+    try:
+        result = exec_task(
+            running,
+            [
+                "pi",
+                "--provider",
+                selected_model.provider,
+                "--model",
+                selected_model.upstream_model,
+                "--thinking",
+                "medium",
+                "--print",
+                "--tools",
+                "read,bash,edit,write",
+                "--no-extensions",
+                "--no-prompt-templates",
+                "--no-themes",
+                "--session",
+                "/evidence/trace.jsonl",
+                "--skill",
+                "/skill/SKILL.md",
+                prompt,
+            ],
+            timeout_seconds=config.timeouts["pi"],
+        )
+    except BaseException:
+        cleanup = remove_container(running)
+        atomic_write_json(
+            runtime_evidence / "cleanup.json",
+            {
+                "success": cleanup.success,
+                "removed": cleanup.removed,
+                "stderr": cleanup.stderr,
+            },
+        )
+        raise
     ended_at = datetime.now(UTC).isoformat()
     secret = os.environ.get(selected_model.key_environment, "")
     stdout = result.stdout.replace(secret, "[REDACTED]") if secret else result.stdout
@@ -738,7 +756,21 @@ def replay(
     output.mkdir(parents=True)
     fresh_run = agent_runner(skill, test, config, output / "run")
     atomic_write_json(output / "run" / "run.json", fresh_run.to_dict())
-    if fresh_run.termination_status != "completed":
+    running = RunningContainer(
+        fresh_run.container_id,
+        f"skillrace-replay-{fresh_run.run_id}",
+        fresh_run.image_id,
+    )
+    if fresh_run.termination_status not in {"completed", "agent_timeout"}:
+        cleanup = remove_container(running)
+        atomic_write_json(
+            output / "cleanup.json",
+            {
+                "success": cleanup.success,
+                "removed": cleanup.removed,
+                "stderr": cleanup.stderr,
+            },
+        )
         raise RuntimeError(
             f"replay agent did not complete: {fresh_run.termination_status}"
         )
@@ -767,11 +799,6 @@ def replay(
         codex_receipt_path=rebound_receipt,
     )
     atomic_write_json(output / "check-bundle.json", rebound.to_dict())
-    running = RunningContainer(
-        fresh_run.container_id,
-        f"skillrace-replay-{fresh_run.run_id}",
-        fresh_run.image_id,
-    )
     results = check_runner(
         running,
         fresh_run.artifact_path,
@@ -783,6 +810,7 @@ def replay(
         {
             "schema": "skillrace-exact-replay/1",
             "run_id": fresh_run.run_id,
+            "termination_status": fresh_run.termination_status,
             "skill_version_id": skill.version_id,
             "test_id": test.test_id,
             "source_bundle_id": bundle.bundle_id,
