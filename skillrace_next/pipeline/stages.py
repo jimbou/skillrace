@@ -414,9 +414,11 @@ def generate_base_skill(
     prompt_path.write_text(
         "Create one concise, general coding-agent skill for the public scenario below. "
         "Include practical steps, validation, and guardrails without inventing evaluation "
-        "cases. Return only the complete SKILL.md. It must start with YAML front matter "
-        "containing nonempty name and description fields, followed by a nonempty Markdown "
-        "body. Do not use Markdown fences or tools.\n\n"
+        "cases. Return only the complete SKILL.md. Do not begin with prose or a Markdown fence. "
+        "The response must begin with exactly this shape:\n"
+        "---\nname: concise-name\ndescription: concise description\n---\n"
+        "Then write a nonempty Markdown body. Replace the example metadata values with "
+        "scenario-specific values. Do not use tools.\n\n"
         f"PUBLIC SCENARIO:\n---\n{scenario_text.rstrip()}\n---\n",
         encoding="utf-8",
     )
