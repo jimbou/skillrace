@@ -7,12 +7,14 @@ Date: 2026-07-18
 - Tasks 1–14: implemented, individually tested, and committed.
 - Task 15: implemented, live-tested, and committed as `38cc6a6`.
 - Lab provider integration: implemented and committed.
-- Task 16 CLI/docs/final gate: in progress and uncommitted.
+- Task 16 verification and final gate: green; concrete arbitrary-campaign CLI composition
+  remains incomplete.
 - Final package rename/cutover: not authorized and not performed.
 
-The individual component live contracts are green. The standalone two-model Part I
-contract is green. Prior standalone Part II contracts demonstrated accepted carry-forward
-and rejected-patch retention. The latest final combined gate is red for the reasons below.
+The individual component live contracts are green. The standalone two-model exact replay
+and Part II contracts are green. The final combined gate passed both tracks on
+2026-07-18. The remaining blocker is the input/composition contract for arbitrary
+user-supplied Part I and Part II CLI campaigns.
 
 ## Confirmed working behavior
 
@@ -49,57 +51,26 @@ and rejected-patch retention. The latest final combined gate is red for the reas
 
 ## Final gate result
 
-The 2026-07-17 dual-model gate failed both Part II assertions after both models passed
-provider/Pi preflight and Part I.
-
-| Track | Actual Part II transitions | Meaning |
-|---|---|---|
-| DeepSeek V4 Flash | `rejected`, `rejected` | Patcher changed lower-middle to upper-middle; replay correctly rejected it |
-| Qwen 3.6 Flash | `retained`, `rejected` | Agent ignored wrong S0 and already produced the correct first artifact |
-
-The test expected `accepted`, `rejected` for both. This is a test-harness failure caused
-by assuming one stochastic model trajectory. It is not evidence that the deterministic
-pipeline accepted an invalid revision.
+The 2026-07-18 dual-model gate passed both parameterized cases in 24 minutes 53 seconds.
+Both tracks completed fresh direct/Pi preflights and independent bounded Part I/Part II
+slices. DeepSeek recorded Random `accepted, rejected`; Qwen recorded `retained, rejected`.
+Both are coherent with their actual checker and replay evidence. Exact-key scans were
+clean and no Docker containers remained.
 
 ## P0: fix before another paid final gate
 
-### P0-1: credential exposure and verifier environment
+### Resolved: credential exposure and verifier environment
 
-Two defects exist:
+The Lab key was rotated. Gate helpers no longer receive raw secrets as normal arguments,
+captured child output is redacted, and focused failure tests cover the behavior. Codex
+removes both `yunwu_key` and `LAB_KEY_UNLIMITED` from its environment.
 
-1. `test_dual_model_gate_live.run_slice` receives the raw Lab secret as a normal function
-   argument. On failure, pytest included that argument in its traceback. The saved files
-   were redacted, but terminal output was not.
-2. `verification/codex.py::_invoke_codex` removes `yunwu_key` but leaves
-   `LAB_KEY_UNLIMITED` in the inherited Codex environment.
+### Resolved: replay timeout and container cleanup
 
-Required fix:
-
-- rotate the Lab key used by the failed gate;
-- never pass raw secrets as pytest-visible helper arguments;
-- centralize local redaction only as a small function, not a credential manager;
-- remove every non-verifier provider credential from the Codex environment; and
-- add focused tests that force a failure and prove neither captured output nor Codex env
-  contains either credential.
-
-### P0-2: replay timeout is not treated as behavioral evidence
-
-`pipeline/stages.py::replay` currently raises when the fresh run status is not
-`completed`. For `agent_timeout`, this prevents the frozen partial artifact from reaching
-the checker. It can also bypass task-container cleanup.
-
-This conflicts with the required scientific behavior: a weak-agent timeout is an
-experimental execution. Preserve the trace/artifact, run the authoritative checks, and
-let the failed/missing artifact inform patching or rejection.
-
-Required fix:
-
-- do not retry the weak agent;
-- execute the saved checker bundle against the partial frozen artifact after
-  `agent_timeout`;
-- keep provider/container infrastructure failures distinct;
-- guarantee container cleanup after durable evidence, including exception paths; and
-- test timeout replay with a real/controlled task process and cleanup receipt.
+`agent_timeout` now preserves the partial artifact and executes the frozen checker bundle
+without retry. Provider/container errors remain infrastructure failures. Task execution,
+checker execution, and replay exception paths remove their containers and persist cleanup
+receipts. Focused unit/integration tests cover each path.
 
 ### P0-3: CLI does not run supplied campaigns
 
@@ -119,46 +90,26 @@ Required fix:
 Do not solve this with a workflow engine, service layer, plugin system, or generic
 orchestrator.
 
-### P0-4: final gate criterion is stochastic and overfitted
+### Resolved: stochastic final-gate criterion
 
-The final gate assumes the first Random iteration must fail, receive a correct patch, and
-be accepted. Real weak agents can ignore a wrong skill and solve the task, or real
-patchers can produce a defensible but incorrect candidate that replay rejects.
-
-Changing this criterion is scientifically meaningful and requires an explicit decision.
-The recommended option is:
-
-- keep the earlier individual Task 15 live evidence as the required proof that accepted
-  revisions carry forward;
-- make the final two-model gate validate every observed transition against its inputs,
-  checker results, replay results, and resulting skill hash;
-- require at least one real behavioral outcome per model, but do not demand a lucky
-  accepted patch from every stochastic run; and
-- never retry a model case merely to obtain `accepted`.
-
-An alternative is to redesign the bounded fixture so acceptance is deterministic while
-still using real S0 generation, weak-agent execution, patching, and replay. Do not choose
-between these silently.
+The gate validates each observed transition against its input skill, original checker
+results, patch attempt, replay result, and resulting version. It no longer requires every
+model to produce `accepted, rejected`. The earlier and current individual live contracts
+retain direct accepted-carry-forward evidence, and the final gate is never retried merely
+to obtain a favorable transition.
 
 ## P1: complete before declaring Task 16 done
 
-### P1-1: exception-safe task-container lifecycle
+### Resolved: exception-safe task-container lifecycle
 
-Normal `execute_checks` cleanup works, but there is no single `try/finally` owner covering
-task start, agent execution, verifier/check setup, durable results, and removal. An
-exception before `execute_checks` can leave a detached `skillrace-run-*` container.
+Direct cleanup now covers evidence-capture, checker-processing, and replay infrastructure
+exceptions while preserving host evidence. No recovery framework or janitor was added.
 
-Add direct cleanup on every exit path while preserving host evidence. Do not add a
-recovery framework or background janitor.
+### Resolved: failed gate evidence link
 
-### P1-2: failed gate receipt loses the Part II evidence link
-
-The dual gate calculates the new Part II directory only after its child pytest succeeds.
-When the child fails, `gate.json` records `part2_evidence: null` even though a complete
-campaign evidence directory exists.
-
-Resolve and record the new directory before raising the child failure. Keep the child
-stdout/stderr and sanitized failure summary.
+The gate resolves and returns the new child evidence directory independently of the child
+exit status, then records it before raising. A focused failure test also proves captured
+output is sanitized.
 
 ### P1-3: invalid proposals do not become missed slots
 
@@ -229,12 +180,13 @@ additional report.
 At the time of this status document, Task 16 has scoped changes in:
 
 - `skillrace_next/cli.py`;
-- `skillrace_next/README.md` and `skillrace_next/docs/`;
+- `skillrace_next/README.md` and updated status documents;
 - `tests_next/unit/test_cli.py`;
 - `tests_next/unit/test_documented_cli.py`;
 - `tests_next/live/test_part1_tiny_live.py`;
+- `tests_next/live/test_part2_tiny_live.py`;
 - `tests_next/live/test_exact_replay_live.py`; and
-- `tests_next/live/test_dual_model_gate_live.py`.
+- `tests_next/live/test_dual_model_gate_live.py` plus its gate-safety unit test.
 
 Do not include unrelated dirty worktree files in Task 16 commits.
 

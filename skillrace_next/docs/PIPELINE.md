@@ -147,9 +147,10 @@ ID and artifact hash. The scripts then execute in the fresh task container.
 - mismatched or duplicated checker IDs return `unresolved`;
 - otherwise the result is `accepted` or `rejected`.
 
-Current defect: replay raises before checker execution when the weak agent has any
-non-`completed` status. In particular, an `agent_timeout` is not yet passed to the
-checker as a behavioral sample. See `P0-2` in [Current status and known issues](CURRENT_STATUS.md).
+Replay distinguishes behavioral timeout from infrastructure failure. An `agent_timeout`
+keeps the partial frozen artifact and passes it to the authoritative checker without a
+weak-agent retry. Provider and container failures remain terminal infrastructure errors,
+and their containers are removed after evidence is durable.
 
 ## Part I: immutable-S0 discovery
 

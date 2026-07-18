@@ -49,8 +49,8 @@ artifact, or skill mutation.
 After each call, the code re-hashes the entire input tree and guide. Any mutation is a
 hard verifier failure.
 
-Current credential issue: the invocation strips `yunwu_key` but not the Lab credential
-variable. This must be corrected even though Codex receives no Docker socket.
+The invocation strips both `yunwu_key` and `LAB_KEY_UNLIMITED` from the Codex environment.
+Codex receives neither provider credentials nor a usable Docker socket.
 
 ## Check manifest
 
@@ -121,15 +121,11 @@ The weak Pi process runs as a child under GNU `timeout`. An agent timeout kills 
 but should leave the container and partial host artifact available for checks. The
 container is removed only after checker evidence is durable.
 
-The intended lifecycle is correct, but cleanup ownership is not yet exception-safe:
-
-- normal checker completion removes the container;
-- an exception between `run_agent` and `execute_checks` can leak it;
-- `replay` currently raises on a non-completed agent before invoking the checker or
-  cleanup.
-
-This must be fixed with explicit lifecycle ownership and `finally` cleanup without
-discarding partial artifacts.
+Normal checker completion and checker exceptions remove the task container in a `finally`
+path. Evidence-capture exceptions after task start also remove the container and write a
+cleanup receipt. Replay checks partial artifacts after `agent_timeout`; infrastructure
+failures remove the replay container before raising. No background cleanup service is
+used.
 
 ## Patch evidence layout
 

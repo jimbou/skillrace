@@ -103,42 +103,27 @@ It performs fresh direct and Pi preflights, then bounded Part I and Part II slic
 - `deepseek-v4-flash`; and
 - `qwen3.6-flash`.
 
-### 2026-07-17 result
+### 2026-07-18 result
 
-The most recent gate ran for 47 minutes 22 seconds and failed both parameterized cases.
-Both models passed direct preflight, Pi preflight, and Part I. Both Part II subprocesses
-completed their campaigns but failed a rigid expected-transition assertion.
-
-DeepSeek evidence:
+The most recent gate passed both parameterized cases in 24 minutes 53 seconds. Each track
+completed a fresh direct preflight, Pi tool preflight, Part I slice, and Part II slice.
 
 ```text
 out/live-contracts/dual-model-gate/deepseek-v4-flash/
-  20260717T144314Z-7526e007/
-```
-
-DeepSeek's patch changed the lower-middle rule to upper-middle. Exact replay produced
-`100` where the checker required the arithmetic mean `51`; the candidate was correctly
-rejected and S0 retained.
-
-Qwen evidence:
-
-```text
+  20260718T002429Z-65da8636/
 out/live-contracts/dual-model-gate/qwen3.6-flash/
-  20260717T150808Z-d34bb374/
+  20260718T003446Z-9706a345/
 ```
 
-Qwen's generated S0 documented the wrong lower-middle rule, but the weak task agent
-ignored it and directly produced the correct standard median `51`. No patch was needed,
-so the pipeline correctly recorded `retained`, followed by a deliberately rejected
-second iteration.
+DeepSeek recorded `accepted, rejected` for Random and retained S1 after the forced
+rejection. Its held-out weak-agent sample still failed, which the metrics preserve.
+Qwen recorded `retained, rejected`: its weak agent produced a passing first artifact even
+with the wrong S0, so no first patch was justified. The gate now validates observed
+transitions against checker and replay evidence instead of demanding a lucky stochastic
+trajectory.
 
-The gate expected `accepted, rejected` for every track. The observed correct transitions
-were DeepSeek `rejected, rejected` and Qwen `retained, rejected`. This makes the gate
-fixture stochastic and over-specific; it does not show that the pipeline accepted a bad
-patch.
-
-Do not rerun this gate until the credential traceback issue, Codex environment issue,
-replay timeout lifecycle, and gate criterion are fixed.
+The active Lab credential was absent from gate and child evidence, and the run ended with
+no owned or unrelated running containers.
 
 ## Provider failure versus behavioral failure
 

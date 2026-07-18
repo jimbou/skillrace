@@ -14,9 +14,10 @@ Tasks 1–15 of the clean-room rebuild are implemented and committed. The indivi
 contracts have been exercised with real Pi/provider calls, real Codex checker authoring,
 and real Docker checker execution.
 
-Task 16 is not complete. Its CLI and documentation changes are still uncommitted, and
-the final two-model gate exposed real test-harness and lifecycle problems. Do not perform
-the package rename or legacy cutover yet.
+Task 16 is not complete because the public `part1` and `part2` commands do not yet compose
+an arbitrary supplied campaign. The credential, timeout-replay, cleanup, and stochastic
+gate defects found during Task 16 are fixed. On 2026-07-18 the final bounded gate passed
+both Lab model tracks. Do not perform the package rename or legacy cutover yet.
 
 See [Current status and known issues](docs/CURRENT_STATUS.md) before running paid tests.
 
@@ -121,9 +122,9 @@ rg -n '(^|[[:space:]])(from|import)[[:space:]]+skillrace([[:space:].]|$)' \
   skillrace_next tests_next
 ```
 
-Do not run the final live gate until the P0 issues in
-[Current status and known issues](docs/CURRENT_STATUS.md) are fixed and the Lab credential
-used by the failed gate has been rotated.
+The final bounded gate passed on 2026-07-18. Read
+[Current status and known issues](docs/CURRENT_STATUS.md) before another paid run; the
+remaining CLI composition issue does not invalidate the bounded live-contract evidence.
 
 ## No cutover
 

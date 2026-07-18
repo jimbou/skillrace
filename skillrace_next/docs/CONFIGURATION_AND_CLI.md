@@ -168,11 +168,7 @@ Never put credentials in configuration files, prompts, test fixtures, or checked
 evidence. Provider keys enter Docker only by environment-variable name. Runtime stdout
 and stderr are redacted before being saved.
 
-Two current credential defects must be fixed before another final gate:
-
-1. A failed dual-gate helper included the secret-valued argument in pytest's traceback.
-2. Codex invocation removes `yunwu_key` but does not yet remove `LAB_KEY_UNLIMITED` from
-   its inherited host environment.
-
-The Lab key used by the failed 2026-07-17 gate should be rotated. Do not copy that raw
-traceback into documentation or issue trackers.
+The dual-gate helper reads the Lab secret from its environment rather than receiving it as
+a pytest-visible function argument, and sanitizes captured child output before saving it.
+Codex invocation removes both supported provider credentials from its inherited host
+environment. The exposed 2026-07-17 Lab key was rotated before the green 2026-07-18 gate.
