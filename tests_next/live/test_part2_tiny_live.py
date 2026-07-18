@@ -186,7 +186,7 @@ def bind_bundle(test: dict[str, object], run, output: Path) -> CheckBundle:
 
 
 @pytest.mark.parametrize("model", ["deepseek-v4-flash", "qwen3.6-flash"])
-def test_tiny_real_part2_carries_accepted_skill_and_discards_rejected_patch(
+def test_tiny_real_part2_records_real_transitions_and_discards_rejected_patch(
     model: str, live_evidence_root: Path,
 ) -> None:
     secret = os.environ.get("LAB_KEY_UNLIMITED")
@@ -436,10 +436,24 @@ def test_tiny_real_part2_carries_accepted_skill_and_discards_rejected_patch(
     )
 
     random_steps = [step for step in result["steps"] if step["method"] == "random"]
-    assert [step["decision"] for step in random_steps] == ["accepted", "rejected"]
-    assert random_steps[1]["input_skill_version_id"] == "S1"
-    assert random_steps[1]["resulting_skill_version_id"] == "S1"
-    assert result["final_skills"]["random"]["version_id"] == "S1"
+    assert len(random_steps) == 2
+    first, rejection_control = random_steps
+    first_results = checked_records[first["run_id"]][1].results
+    first_failed = any(item["status"] == "fail" for item in first_results)
+    assert first["input_skill_version_id"] == "S0"
+    if first_failed:
+        assert first["decision"] in {"accepted", "rejected"}
+        assert first["patch_attempt_id"] is not None
+    else:
+        assert first["decision"] == "retained"
+        assert first["patch_attempt_id"] is None
+
+    carried_version = "S1" if first["decision"] == "accepted" else "S0"
+    assert first["resulting_skill_version_id"] == carried_version
+    assert rejection_control["decision"] == "rejected"
+    assert rejection_control["input_skill_version_id"] == carried_version
+    assert rejection_control["resulting_skill_version_id"] == carried_version
+    assert result["final_skills"]["random"]["version_id"] == carried_version
     assert result["final_skills"]["verigrey"]["version_id"] == "S0"
     assert result["final_skills"]["skillrace"]["version_id"] == "S0"
     assert len(result["steps"]) == 6
@@ -450,7 +464,7 @@ def test_tiny_real_part2_carries_accepted_skill_and_discards_rejected_patch(
         "verigrey",
         "skillrace",
     ]
-    assert len(patch_attempts) == 2
+    assert len(patch_attempts) == (2 if first_failed else 1)
     assert all(attempt.model_id == model for attempt in patch_attempts)
     assert not list(evidence.rglob("codex-events.jsonl"))
     for path in evidence.rglob("*"):

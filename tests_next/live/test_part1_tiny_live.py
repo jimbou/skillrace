@@ -41,14 +41,15 @@ def root_tree():
     }
 
 
+@pytest.mark.parametrize("model", ["deepseek-v4-flash", "qwen3.6-flash"])
 def test_tiny_real_part1_runs_each_method_once_before_any_repair(
-    live_evidence_root: Path,
+    model: str, live_evidence_root: Path,
 ) -> None:
-    secret = os.environ.get("yunwu_key")
+    secret = os.environ.get("LAB_KEY_UNLIMITED")
     if not secret:
-        pytest.skip("yunwu_key is required for the tiny Part I contract")
+        pytest.fail("LAB_KEY_UNLIMITED is required for the tiny Part I contract")
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
-    evidence = live_evidence_root / "part1" / run_id
+    evidence = live_evidence_root / "part1" / model / run_id
     evidence.mkdir(parents=True)
     config = replace(
         live_config(
@@ -59,6 +60,8 @@ def test_tiny_real_part1_runs_each_method_once_before_any_repair(
         methods=("random", "verigrey", "skillrace"),
         iteration_budget=1,
         network_policy="host",
+        provider="lab",
+        model_id=model,
     )
     skill_dir = evidence / "s0"
     skill_dir.mkdir()
@@ -76,7 +79,7 @@ def test_tiny_real_part1_runs_each_method_once_before_any_repair(
         directory_path=skill_dir,
         tree_hash=tree_hash(skill_dir),
         creation_role="fixture",
-        model_id="deepseek-v3.2",
+        model_id=model,
         receipt_path=skill_receipt,
     )
     tests = {}
@@ -218,7 +221,7 @@ def test_tiny_real_part1_runs_each_method_once_before_any_repair(
 
     assert discovery_complete == list(config.methods)
     assert len(records) == 3
-    assert all(record.model_id == "deepseek-v3.2" for record in records.values())
+    assert all(record.model_id == model for record in records.values())
     assert all(record.skill_version_id == "S0" for record in records.values())
     assert len(results_by_run) == 3
     assert len(result["patches"]) == 0

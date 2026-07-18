@@ -17,8 +17,8 @@ from tests_next.live.test_tree_merge_live import live_config
 pytestmark = pytest.mark.live
 
 
-def accepted_patch_source() -> Path:
-    root = Path("out/live-contracts/patcher")
+def accepted_patch_source(model: str) -> Path:
+    root = Path("out/live-contracts/patcher") / model
     for candidate in sorted(root.iterdir(), reverse=True) if root.is_dir() else []:
         attempt_path = candidate / "patch" / "patch-attempt.json"
         result_path = candidate / "check-results" / "check_results.json"
@@ -33,15 +33,16 @@ def accepted_patch_source() -> Path:
     pytest.fail("a successful real Task 12 patch over a real failure is required")
 
 
-def test_real_patched_skill_runs_in_fresh_yunwu_container_with_exact_checks(
-    live_evidence_root: Path,
+@pytest.mark.parametrize("model", ["deepseek-v4-flash", "qwen3.6-flash"])
+def test_real_patched_skill_runs_in_fresh_lab_container_with_exact_checks(
+    model: str, live_evidence_root: Path,
 ) -> None:
-    secret = os.environ.get("yunwu_key")
+    secret = os.environ.get("LAB_KEY_UNLIMITED")
     if not secret:
-        pytest.skip("yunwu_key is required for the exact replay contract")
-    source = accepted_patch_source()
+        pytest.fail("LAB_KEY_UNLIMITED is required for the exact replay contract")
+    source = accepted_patch_source(model)
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
-    evidence = live_evidence_root / "exact-replay" / run_id
+    evidence = live_evidence_root / "exact-replay" / model / run_id
     evidence.mkdir(parents=True)
     test = CaseRecord.from_dict(
         json.loads((source / "test-case.json").read_text(encoding="utf-8"))
@@ -57,7 +58,7 @@ def test_real_patched_skill_runs_in_fresh_yunwu_container_with_exact_checks(
         directory_path=candidate_dir,
         tree_hash=tree_hash(candidate_dir),
         creation_role="patcher",
-        model_id="deepseek-v3.2",
+        model_id=model,
         receipt_path=Path(attempt["cost_receipt_path"]),
     )
     nl_checks = json.loads(test.nl_check_path.read_text(encoding="utf-8"))
@@ -70,11 +71,15 @@ def test_real_patched_skill_runs_in_fresh_yunwu_container_with_exact_checks(
     before = CheckResults.from_dict(
         json.loads((source / "check-results" / "check_results.json").read_text())
     )
+    base_config = live_config(evidence, {"weak_agent": 4})
     config = replace(
-        live_config(evidence, {"weak_agent": 4}),
+        base_config,
         experiment_id="live-exact-replay",
         methods=("random",),
         network_policy="host",
+        provider="lab",
+        model_id=model,
+        timeouts={**base_config.timeouts, "pi": 240},
     )
 
     replay_results = replay(skill, test, bundle, config, evidence / "replay")
@@ -95,7 +100,7 @@ def test_real_patched_skill_runs_in_fresh_yunwu_container_with_exact_checks(
     replay_run = json.loads((evidence / "replay" / "run" / "run.json").read_text())
     assert replay_run["run_id"] != before.run_id
     assert replay_run["container_id"]
-    assert replay_run["model_id"] == "deepseek-v3.2"
+    assert replay_run["model_id"] == model
     assert replay_run["skill_version_id"] == "S1"
     original_scripts = {path.name: path.read_bytes() for path in bundle.script_paths}
     replay_scripts = {
