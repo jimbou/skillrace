@@ -47,6 +47,8 @@ def run_part1(
         raise ValueError("Part I output already exists")
     output.mkdir(parents=True)
     raw_candidates: list[dict[str, Any]] = []
+    missed_slots: list[dict[str, Any]] = []
+    invalid_counts = {method: 0 for method in config.methods}
     terminal_failures: list[dict[str, Any]] = []
     stage_costs: dict[str, float | int] = {"agent": 0, "patch": 0}
     for method in config.methods:
@@ -56,6 +58,26 @@ def run_part1(
         for slot in range(config.iteration_budget):
             slot_dir = method_dir / "runs" / str(slot)
             test = propose(method, state, s0, slot, slot_dir / "proposal")
+            if isinstance(test, dict):
+                validation_status = test.get("validation_status")
+                test_id = test.get("test_id", "")
+                validation_diagnostic = test.get("validation_diagnostic", "")
+            else:
+                validation_status = getattr(test, "validation_status", None)
+                test_id = getattr(test, "test_id", "")
+                validation_diagnostic = getattr(test, "validation_diagnostic", "")
+            if validation_status == "invalid_test":
+                missed = {
+                    "method": method,
+                    "slot": slot,
+                    "test_id": test_id,
+                    "status": "invalid_test",
+                    "diagnostic": validation_diagnostic,
+                }
+                missed_slots.append(missed)
+                invalid_counts[method] += 1
+                atomic_write_json(slot_dir / "missed-slot.json", missed)
+                continue
             run = execute(method, s0, test, slot, slot_dir / "execution")
             if run.get("model_id") != config.model_id:
                 raise ValueError("non-verifier model differs from track model")
@@ -114,6 +136,7 @@ def run_part1(
         terminal_failures,
         stage_costs,
     )
+    summary["invalid_proposal_count"] = invalid_counts
     result = {
         "schema": "skillrace-part1/1",
         "s0_hash": s0.tree_hash,
@@ -121,6 +144,7 @@ def run_part1(
         "groups": groups,
         "confirmed_bugs": confirmed_bugs,
         "patches": patches,
+        "missed_slots": missed_slots,
         "summary": summary,
     }
     atomic_write_json(output / "summary.json", result)

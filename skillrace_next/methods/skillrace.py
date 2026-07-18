@@ -487,7 +487,7 @@ def merge_episodes(
 
 def select_unreached_branch(tree: dict[str, Any]) -> dict[str, Any] | None:
     validated = validate_tree(tree)
-    candidates = sorted(
+    unexplored = sorted(
         (
             node
             for node in validated["nodes"]
@@ -496,7 +496,17 @@ def select_unreached_branch(tree: dict[str, Any]) -> dict[str, Any] | None:
         ),
         key=lambda node: node["node_id"],
     )
-    return candidates[0] if candidates else None
+    if unexplored:
+        return unexplored[0]
+    failed = sorted(
+        (
+            node
+            for node in validated["nodes"]
+            if node["node_id"] != "root" and node["failure_ids"]
+        ),
+        key=lambda node: node["node_id"],
+    )
+    return failed[0] if failed else None
 
 
 def propose_test(

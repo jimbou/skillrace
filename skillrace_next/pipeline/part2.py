@@ -57,6 +57,8 @@ def run_part2(
         "heldout": 0,
     }
     all_steps: list[dict[str, Any]] = []
+    missed_slots: list[dict[str, Any]] = []
+    invalid_counts = {method: 0 for method in config.methods}
     final_skills: dict[str, SkillVersion] = {}
 
     for method in config.methods:
@@ -70,6 +72,26 @@ def run_part2(
         for iteration in range(config.iteration_budget):
             step_dir = method_dir / "iterations" / str(iteration)
             test = select(method, state, current, iteration, step_dir / "selection")
+            if isinstance(test, dict):
+                validation_status = test.get("validation_status")
+                test_id = test.get("test_id", "")
+                validation_diagnostic = test.get("validation_diagnostic", "")
+            else:
+                validation_status = getattr(test, "validation_status", None)
+                test_id = getattr(test, "test_id", "")
+                validation_diagnostic = getattr(test, "validation_diagnostic", "")
+            if validation_status == "invalid_test":
+                missed = {
+                    "method": method,
+                    "iteration": iteration,
+                    "test_id": test_id,
+                    "status": "invalid_test",
+                    "diagnostic": validation_diagnostic,
+                }
+                missed_slots.append(missed)
+                invalid_counts[method] += 1
+                atomic_write_json(step_dir / "missed-slot.json", missed)
+                continue
             run = execute(method, current, test, iteration, step_dir / "execution")
             if run.get("model_id") != config.model_id:
                 raise ValueError("non-verifier model differs from track model")
@@ -195,6 +217,7 @@ def run_part2(
     summary = summarize_part2(
         config.methods, heldout_rows, all_steps, stage_costs
     )
+    summary["invalid_proposal_count"] = invalid_counts
     result = {
         "schema": "skillrace-part2/1",
         "s0_hash": s0.tree_hash,
@@ -202,6 +225,7 @@ def run_part2(
             method: skill.to_dict() for method, skill in final_skills.items()
         },
         "steps": all_steps,
+        "missed_slots": missed_slots,
         "heldout_evaluations": heldout_rows,
         "summary": summary,
     }

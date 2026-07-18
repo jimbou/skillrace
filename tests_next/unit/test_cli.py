@@ -7,7 +7,10 @@ from skillrace_next.cli import build_parser
 def test_only_four_public_commands_parse(command: str) -> None:
     option = "--run" if command == "analyze" else "--config"
     value = "run-dir" if command == "analyze" else "config.json"
-    parsed = build_parser().parse_args([command, option, value])
+    argv = [command, option, value]
+    if command == "live-smoke":
+        argv.extend(["--component", "pi-runtime"])
+    parsed = build_parser().parse_args(argv)
     assert parsed.command == command
 
 

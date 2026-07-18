@@ -33,7 +33,14 @@ def _assistant_json(trace_path: Path) -> dict[str, Any]:
             assistant_texts.append("".join(texts))
     if not assistant_texts:
         raise ValueError("proposal trace contains no assistant JSON")
-    value = json.loads(assistant_texts[-1])
+    response = assistant_texts[-1].strip()
+    if (
+        response.startswith("```json\n")
+        and response.endswith("\n```")
+        and response.count("```") == 2
+    ):
+        response = response[len("```json\n") : -len("\n```")]
+    value = json.loads(response)
     if not isinstance(value, dict) or set(value) != {"prompt", "property_ids"}:
         raise ValueError("proposal must contain exactly prompt and property_ids")
     prompt = value["prompt"]

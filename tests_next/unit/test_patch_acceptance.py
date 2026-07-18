@@ -20,6 +20,21 @@ def test_accepts_repaired_failure_when_passes_stay_passed() -> None:
     assert accept_patch(before, replay, regressions) == "accepted"
 
 
+def test_accepts_when_one_failure_is_repaired_and_another_remains_failing() -> None:
+    before = [
+        result("P1-C1", "fail"),
+        result("P2-C1", "fail"),
+        result("P3-C1", "pass"),
+    ]
+    replay = [
+        result("P1-C1", "pass"),
+        result("P2-C1", "fail"),
+        result("P3-C1", "pass"),
+    ]
+
+    assert accept_patch(before, replay, []) == "accepted"
+
+
 @pytest.mark.parametrize(
     ("before", "replay", "regressions"),
     [

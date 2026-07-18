@@ -124,6 +124,22 @@ def test_validate_test_builds_once_and_returns_validated_image(tmp_path: Path) -
     assert commands[0][:3] == ["docker", "build", "-q"]
 
 
+def test_validate_test_accepts_method_generated_case_under_output_root(
+    tmp_path: Path,
+) -> None:
+    generated_root = tmp_path / "generated-output"
+    generated_root.mkdir()
+    test = pending_test(generated_root)
+    config = replace(
+        config_for(tmp_path / "external-suite"),
+        output_root=generated_root,
+    )
+
+    validated = validate_test(test, config, successful_build)
+
+    assert validated.validation_status == "valid"
+
+
 @pytest.mark.parametrize(
     "invalidator",
     [

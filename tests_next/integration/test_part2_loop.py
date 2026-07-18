@@ -6,7 +6,7 @@ from skillrace_next.pipeline.part2 import run_part2
 from skillrace_next.records import ImprovementStep, SkillVersion
 from skillrace_next.storage import tree_hash
 from tests_next.unit.test_random_method import skill_version
-from tests_next.unit.test_test_cases import config_for
+from tests_next.unit.test_test_cases import config_for, pending_test
 
 
 def candidate_skill(current: SkillVersion, output: Path, marker: str) -> SkillVersion:
@@ -145,3 +145,65 @@ def test_accepted_versions_carry_forward_and_rejected_versions_are_discarded(
         (tmp_path / "part2" / "methods" / "random" / "iterations" / "0" / "improvement-step.json").read_text()
     )
     assert ImprovementStep.from_dict(saved).decision == "accepted"
+
+
+def test_second_invalid_development_proposal_is_a_missed_slot(
+    tmp_path: Path,
+) -> None:
+    s0 = skill_version(tmp_path)
+    config = replace(
+        config_for(tmp_path),
+        part="part2",
+        methods=("random",),
+        iteration_budget=1,
+        heldout_repetitions=1,
+    )
+    invalid = replace(
+        pending_test(tmp_path),
+        validation_status="invalid_test",
+        validation_diagnostic="replacement sanity check failed",
+    )
+
+    def select(method, state, current, iteration, output):
+        return invalid
+
+    def must_not_run(*args, **kwargs):
+        raise AssertionError("invalid proposals must not spend an agent run")
+
+    def load_heldout():
+        return [{"test_id": "held"}]
+
+    def evaluate(label, skill, test, repetition, output):
+        return {
+            "run_id": f"held-{label}",
+            "model_id": config.model_id,
+            "passed": True,
+            "cost": 0,
+        }
+
+    result = run_part2(
+        s0,
+        config,
+        tmp_path / "part2-invalid",
+        select=select,
+        execute=must_not_run,
+        check=must_not_run,
+        update_state=must_not_run,
+        patch=must_not_run,
+        replay=must_not_run,
+        load_heldout=load_heldout,
+        evaluate=evaluate,
+    )
+
+    assert result["steps"] == []
+    assert result["missed_slots"] == [
+        {
+            "method": "random",
+            "iteration": 0,
+            "test_id": "test-1",
+            "status": "invalid_test",
+            "diagnostic": "replacement sanity check failed",
+        }
+    ]
+    assert result["summary"]["invalid_proposal_count"] == {"random": 1}
+    assert result["final_skills"]["random"]["version_id"] == "S0"

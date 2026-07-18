@@ -62,9 +62,8 @@ def accept_patch(
     for prior in before:
         after_status = replay_by_id[prior.get("check_id")].get("status")
         if prior.get("status") == "fail":
-            if after_status != "pass":
-                return "rejected"
-            repaired = True
+            if after_status == "pass":
+                repaired = True
         elif prior.get("status") == "pass" and after_status != "pass":
             return "rejected"
     if any(item.get("status") != "pass" for item in all_after[len(replay) :]):
@@ -523,15 +522,15 @@ def validate_test(
     docker_runner: SubprocessRunner = subprocess.run,
 ) -> TestCase:
     try:
-        root = config.suite_path
+        roots = (config.suite_path, config.output_root)
         paths = (
             test.prompt_path,
             test.environment_directory,
             test.nl_check_path,
             test.proposal_receipt,
         )
-        if any(not _inside(path, root) for path in paths):
-            raise ValueError("test path is outside the configured suite root")
+        if any(not any(_inside(path, root) for root in roots) for path in paths):
+            raise ValueError("test path is outside the configured suite and output roots")
         if not test.prompt_path.is_file():
             raise ValueError("prompt file is missing")
         if not test.prompt_path.read_text(encoding="utf-8").strip():

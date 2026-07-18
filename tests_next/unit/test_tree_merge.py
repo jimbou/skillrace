@@ -251,6 +251,33 @@ def test_select_unreached_branch_is_deterministic() -> None:
     assert select_unreached_branch(tree) is None
 
 
+def test_select_unreached_branch_falls_back_to_reached_failure_node() -> None:
+    tree = root_tree()
+    tree["nodes"].append(
+        {
+            "node_id": "failed-branch",
+            "purpose": "Write and verify the artifact",
+            "outcome": "The artifact did not satisfy its check",
+            "member_run_ids": ["run-1"],
+            "member_episode_ids": ["episode-1"],
+            "reach_status": "reached",
+            "failure_ids": ["P1-C1"],
+        }
+    )
+    tree["edges"].append(
+        {
+            "source_node_id": "root",
+            "target_node_id": "failed-branch",
+            "reason": "The artifact step was attempted",
+        }
+    )
+
+    selected = select_unreached_branch(tree)
+
+    assert selected is not None
+    assert selected["node_id"] == "failed-branch"
+
+
 def test_skillrace_proposal_records_selected_branch_and_validates_test(
     tmp_path: Path,
 ) -> None:

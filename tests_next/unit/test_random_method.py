@@ -121,6 +121,26 @@ def test_random_proposal_allows_one_format_correction(tmp_path: Path) -> None:
     assert "correction" in calls[1].operation_id
 
 
+def test_random_proposal_accepts_one_standard_json_fence(tmp_path: Path) -> None:
+    calls: list[PiRequest] = []
+    response = (
+        "```json\n"
+        '{"prompt":"Create result.txt.","property_ids":["P1"]}'
+        "\n```"
+    )
+
+    proposed = propose_test(
+        skill_version(tmp_path),
+        PROPERTIES,
+        config_for(tmp_path),
+        tmp_path / "proposal",
+        fake_pi_responses([response, response], calls),
+    )
+
+    assert proposed.prompt_path.read_text(encoding="utf-8") == "Create result.txt.\n"
+    assert len(calls) == 1
+
+
 def test_random_proposal_stops_after_second_malformed_response(tmp_path: Path) -> None:
     calls: list[PiRequest] = []
 

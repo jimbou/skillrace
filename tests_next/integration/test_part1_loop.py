@@ -4,7 +4,7 @@ from pathlib import Path
 
 from skillrace_next.pipeline.part1 import run_part1
 from tests_next.unit.test_random_method import skill_version
-from tests_next.unit.test_test_cases import config_for
+from tests_next.unit.test_test_cases import config_for, pending_test
 
 
 def test_three_method_loop_groups_before_patching_and_keeps_s0_immutable(
@@ -101,3 +101,57 @@ def test_three_method_loop_groups_before_patching_and_keeps_s0_immutable(
             (tmp_path / "part1" / "methods" / method / "state.json").read_text()
         )
         assert state == {"observed_runs": 1}
+
+
+def test_second_invalid_proposal_records_missed_slot_without_agent_run(
+    tmp_path: Path,
+) -> None:
+    s0 = skill_version(tmp_path)
+    config = replace(
+        config_for(tmp_path), methods=("random",), iteration_budget=1
+    )
+    invalid = replace(
+        pending_test(tmp_path),
+        validation_status="invalid_test",
+        validation_diagnostic="replacement Docker build failed",
+    )
+
+    def propose(method, state, skill, slot, output):
+        return invalid
+
+    def must_not_run(*args, **kwargs):
+        raise AssertionError("invalid proposals must not spend an agent run")
+
+    result = run_part1(
+        s0,
+        config,
+        tmp_path / "part1-invalid",
+        propose=propose,
+        execute=must_not_run,
+        check=must_not_run,
+        update_state=must_not_run,
+        confirm=must_not_run,
+        patch=must_not_run,
+    )
+
+    assert result["missed_slots"] == [
+        {
+            "method": "random",
+            "slot": 0,
+            "test_id": "test-1",
+            "status": "invalid_test",
+            "diagnostic": "replacement Docker build failed",
+        }
+    ]
+    assert result["summary"]["invalid_proposal_count"] == {"random": 1}
+    assert json.loads(
+        (
+            tmp_path
+            / "part1-invalid"
+            / "methods"
+            / "random"
+            / "runs"
+            / "0"
+            / "missed-slot.json"
+        ).read_text(encoding="utf-8")
+    ) == result["missed_slots"][0]
