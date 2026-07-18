@@ -107,6 +107,93 @@ python -m skillrace_next analyze
 Internal stages such as checker authoring, replay, or patching are intentionally not
 public commands.
 
+## Using repository skills and scenarios
+
+The package and experiment data are deliberately separate:
+
+```text
+skillrace_next/                 runnable clean-room package
+skills/<skill>/SKILL.md         existing or generated skill input
+scenarios/<scenario>/           public scenario and test assets
+out/<experiment>/               immutable run/evidence output
+```
+
+No package rename is required. Invoke `python -m skillrace_next` from the repository root
+and pass the data paths explicitly. `skillrace_next` never imports the old `skillrace`
+package.
+
+For repository-backed inputs, configure:
+
+```json
+{
+  "suite_path": "scenarios/my-scenario",
+  "scenario_path": "scenarios/my-scenario/scenario.md",
+  "output_root": "out/my-experiment"
+}
+```
+
+`suite_path` must contain every external held-out prompt, environment, NL-check file,
+and proposal receipt. `output_root` must be separate because it receives generated tests
+and evidence. For Part II, keep `scenario_path` equal to the explicit `--scenario`
+argument; the argument is the executed input and the config field preserves matching
+provenance.
+
+For Part I, a repository skill is usable when `--s0-dir` contains `SKILL.md`.
+`--s0-receipt` must name the existing provenance receipt, and `--properties` must contain
+an ordered nonempty JSON list such as:
+
+```json
+[
+  {
+    "property_id": "P1",
+    "description": "The requested artifact has the exact required content."
+  }
+]
+```
+
+For Part II, `--scenario` may point directly at a nonempty scenario text or Markdown file
+under `scenarios/`. It is the public input used both to generate S0 and to seed each
+method's development-test creation. There is no external development-suite argument.
+
+Held-out tests are stricter. Each `--heldout-test` must name one serialized
+`skillrace-test-case/1` object with exactly these record fields:
+
+| Field | Requirement |
+|---|---|
+| `schema` | `skillrace-test-case/1` |
+| `test_id` | Stable unique string |
+| `prompt_path`, `prompt_hash` | Prompt path and SHA-256 |
+| `environment_directory`, `environment_hash` | Docker environment path and tree hash |
+| `nl_check_path`, `nl_check_hash` | Ordered NL-check JSON path and SHA-256 |
+| `origin_method` | Provenance label such as `heldout` |
+| `proposal_receipt` | Existing receipt path |
+| `validation_status` | May be `pending`; the loader validates again |
+| `validation_diagnostic` | Usually an empty string before validation |
+| `container_image_id` | May be empty; validation records the built image ID |
+
+Relative asset paths are resolved against the directory containing `test-case.json`.
+Absolute paths are also accepted. Hashes must describe the referenced files exactly.
+A practical layout is:
+
+```text
+scenarios/my-scenario/
+├── scenario.md
+├── properties.json
+└── heldout/t1/
+    ├── test-case.json
+    ├── prompt.txt
+    ├── nl_checks.json
+    ├── proposal.json
+    └── environment/
+        ├── Dockerfile
+        └── sanity.json
+```
+
+Existing prompts, environments, NL checks, and receipts can be reused. An older
+scenario-level `test.json` with another schema is not a `TestCase` record and is not
+automatically converted; create the strict record beside those assets instead of adding
+a compatibility layer.
+
 ### `live-smoke`
 
 ```bash
@@ -133,16 +220,16 @@ work begins.
 ```bash
 python -m skillrace_next part1 \
   --config path/to/part1.json \
-  --s0-dir path/to/S0 \
-  --s0-receipt path/to/s0-receipt.json \
+  --s0-dir skills/my-skill \
+  --s0-receipt skills/my-skill/receipt.json \
   --skill-id my-skill \
-  --properties path/to/properties.json \
+  --properties scenarios/my-scenario/properties.json \
   --live
 
 python -m skillrace_next part2 \
   --config path/to/part2.json \
-  --scenario path/to/scenario.txt \
-  --heldout-test path/to/hidden-test-record.json \
+  --scenario scenarios/my-scenario/scenario.md \
+  --heldout-test scenarios/my-scenario/heldout/t1/test-case.json \
   --live
 ```
 

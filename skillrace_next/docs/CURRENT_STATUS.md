@@ -7,13 +7,19 @@ Date: 2026-07-18
 - Tasks 1–14: implemented, individually tested, and committed.
 - Task 15: implemented, live-tested, and committed as `38cc6a6`.
 - Lab provider integration: implemented and committed.
-- Task 16 production composition: implemented with focused offline tests.
-- Task 16: production CLI contracts and final two-model gate green.
+- Task 16: production composition, CLI contracts, and final two-model gate green.
 - Final package rename/cutover: not authorized and not performed.
 
+The lack of cutover is not an execution blocker. Use `python -m skillrace_next` now and
+pass existing `skills/...` and `scenarios/...` paths as explicit inputs. Cutover means
+only replacing the old Python package and canonical entry points. Existing held-out
+assets are reusable, but their record file must use the strict
+`skillrace-test-case/1` schema; older scenario-specific `test.json` formats are not
+silently migrated.
+
 The individual component live contracts are green. The standalone two-model exact replay
-and Part II contracts are green. The earlier final combined gate passed both tracks on
-2026-07-18. The explicit input contract is now implemented: Part I receives S0,
+and Part II contracts are green. The final combined gate passed both tracks on
+2026-07-18. The explicit input contract is implemented: Part I receives S0,
 provenance, identity, and properties; Part II receives a public scenario and deferred
 held-out records, while every method creates its own development tests.
 

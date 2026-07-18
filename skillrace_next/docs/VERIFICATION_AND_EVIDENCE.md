@@ -187,6 +187,11 @@ Codex prose.
 
 ## Live evidence
 
+Repository `skills/` and `scenarios/` are inputs; they are not the evidence store. The
+pipeline writes generated skills, task artifacts, checks, patches, and receipts beneath
+the configured output root, normally `out/`. Referencing an existing input does not
+authorize modifying it, and verifier workspaces receive copied/read-only views.
+
 Paid contracts write below:
 
 ```text

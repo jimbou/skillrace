@@ -24,6 +24,43 @@ complete. Do not perform the package rename or legacy cutover yet.
 
 See [Current status and known issues](docs/CURRENT_STATUS.md) before running paid tests.
 
+## Use it now without cutover
+
+`skillrace_next` is already the runnable implementation. It does not need to be renamed
+to use skills and scenarios stored elsewhere in this repository. A normal working layout
+is:
+
+```text
+skillrace_next/    new Python implementation
+skills/            input skill directories, each containing SKILL.md
+scenarios/         public scenarios, properties, environments, and held-out test assets
+out/               generated skills, runs, checks, patches, and evidence
+```
+
+Run `python -m skillrace_next ...` from the repository root and pass paths under
+`skills/` and `scenarios/` as CLI arguments. The pipeline reads those inputs; it does not
+import the old `skillrace` package or require the inputs to live inside
+`skillrace_next/`.
+
+Existing scenario assets are directly usable when they satisfy the new input contracts:
+
+- Part I needs an S0 directory with `SKILL.md`, an existing provenance receipt, and an
+  ordered property JSON list.
+- Part II needs a nonempty public scenario text file.
+- Each Part II held-out test needs a strict `skillrace-test-case/1` JSON record whose
+  paths and hashes identify its prompt, Docker environment, NL checks, and proposal
+  receipt.
+
+Legacy scenario `test.json` files are not silently interpreted or migrated. If an
+existing held-out test uses a different schema, preserve its prompt/environment/check
+assets and create the strict `TestCase` record beside them. See
+[Configuration, providers, and CLI](docs/CONFIGURATION_AND_CLI.md#using-repository-skills-and-scenarios).
+
+For repository-backed runs, set `config.suite_path` to the scenario/test asset root and
+`config.output_root` to a separate directory under `out/`. For Part II, keep the config's
+`scenario_path` equal to the file passed with `--scenario` so the frozen provenance is
+unambiguous.
+
 ## Documentation
 
 - [Pipeline and component reference](docs/PIPELINE.md)
@@ -34,8 +71,7 @@ See [Current status and known issues](docs/CURRENT_STATUS.md) before running pai
 - [Lab provider integration note](LAB_PROVIDER_DESIGN.md)
 
 The approved design and task plan remain the scientific contract. The documents above
-describe the code that currently exists, including where it does not yet satisfy that
-contract.
+describe the implemented code and the remaining non-blocking operational notes.
 
 ## The two loops
 
@@ -103,17 +139,18 @@ python -m skillrace_next live-smoke \
 
 python -m skillrace_next part1 \
   --config path/to/part1.json \
-  --s0-dir path/to/S0 \
-  --s0-receipt path/to/s0-receipt.json \
+  --s0-dir skills/my-skill \
+  --s0-receipt skills/my-skill/receipt.json \
   --skill-id my-skill \
-  --properties path/to/properties.json \
+  --properties scenarios/my-scenario/properties.json \
   --live
 
 python -m skillrace_next part2 \
   --config path/to/part2.json \
-  --scenario path/to/scenario.txt \
-  --heldout-test path/to/hidden-test-record.json \
+  --scenario scenarios/my-scenario/scenario.md \
+  --heldout-test scenarios/my-scenario/heldout/t1/test-case.json \
   --live
+
 python -m skillrace_next analyze --run path/to/run
 ```
 
@@ -136,12 +173,15 @@ rg -n '(^|[[:space:]])(from|import)[[:space:]]+skillrace([[:space:].]|$)' \
   skillrace_next tests_next
 ```
 
-The earlier bounded gate passed on 2026-07-18. Read
-[Current status and known issues](docs/CURRENT_STATUS.md) before another paid run for the
-status of the production-CLI verification and final rerun.
+The production CLI contracts and final bounded gate passed on 2026-07-18. Read
+[Current status and known issues](docs/CURRENT_STATUS.md) before another paid run.
 
 ## No cutover
 
 `skillrace_next` remains a separate package. Renaming it to `skillrace`, moving the legacy
 implementation, or changing canonical entry points requires explicit user approval after
 all offline, individual live, and final model gates are green.
+
+This restriction does not prevent running `skillrace_next`, mounting or referencing
+`skills/` and `scenarios/`, or writing new evidence under `out/`. It only prevents
+replacing the old package and its existing entry points.

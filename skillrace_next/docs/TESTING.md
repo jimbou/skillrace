@@ -8,6 +8,16 @@ command must include that flag explicitly.
 Do not substitute mocked responses for a required live contract. Do not use a later
 end-to-end run as a substitute for an individual component contract.
 
+Run commands from the repository root. The runnable package remains
+`python -m skillrace_next`; no legacy-package cutover is required. Tests and experiments
+may reference existing `skills/` and `scenarios/` paths as inputs. Do not rewrite those
+directories merely to colocate them with the package.
+
+Before a paid run using an existing scenario, confirm that each held-out argument is a
+strict `skillrace-test-case/1` record rather than an older scenario-specific `test.json`.
+Freezing a Part I/II config without `--live` is the safe way to validate the config and
+output location without making provider calls.
+
 ## Offline verification
 
 Run all unit and integration tests:

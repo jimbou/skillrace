@@ -1,8 +1,12 @@
 # Pipeline and Component Reference
 
 This document describes the implemented `skillrace_next` code. It does not propose a new
-architecture. Where the implementation is incomplete, the limitation is stated and
-linked to [Current status and known issues](CURRENT_STATUS.md).
+architecture. Remaining non-blocking operational notes are listed in
+[Current status and known issues](CURRENT_STATUS.md).
+
+The package is runnable in place. Skill and scenario directories are data inputs, not
+Python packages: callers may pass `skills/...` and `scenarios/...` paths without copying
+them into `skillrace_next/` and without renaming the new package to `skillrace`.
 
 ## Package map
 
@@ -31,6 +35,21 @@ The loops accept ordinary callback functions for their concrete proposal, execut
 check, state-update, patch, replay, and evaluation operations. `pipeline/campaigns.py`
 wires those callbacks directly for the public CLI. It uses ordinary functions and local
 dictionaries rather than a registry, service, or workflow abstraction.
+
+## Input and output boundary
+
+The direct CLI composition keeps repository data in three roles:
+
+- `skills/...` may supply immutable Part I S0 directories and provenance receipts;
+- `scenarios/...` may supply Part I properties, the Part II public scenario, and strict
+  held-out `TestCase` records plus their assets; and
+- `config.output_root` receives all generated development tests, S0 copies, runs,
+  artifacts, checker bundles, patches, replays, held-out results, and summaries.
+
+Input directories are referenced, hashed, and validated. They are not moved into the
+package and are not used as Python import sources. Generated method tests are written
+under the method/iteration evidence directory. Held-out records are first opened only
+after all methods finish development.
 
 ## Durable records
 
