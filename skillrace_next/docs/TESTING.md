@@ -27,9 +27,8 @@ Useful focused commands:
   tests_next/integration/test_heldout_isolation.py
 ```
 
-The last recorded full offline run before the final gate had 133 passing unit/integration
-tests. Run it again after the known issues are fixed; do not treat that historical count
-as current proof.
+The final Task 16 offline run had 155 passing unit/integration tests. This count records
+that run; rerun the command after future code changes.
 
 ## Individual live contracts
 
@@ -105,22 +104,21 @@ It performs fresh direct and Pi preflights, then bounded Part I and Part II slic
 
 ### 2026-07-18 result
 
-The most recent gate passed both parameterized cases in 24 minutes 53 seconds. Each track
+The most recent gate passed both parameterized cases in 25 minutes 30 seconds. Each track
 completed a fresh direct preflight, Pi tool preflight, Part I slice, and Part II slice.
 
 ```text
 out/live-contracts/dual-model-gate/deepseek-v4-flash/
-  20260718T002429Z-65da8636/
+  20260718T021119Z-de8da6fc/
 out/live-contracts/dual-model-gate/qwen3.6-flash/
-  20260718T003446Z-9706a345/
+  20260718T022206Z-49824891/
 ```
 
-DeepSeek recorded `accepted, rejected` for Random and retained S1 after the forced
-rejection. Its held-out weak-agent sample still failed, which the metrics preserve.
-Qwen recorded `retained, rejected`: its weak agent produced a passing first artifact even
-with the wrong S0, so no first patch was justified. The gate now validates observed
-transitions against checker and replay evidence instead of demanding a lucky stochastic
-trajectory.
+Both tracks recorded Random `accepted, rejected`, retained S1 after the rejected second
+candidate, and evaluated S0 plus all final skills only after development. In each track,
+S0 failed the bounded hidden test and Random S1 passed; VeriGrey and SkillRACE retained
+S0 and therefore also failed. These are contract-fixture outcomes, not a broad comparison
+of the methods.
 
 The active Lab credential was absent from gate and child evidence, and the run ended with
 no owned or unrelated running containers.
@@ -164,6 +162,6 @@ if test -n "${LAB_KEY_UNLIMITED:-}"; then
 fi
 ```
 
-No output is the expected result. The most recent saved evidence passed this check, but
-the outer pytest failure traceback itself exposed the value in terminal output. Rotate
-that credential before more live work.
+No output is the expected result. The final gate and all of its Part I/Part II child
+evidence passed the exact active-key scan. The previously exposed credential was rotated
+before these runs.

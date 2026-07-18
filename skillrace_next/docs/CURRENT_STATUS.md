@@ -7,14 +7,21 @@ Date: 2026-07-18
 - Tasks 1–14: implemented, individually tested, and committed.
 - Task 15: implemented, live-tested, and committed as `38cc6a6`.
 - Lab provider integration: implemented and committed.
-- Task 16 verification and final gate: green; concrete arbitrary-campaign CLI composition
-  remains incomplete.
+- Task 16 production composition: implemented with focused offline tests.
+- Task 16: production CLI contracts and final two-model gate green.
 - Final package rename/cutover: not authorized and not performed.
 
 The individual component live contracts are green. The standalone two-model exact replay
-and Part II contracts are green. The final combined gate passed both tracks on
-2026-07-18. The remaining blocker is the input/composition contract for arbitrary
-user-supplied Part I and Part II CLI campaigns.
+and Part II contracts are green. The earlier final combined gate passed both tracks on
+2026-07-18. The explicit input contract is now implemented: Part I receives S0,
+provenance, identity, and properties; Part II receives a public scenario and deferred
+held-out records, while every method creates its own development tests.
+
+The production Part II CLI contract generated six development tasks. Random's first
+task exposed a missing-input failure; the same-track Pi patch made the general repair to
+stop without writing when a required input is absent, exact replay changed the failure
+to pass, and S0→S1 was admitted. All S0/final-skill hidden cells then passed. The active
+credential scan was clean and no container remained.
 
 ## Confirmed working behavior
 
@@ -46,16 +53,23 @@ user-supplied Part I and Part II CLI campaigns.
 - Part I checks immutable S0 identity on every discovery run and groups before repair.
 - Part II copies one generated S0 per method, records each improvement step, carries only
   accepted candidates forward, retains rejected skills, and defers held-out loading.
+- Part II has no pre-authored development suite. Random, VeriGrey, and SkillRACE create
+  their prompt, environment, and NL check from the original public scenario and their
+  own accumulated state.
+- Patch admission requires at least one previously failing check to become passing and
+  forbids every previously passing check from becoming failing. Other prior failures may
+  remain failing. Retained-test checks must also remain passing.
 - Held-out summaries include S0, per-test/all-tests rates, scenario mean/median, pairwise
   outcomes, regressions from S0, revision counts, and costs.
 
 ## Final gate result
 
-The 2026-07-18 dual-model gate passed both parameterized cases in 24 minutes 53 seconds.
-Both tracks completed fresh direct/Pi preflights and independent bounded Part I/Part II
-slices. DeepSeek recorded Random `accepted, rejected`; Qwen recorded `retained, rejected`.
-Both are coherent with their actual checker and replay evidence. Exact-key scans were
-clean and no Docker containers remained.
+The final 2026-07-18 dual-model gate passed both parameterized cases in 25 minutes 30
+seconds. Both tracks completed fresh direct/Pi preflights and independent bounded Part
+I/Part II slices. DeepSeek and Qwen each recorded Random `accepted, rejected`, retained
+S1 after the rejection, and changed the held-out result from S0 fail to Random S1 pass.
+This is bounded contract evidence, not a general method-quality conclusion. Exact-key
+scans were clean and no Docker containers remained.
 
 ## P0: fix before another paid final gate
 
@@ -72,23 +86,13 @@ without retry. Provider/container errors remain infrastructure failures. Task ex
 checker execution, and replay exception paths remove their containers and persist cleanup
 receipts. Focused unit/integration tests cover each path.
 
-### P0-3: CLI does not run supplied campaigns
+### Resolved: production campaign CLI composition
 
-`part1` and `part2` currently only freeze configs. With `--live`, they run hard-coded
-bounded pytest files. They do not load a supplied suite/scenario, construct the concrete
-stage callbacks, and call `run_part1`/`run_part2`.
-
-Required fix:
-
-- add the smallest direct composition functions for the two existing loops;
-- read the already-defined suite/scenario inputs without a registry/factory;
-- invoke the appropriate loop from the CLI;
-- retain `live-smoke` for bounded contracts; and
-- add an offline tiny CLI campaign proving outputs are derived from the supplied config,
-  not a fixed pytest fixture.
-
-Do not solve this with a workflow engine, service layer, plugin system, or generic
-orchestrator.
+`part1 --live` now calls the immutable-S0 campaign with explicit S0 directory, receipt,
+skill ID, and property file arguments. `part2 --live` generates S0 from an explicit
+scenario, lets each method generate its own development tasks, and opens repeatable
+held-out `TestCase` records only after all methods finish. `live-smoke` remains the
+separate bounded component runner.
 
 ### Resolved: stochastic final-gate criterion
 
@@ -111,47 +115,39 @@ The gate resolves and returns the new child evidence directory independently of 
 exit status, then records it before raising. A focused failure test also proves captured
 output is sanitized.
 
-### P1-3: invalid proposals do not become missed slots
+### Resolved: invalid proposals become missed slots
 
-The validator returns `invalid_test`, and Random permits one replacement. The generic
-Part I/II loops currently assume selection returned a runnable test and do not record a
-missed slot after the second invalid proposal. A production composition would raise from
-`run_agent` instead of continuing the scientific budget correctly.
+The validator returns `invalid_test`, and the proposer permits one replacement. If the
+replacement is also invalid, Part I/II writes `missed-slot.json`, increments that method's
+separate `invalid_proposal_count`, and continues without running the weak agent or
+classifying a bug.
 
-Add a direct conditional in the loop/composition: persist the invalid proposals, count a
-missed slot, and continue without counting an agent execution.
+### Resolved: Part I grouping and repair boundaries
 
-### P1-4: Part I live campaign does not exercise confirmation and repair
+The bounded Part I live slice proves immutable S0 and the three real execution/check/state
+paths. Focused offline integration proves all discovery completes before grouping and
+patching. The separate real patcher and exact-replay contracts prove the repair boundary.
+The final gate does not require a model to produce a favorable failure candidate merely
+to force an assembled patch.
 
-The latest bounded Part I fixture used a trivial task that all methods passed, producing
-zero candidates and no patch. It proves the three real execution/check/state paths and
-immutable S0, but not group → reproduce → patch → replay inside the assembled Part I
-campaign.
+### Resolved: production stage composition
 
-Individual patch/replay contracts exist, and offline Part I grouping tests exist, but one
-bounded assembled Part I live fixture should exercise a confirmed failure and independent
-repair without making later discovery use the patch.
+`pipeline/campaigns.py` directly binds proposal, weak execution, Codex authoring, Docker
+execution, method-state updates, Pi patching, exact replay, and held-out evaluation to the
+two existing sequential loops. Generated development tests are validated under the run
+output root; external held-out records remain constrained to the configured suite root.
 
-### P1-5: production suite/check composition is still test-local
+### Resolved: production command failure receipt
 
-Part II's predefined check binding, held-out loading, and method selection are implemented
-as callbacks in tests. Part I's verifier workspace preparation, confirmation, and repair
-composition are also test-local.
+If a production Part I/II campaign raises, the exception remains visible and evidence
+remains in place, while `command.json` records terminal status `failed`. The CLI then
+re-raises the original exception.
 
-Move only the concrete compositions required by the CLI into `skillrace_next`. Do not
-hide the loops behind a generalized callback registry.
+### Resolved: fresh offline and live verification
 
-### P1-6: rerun fresh offline and component verification
-
-After P0/P1 fixes:
-
-1. Run every focused failing test first.
-2. Run all unit/integration tests.
-3. Run each affected individual live contract separately.
-4. Inspect and preserve new semantic evidence.
-5. Run the final two-model gate once.
-6. Review forbidden architecture and legacy imports.
-7. Commit only focused Task 16 changes.
+The final Task 16 cycle ran focused red/green tests, all 155 unit/integration tests,
+separate real production Part I/II CLI contracts, semantic evidence inspection, and the
+final two-model gate. Legacy-import and forbidden-architecture searches were reviewed.
 
 ## P2: lower-priority clarity and maintainability
 
@@ -177,16 +173,10 @@ additional report.
 
 ## Files currently uncommitted for Task 16
 
-At the time of this status document, Task 16 has scoped changes in:
-
-- `skillrace_next/cli.py`;
-- `skillrace_next/README.md` and updated status documents;
-- `tests_next/unit/test_cli.py`;
-- `tests_next/unit/test_documented_cli.py`;
-- `tests_next/live/test_part1_tiny_live.py`;
-- `tests_next/live/test_part2_tiny_live.py`;
-- `tests_next/live/test_exact_replay_live.py`; and
-- `tests_next/live/test_dual_model_gate_live.py` plus its gate-safety unit test.
+At the time of this status document, Task 16 has scoped implementation, test, and
+documentation changes under `skillrace_next/` and `tests_next/`. The production CLI live
+evidence is stored separately under `out/live-contracts/cli-part1/` and
+`out/live-contracts/cli-part2/`.
 
 Do not include unrelated dirty worktree files in Task 16 commits.
 

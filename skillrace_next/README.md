@@ -10,14 +10,17 @@ framework or a general benchmark platform.
 
 ## Current status
 
-Tasks 1–15 of the clean-room rebuild are implemented and committed. The individual live
-contracts have been exercised with real Pi/provider calls, real Codex checker authoring,
-and real Docker checker execution.
+Tasks 1–15 of the clean-room rebuild are implemented and committed. Task 16 now has the
+small direct production composition for both loops: `part1 --live` accepts an existing
+S0 and its provenance, while `part2 --live` accepts a public scenario and one or more
+held-out test records. The Part II methods generate their own development tasks and
+checks from the public scenario; no pre-authored development suite is supplied.
 
-Task 16 is not complete because the public `part1` and `part2` commands do not yet compose
-an arbitrary supplied campaign. The credential, timeout-replay, cleanup, and stochastic
-gate defects found during Task 16 are fixed. On 2026-07-18 the final bounded gate passed
-both Lab model tracks. Do not perform the package rename or legacy cutover yet.
+The new Part I and Part II commands passed separate real DeepSeek CLI contracts on
+2026-07-18. Part II generated six development tasks, admitted one general Random repair,
+and loaded/evaluated the hidden test only after all methods finished. The final bounded
+gate then passed both Lab model tracks. Task 16 implementation and verification are
+complete. Do not perform the package rename or legacy cutover yet.
 
 See [Current status and known issues](docs/CURRENT_STATUS.md) before running paid tests.
 
@@ -61,15 +64,18 @@ generate one S0
 for each method:
     copy the same S0
     for each development iteration:
-        select a test
+        generate/select a development task from the public scenario and method state
         run the current Si
-        execute predefined checks
+        have Codex author checks and execute them through docker exec
         update method state
         if checks fail:
             patch a copy of Si
             replay the failing test and retained regression tests
-            carry the candidate forward only if deterministic acceptance passes
-    evaluate the final skill and S0 on held-out tests
+            carry the candidate forward only if it repairs at least one prior failure
+            and turns no prior pass into a failure
+after every method finishes:
+    load the held-out tests for the first time
+    evaluate S0 and every method's final skill on those tests
 ```
 
 Within a model track, every non-verifier role uses the same configured provider/model.
@@ -95,17 +101,25 @@ python -m skillrace_next live-smoke \
   --component patcher \
   --live
 
-python -m skillrace_next part1 --config path/to/part1.json
-python -m skillrace_next part2 --config path/to/part2.json
+python -m skillrace_next part1 \
+  --config path/to/part1.json \
+  --s0-dir path/to/S0 \
+  --s0-receipt path/to/s0-receipt.json \
+  --skill-id my-skill \
+  --properties path/to/properties.json \
+  --live
+
+python -m skillrace_next part2 \
+  --config path/to/part2.json \
+  --scenario path/to/scenario.txt \
+  --heldout-test path/to/hidden-test-record.json \
+  --live
 python -m skillrace_next analyze --run path/to/run
 ```
 
 Paid tests require explicit `--live`.
-
-Important: the present `part1` and `part2` CLI commands validate and freeze a config.
-With `--live`, they invoke the corresponding bounded live-contract test. They do not yet
-construct and run an arbitrary campaign from the supplied suite/scenario configuration.
-This is a Task 16 blocker, not the intended final CLI behavior.
+Without `--live`, `part1` and `part2` only validate and freeze the configuration; they do
+not spend provider budget.
 
 ## Safe starting checks
 
@@ -122,9 +136,9 @@ rg -n '(^|[[:space:]])(from|import)[[:space:]]+skillrace([[:space:].]|$)' \
   skillrace_next tests_next
 ```
 
-The final bounded gate passed on 2026-07-18. Read
-[Current status and known issues](docs/CURRENT_STATUS.md) before another paid run; the
-remaining CLI composition issue does not invalidate the bounded live-contract evidence.
+The earlier bounded gate passed on 2026-07-18. Read
+[Current status and known issues](docs/CURRENT_STATUS.md) before another paid run for the
+status of the production-CLI verification and final rerun.
 
 ## No cutover
 

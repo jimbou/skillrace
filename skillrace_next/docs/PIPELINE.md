@@ -23,12 +23,14 @@ linked to [Current status and known issues](CURRENT_STATUS.md).
 | `pipeline/stages.py` | Concrete generation, validation, task, patch, replay, and acceptance stages |
 | `pipeline/part1.py` | Immutable-S0 discovery loop and grouping |
 | `pipeline/part2.py` | Cumulative-Si improvement loop and held-out evaluation |
+| `pipeline/campaigns.py` | Direct CLI composition of the concrete stages for the two loops |
 | `analysis/part1.py` | Discovery and repair counts/costs |
 | `analysis/part2.py` | Held-out rates, comparisons, regressions, revision counts, costs |
 
 The loops accept ordinary callback functions for their concrete proposal, execution,
-check, state-update, patch, replay, and evaluation operations. This keeps the loops small,
-but the production CLI does not yet wire those callbacks from a suite/config.
+check, state-update, patch, replay, and evaluation operations. `pipeline/campaigns.py`
+wires those callbacks directly for the public CLI. It uses ordinary functions and local
+dictionaries rather than a registry, service, or workflow abstraction.
 
 ## Durable records
 
@@ -55,8 +57,10 @@ and bytes in sorted order.
 ### Test validation
 
 `validate_test` checks that prompt, environment, NL-check, and proposal paths remain
-inside the configured suite root. It verifies stored hashes, NL-check IDs, Dockerfile and
-sanity receipt, then executes:
+inside either the configured external suite root or the current output root. The second
+root is required because each Part II method creates its own development tests inside
+its evidence directory. It verifies stored hashes, NL-check IDs, Dockerfile and sanity
+receipt, then executes:
 
 ```text
 docker build -q <environment-directory>
@@ -64,7 +68,9 @@ docker build -q <environment-directory>
 
 The returned image ID is stored on the validated `TestCase`. A validation failure returns
 the test with `validation_status="invalid_test"` and a diagnostic; it does not create an
-experimental agent failure.
+experimental agent failure. The proposer receives one replacement opportunity. If that
+replacement is also invalid, the loop writes `missed-slot.json`, reports it separately,
+and continues without spending a weak-agent execution.
 
 ### Weak task-agent execution
 
@@ -188,9 +194,10 @@ Part I metrics are raw candidates, confirmed distinct bugs, confirmed repaired b
 repair success rate, inconclusive count, infrastructure-failure count, and agent/patch
 costs.
 
-Current limitation: the generic loop is implemented, but full confirmation, patch/replay,
-suite loading, and CLI wiring remain supplied by test callbacks rather than one runnable
-production composition.
+The CLI composition constructs S0 from explicit `--s0-dir`, `--s0-receipt`, and
+`--skill-id` arguments. It uses the supplied property list for proposal, real weak-agent
+execution, real Codex checker authoring, Docker execution, method-specific state update,
+exact confirmation replay, same-track Pi patching, and candidate replay.
 
 ## Part II: cumulative improvement
 
@@ -200,9 +207,10 @@ development tests.
 
 For each iteration:
 
-1. Select a development test using only current development state.
+1. Generate/select a development test from the public scenario and current method state.
 2. Run the current skill and require the configured track model/version identity.
-3. Execute the test's predefined checker bundle.
+3. Have Codex author a checker bundle for the immutable artifact and execute it through
+   `docker exec`.
 4. Update and save method state.
 5. If nothing fails, record `retained` and add the test to the regression set.
 6. If checks fail, patch a copy of the current skill.
@@ -212,8 +220,10 @@ For each iteration:
    forward. Otherwise retain the current version.
 10. Write one `improvement-step.json`.
 
-After development, `load_heldout()` is called for the first time. S0 and each method's
-final skill are evaluated on identical held-out test/repetition cells.
+After every method's development loop has finished, `load_heldout()` is called for the
+first time. S0 and each method's final skill are evaluated on identical held-out
+test/repetition cells. Hidden tests cannot influence generation, development test
+creation, patching, or admission.
 
 Part II reports:
 

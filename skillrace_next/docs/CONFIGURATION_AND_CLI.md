@@ -131,20 +131,45 @@ work begins.
 ### `part1` and `part2`
 
 ```bash
-python -m skillrace_next part1 --config path/to/part1.json
-python -m skillrace_next part2 --config path/to/part2.json
+python -m skillrace_next part1 \
+  --config path/to/part1.json \
+  --s0-dir path/to/S0 \
+  --s0-receipt path/to/s0-receipt.json \
+  --skill-id my-skill \
+  --properties path/to/properties.json \
+  --live
+
+python -m skillrace_next part2 \
+  --config path/to/part2.json \
+  --scenario path/to/scenario.txt \
+  --heldout-test path/to/hidden-test-record.json \
+  --live
 ```
 
-Without `--live`, the current implementation validates/freezes the config and writes a
-`command.json` status of `config_frozen`.
+Without `--live`, both commands validate/freeze the config and write a `command.json`
+status of `config_frozen`. Campaign-specific arguments are required only when `--live`
+is present, so freezing a config never starts paid work.
 
-With `--live`, it runs the corresponding bounded pytest contract and writes `passed` or
-`failed`.
+For Part I, `--s0-dir` contains the immutable input `SKILL.md`, `--s0-receipt` is its
+existing provenance receipt, `--skill-id` supplies its stable identity, and
+`--properties` is a JSON list of properties used by the three test creators. Discovery
+always runs that exact S0; a repair never changes later discovery runs.
 
-This is not the final intended behavior. Task 16 requires these commands to build the
-concrete callbacks/suite inputs and invoke `run_part1` or `run_part2` for the supplied
-configuration. The present CLI runs development fixtures instead. See `P0-3` in
-[Current status and known issues](CURRENT_STATUS.md).
+For Part II, `--scenario` is the public original scenario. It is given to the base-skill
+generator and is also the initial natural-language property from which Random, VeriGrey,
+and SkillRACE create their own development tasks. Each generated task contains its own
+prompt, Docker environment, NL check, proposal receipt, and later Codex-authored
+executable check bundle under that method and iteration's evidence directory. There is
+no Part II development-suite argument.
+
+Each `--heldout-test` names a strict serialized `TestCase` record. The option is
+repeatable. Relative prompt/environment/NL-check/receipt paths are resolved relative to
+the record file. The command deliberately does not open these records until S0 and all
+three final method skills have been produced. It then evaluates S0 and every final skill
+on identical held-out cells.
+
+`live-smoke --component part1|part2` remains the separate bounded component contract; it
+does not replace these production campaign commands.
 
 ### `analyze`
 
@@ -160,7 +185,8 @@ reconstruct missing metrics or aggregate multiple cells.
 
 Command receipts use schema `skillrace-command/1`. They record command, live flag, status,
 and component for `live-smoke`. A failed live subprocess returns the same nonzero status
-to the caller.
+to the caller. If a production Part I/II campaign raises, the CLI first writes terminal
+status `failed` and then re-raises the original exception.
 
 ## Credential safety
 
