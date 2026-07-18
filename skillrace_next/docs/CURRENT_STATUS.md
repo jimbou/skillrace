@@ -29,6 +29,21 @@ stop without writing when a required input is absent, exact replay changed the f
 to pass, and S0→S1 was admitted. All S0/final-skill hidden cells then passed. The active
 credential scan was clean and no container remained.
 
+## Remaining before a multi-replicate full study
+
+The implemented CLI executes one campaign per invocation. `replicate_count` is validated
+and frozen but is not expanded into multiple independent campaigns, and there is no
+multi-skill/scenario/model matrix runner. Do not interpret `replicate_count > 1` as
+executed replication. Run explicit one-replicate configs with unique output roots, or add
+the smallest direct sequential replicate loop before the full study. See
+[SkillRACE Next Handoff](HANDOFF.md#0-resolve-replicate-and-matrix-execution).
+
+The CLI also does not currently enforce that config `live` matches the `--live` flag or
+that Part II config `scenario_path` matches `--scenario`. For current runs, set config
+`live` to `true` whenever passing `--live`, and make the two scenario paths identical.
+Before a large study, add focused mismatch-rejection tests or enforce and audit these
+equalities in the explicit run launcher.
+
 ## Confirmed working behavior
 
 ### Clean-room boundary and records
@@ -177,14 +192,17 @@ command only copies an existing summary into `analysis.json`; it does not aggreg
 or repair incomplete runs. Expand it only if the final CLI contract requires a concrete
 additional report.
 
-## Files currently uncommitted for Task 16
+## Handoff
 
-At the time of this status document, Task 16 has scoped implementation, test, and
-documentation changes under `skillrace_next/` and `tests_next/`. The production CLI live
-evidence is stored separately under `out/live-contracts/cli-part1/` and
-`out/live-contracts/cli-part2/`.
+The component and single-campaign implementation tasks are complete. Replicate expansion
+and the two config/CLI consistency checks above remain before an automated
+multi-replicate study. Full experiment input selection, conversion of any legacy
+held-out records, actual study execution, optional analysis aggregation, and the
+separately authorized legacy cutover are described in
+[SkillRACE Next Handoff](HANDOFF.md).
 
-Do not include unrelated dirty worktree files in Task 16 commits.
+The repository still contains extensive unrelated dirty legacy work. Do not reset,
+clean, reformat, or include those files in future `skillrace_next` commits.
 
 ## Completion criteria
 

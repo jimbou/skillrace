@@ -14,7 +14,7 @@ The complete field set is:
 | `experiment_id` | Stable run label |
 | `part` | `part1` or `part2` |
 | `methods` | Ordered method names, normally Random, VeriGrey, SkillRACE |
-| `replicate_count` | Requested independent repetitions |
+| `replicate_count` | Frozen requested repetitions; current CLI runs one campaign, so use `1` |
 | `provider`, `model_id` | One supported non-verifier model track |
 | `pi_version` | Pinned Pi version recorded for provenance |
 | `role_budgets` | Turn limits for proposer, weak agent, segmenter, alignment, generator, patcher |
@@ -27,9 +27,9 @@ The complete field set is:
 | `network_policy` | Task-container Docker network mode |
 | `timeouts` | Exact provider, Pi, Docker, Codex, check, and patch limits |
 | `suite_path` | Development/test suite root |
-| `scenario_path` | Part II public scenario path |
+| `scenario_path` | Frozen Part II scenario provenance; must match explicit `--scenario` |
 | `iteration_budget` | Sequential discovery/improvement slots |
-| `live` | Frozen configuration provenance flag |
+| `live` | Frozen provenance flag; paid runs must also pass `--live` |
 | `output_root` | Directory receiving frozen config and command receipt |
 | `heldout_repetitions` | Part II repetitions per held-out cell |
 
@@ -45,6 +45,13 @@ At command start, `freeze_config` writes:
 
 The hash is computed from canonical normalized JSON. A running stage must use the frozen
 configuration rather than rereading a mutable source file.
+
+One command invocation currently runs exactly one campaign. `replicate_count` is present
+in the frozen scientific record but is not expanded by the CLI, so keep it at `1` and
+launch each replicate with a unique `experiment_id` and `output_root`. The CLI also does
+not yet reject a mismatch between config `live` and `--live`, or between Part II config
+`scenario_path` and `--scenario`. Until those checks are implemented, set config `live`
+to `true` for paid commands and make the two scenario paths identical.
 
 ## Providers and model identity
 

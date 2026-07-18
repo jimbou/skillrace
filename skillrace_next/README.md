@@ -61,6 +61,11 @@ For repository-backed runs, set `config.suite_path` to the scenario/test asset r
 `scenario_path` equal to the file passed with `--scenario` so the frozen provenance is
 unambiguous.
 
+One CLI invocation currently runs one campaign. Keep `replicate_count` at `1` and use a
+unique `experiment_id` and `output_root` for every replicate until the direct sequential
+replicate loop is implemented. For paid runs, set config `live` to `true` as well as
+passing `--live`.
+
 ## Documentation
 
 - [Pipeline and component reference](docs/PIPELINE.md)
@@ -68,6 +73,7 @@ unambiguous.
 - [Verification, Docker, replay, and evidence](docs/VERIFICATION_AND_EVIDENCE.md)
 - [Testing and live-contract operations](docs/TESTING.md)
 - [Current status and known issues](docs/CURRENT_STATUS.md)
+- [Handoff and remaining work](docs/HANDOFF.md)
 - [Lab provider integration note](LAB_PROVIDER_DESIGN.md)
 
 The approved design and task plan remain the scientific contract. The documents above
