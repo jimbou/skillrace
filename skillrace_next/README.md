@@ -64,7 +64,8 @@ unambiguous.
 One CLI invocation runs `replicate_count` campaigns sequentially under numbered
 `<output_root>/replicates/0001/`, `0002/`, and so on. Each replicate receives its own
 effective config/output root and shares no method state with another replicate. For paid
-runs, set config `live` to `true` as well as passing `--live`.
+runs, the CLI `--live` flag is authoritative. If source config `live` disagrees, the CLI
+warns and freezes the effective flag that it actually used.
 
 ## Documentation
 
@@ -162,7 +163,9 @@ python -m skillrace_next analyze --run path/to/run
 
 Paid tests require explicit `--live`.
 Without `--live`, `part1` and `part2` only validate and freeze the configuration; they do
-not spend provider budget.
+not spend provider budget. For Part II, explicit `--scenario` is also authoritative. A
+source-config disagreement produces a warning and the frozen config records the executed
+scenario path.
 
 ## Safe starting checks
 

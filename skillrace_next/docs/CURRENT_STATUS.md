@@ -57,8 +57,10 @@ actual multi-replicate study.
   shared across replicates. Offline coverage and the real two-replicate DeepSeek/Codex/
   Docker contract are green; evidence is under
   `out/live-contracts/cli-replicates/deepseek-v4-flash/20260720T073745Z-0f3da0bc/`.
-- [ ] Make CLI `--live` and `--scenario` overrides explicit. Warn on disagreement and
-  freeze the effective values used by the command.
+- [x] Make CLI `--live` and `--scenario` overrides explicit. Warn on disagreement and
+  freeze the effective values used by the command. Offline tests cover both fields and
+  both `live` directions. The real paid override contract is green under
+  `out/live-contracts/cli-replicates/deepseek-v4-flash/20260720T075536Z-5f9f9295/`.
 - [ ] Rename/rebuild the shared Pi runtime image with a generic, model-independent name.
   Preserve the old and new image IDs in the evidence so the rename does not obscure
   provenance.
@@ -141,6 +143,9 @@ See [SkillRACE Next Handoff](HANDOFF.md#0-resolve-replicate-and-matrix-execution
 - Weak agents run in validated task images with a read-only installed skill.
 - Artifacts and traces survive task execution.
 - Codex Terra/medium authors checker scripts from local read-only inputs.
+- The deterministic manifest validator requires every checker argv to invoke that
+  check's declared script; malformed argv receives the one allowed Codex correction
+  instead of reaching Docker.
 - Checker scripts execute through `docker exec` and write authoritative JSON.
 - Same-track Pi patching edits only the copied `SKILL.md`.
 - Exact replay reuses the frozen checker scripts rather than asking Codex again.

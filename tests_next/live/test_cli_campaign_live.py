@@ -27,6 +27,7 @@ def _write_config(
     *,
     methods: tuple[str, ...] = ("random", "verigrey", "skillrace"),
     replicate_count: int = 1,
+    source_live: bool = True,
 ) -> Path:
     base = live_config(
         evidence,
@@ -52,6 +53,7 @@ def _write_config(
         network_policy="host",
         suite_path=evidence,
         scenario_path=evidence / "scenario.md",
+        live=source_live,
         output_root=evidence / "run",
         timeouts={**base.timeouts, "pi": 240, "patch": 240},
     )
@@ -141,6 +143,7 @@ def test_real_part1_cli_runs_two_independent_replicates(
         1,
         methods=("random",),
         replicate_count=2,
+        source_live=False,
     )
     s0 = evidence / "input" / "s0"
     s0.mkdir(parents=True)
@@ -203,7 +206,7 @@ def test_real_part1_cli_runs_two_independent_replicates(
             ).read_text(encoding="utf-8")
         )
         run_ids.append(run_record["run_id"])
-        assert (
+        check_results_path = (
             replicate_root
             / "campaign"
             / "methods"
@@ -213,8 +216,16 @@ def test_real_part1_cli_runs_two_independent_replicates(
             / "checks"
             / "results"
             / "check_results.json"
-        ).is_file()
+        )
+        check_results = json.loads(check_results_path.read_text(encoding="utf-8"))
+        assert check_results["artifact_unchanged"] is True
+        assert all(
+            item["status"] in {"pass", "fail"}
+            for item in check_results["results"]
+        )
     assert len(set(run_ids)) == 2
+    frozen = json.loads((evidence / "run" / "config.json").read_text())
+    assert frozen["live"] is True
     assert json.loads((evidence / "run" / "command.json").read_text())["status"] == "completed"
     _assert_no_secret(evidence, secret)
 

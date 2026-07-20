@@ -99,10 +99,32 @@ def _run_live_contract(component: str) -> int:
     return completed.returncode
 
 
-def _freeze_command(config_path: str, command: str) -> ExperimentConfig:
+def _freeze_command(
+    config_path: str,
+    command: str,
+    *,
+    live: bool,
+    scenario_path: str | None = None,
+) -> ExperimentConfig:
     config = load_config(config_path)
     if command in {"part1", "part2"} and config.part != command:
         raise ValueError(f"{command} command requires a {command} config")
+    if config.live != live:
+        print(
+            "warning: --live overrides config "
+            f"live={str(config.live).lower()} with {str(live).lower()}",
+            file=sys.stderr,
+        )
+        config = replace(config, live=live)
+    if command == "part2" and scenario_path is not None:
+        effective_scenario = Path(scenario_path)
+        if config.scenario_path != effective_scenario:
+            print(
+                "warning: --scenario overrides config "
+                f"scenario_path={config.scenario_path} with {effective_scenario}",
+                file=sys.stderr,
+            )
+            config = replace(config, scenario_path=effective_scenario)
     freeze_config(config, config.output_root)
     return config
 
@@ -148,7 +170,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    config = _freeze_command(args.config, args.command)
+    config = _freeze_command(
+        args.config,
+        args.command,
+        live=args.live,
+        scenario_path=getattr(args, "scenario", None),
+    )
     output = config.output_root
     if args.command == "live-smoke":
         if not args.live:

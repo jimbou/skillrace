@@ -7,10 +7,17 @@ from skillrace_next import cli
 from tests_next.unit.test_config import valid_config_dict
 
 
-def write_config(tmp_path: Path, part: str, replicate_count: int = 1) -> Path:
+def write_config(
+    tmp_path: Path,
+    part: str,
+    replicate_count: int = 1,
+    *,
+    live: bool = False,
+) -> Path:
     values = valid_config_dict()
     values["part"] = part
     values["replicate_count"] = replicate_count
+    values["live"] = live
     values["output_root"] = str(tmp_path / f"{part}-run")
     path = tmp_path / f"{part}.json"
     path.write_text(json.dumps(values), encoding="utf-8")
@@ -57,6 +64,20 @@ def test_offline_part_command_loads_and_freezes_config(
 def test_part_command_rejects_config_for_other_part(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="part2 command requires"):
         cli.main(["part2", "--config", str(write_config(tmp_path, "part1"))])
+
+
+def test_missing_live_flag_overrides_true_config_before_freezing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config_path = write_config(tmp_path, "part1", live=True)
+
+    assert cli.main(["part1", "--config", str(config_path)]) == 0
+
+    frozen = json.loads(
+        (tmp_path / "part1-run" / "config.json").read_text(encoding="utf-8")
+    )
+    assert frozen["live"] is False
+    assert "warning: --live overrides config live=true with false" in capsys.readouterr().err
 
 
 def test_live_smoke_requires_explicit_live_flag(tmp_path: Path) -> None:
@@ -123,7 +144,9 @@ def test_analyze_reads_summary_and_writes_analysis(tmp_path: Path) -> None:
 
 
 def test_live_part1_passes_explicit_s0_and_properties_to_campaign(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     config_path = write_config(tmp_path, "part1")
     s0 = tmp_path / "s0"
@@ -169,8 +192,14 @@ def test_live_part1_passes_explicit_s0_and_properties_to_campaign(
     assert observed["skill_id"] == "existing-skill"
     assert observed["property_path"] == properties
     replicate = tmp_path / "part1-run" / "replicates" / "0001"
+    assert observed["config"].live is True
     assert observed["config"].output_root == replicate
     assert observed["output"] == replicate / "campaign"
+    frozen = json.loads(
+        (tmp_path / "part1-run" / "config.json").read_text(encoding="utf-8")
+    )
+    assert frozen["live"] is True
+    assert "warning: --live overrides config live=false with true" in capsys.readouterr().err
 
 
 def test_live_part1_runs_requested_replicates_sequentially_and_independently(
@@ -234,7 +263,9 @@ def test_live_part1_runs_requested_replicates_sequentially_and_independently(
 
 
 def test_live_part2_passes_scenario_and_hidden_tests_to_campaign(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     config_path = write_config(tmp_path, "part2")
     scenario = tmp_path / "scenario.md"
@@ -274,8 +305,14 @@ def test_live_part2_passes_scenario_and_hidden_tests_to_campaign(
     assert observed["scenario_path"] == scenario
     assert observed["heldout_paths"] == [hidden_a, hidden_b]
     replicate = tmp_path / "part2-run" / "replicates" / "0001"
+    assert observed["config"].scenario_path == scenario
     assert observed["config"].output_root == replicate
     assert observed["output"] == replicate / "campaign"
+    frozen = json.loads(
+        (tmp_path / "part2-run" / "config.json").read_text(encoding="utf-8")
+    )
+    assert frozen["scenario_path"] == str(scenario)
+    assert "warning: --scenario overrides config scenario_path=" in capsys.readouterr().err
 
 
 def test_failed_live_campaign_writes_terminal_command_receipt(

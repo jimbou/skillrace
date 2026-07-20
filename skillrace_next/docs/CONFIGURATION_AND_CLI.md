@@ -49,9 +49,10 @@ configuration rather than rereading a mutable source file.
 One command invocation runs `replicate_count` campaigns sequentially. Outputs are stored
 under `<output_root>/replicates/0001/`, `0002/`, and so on. Each iteration receives a
 separate effective output root and new campaign-local state while preserving identical
-scientific inputs. The CLI still does not yet make mismatched config `live`/`scenario_path`
-values explicit. Until the planned override behavior is implemented, set config `live`
-to `true` for paid commands and make the two scenario paths identical.
+scientific inputs. CLI arguments are authoritative when they duplicate config fields:
+the presence of `--live` supplies effective `live`, and Part II `--scenario` supplies the
+effective `scenario_path`. If a source value disagrees, the CLI writes a warning to
+stderr and freezes the effective value it actually uses.
 
 ## Providers and model identity
 
@@ -141,8 +142,8 @@ For repository-backed inputs, configure:
 
 `suite_path` must contain every external held-out prompt, environment, NL-check file,
 and proposal receipt. `output_root` must be separate because it receives generated tests
-and evidence. For Part II, keep `scenario_path` equal to the explicit `--scenario`
-argument; the argument is the executed input and the config field preserves matching
+and evidence. For Part II, `--scenario` is the executed input. If source config
+`scenario_path` differs, the CLI warns and freezes the argument path as effective
 provenance.
 
 For Part I, a repository skill is usable when `--s0-dir` contains `SKILL.md`.
@@ -242,7 +243,9 @@ python -m skillrace_next part2 \
 
 Without `--live`, both commands validate/freeze the config and write a `command.json`
 status of `config_frozen`. Campaign-specific arguments are required only when `--live`
-is present, so freezing a config never starts paid work.
+is present, so freezing a config never starts paid work. Because the CLI flag is
+authoritative, omitting `--live` freezes effective `live: false`; a contradictory source
+value produces a warning.
 
 For Part I, `--s0-dir` contains the immutable input `SKILL.md`, `--s0-receipt` is its
 existing provenance receipt, `--skill-id` supplies its stable identity, and

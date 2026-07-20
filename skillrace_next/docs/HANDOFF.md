@@ -162,18 +162,11 @@ The complete strict config has additional required fields documented in
 [Configuration, Providers, and CLI](CONFIGURATION_AND_CLI.md). In Part II, keep the
 frozen `scenario_path` equal to the explicit `--scenario` argument.
 
-Two config/CLI consistency rules are currently operator-enforced rather than checked
-by the command:
-
-- set config `live` to `true` for a paid run and also pass `--live`; and
-- in Part II, pass the same path in config `scenario_path` and `--scenario`.
-
-The CLI gate still prevents paid work unless `--live` is present. Until the planned
-override behavior is implemented, follow the two equality rules above. The settled
-implementation will make CLI arguments authoritative: warn when source config `live` or
-`scenario_path` disagrees, then freeze the effective CLI value so provenance describes
-what actually ran. The warning prevents a silent change; frozen `config.json` must not
-retain a value known to be false for that run.
+CLI override behavior is implemented. The presence of `--live` is authoritative for paid
+execution, and Part II `--scenario` is authoritative for the public scenario. When a
+source config disagrees, the CLI prints a warning and freezes the effective CLI value so
+provenance describes what actually ran. Omitting `--live` always prevents paid work and
+freezes effective `live: false`.
 
 Before spending provider budget, freeze each config without `--live`:
 
@@ -263,6 +256,9 @@ Evidence:
 out/live-contracts/cli-part1/deepseek-v4-flash/20260718T012237Z-997c25ac/
 out/live-contracts/cli-part2/deepseek-v4-flash/20260718T014531Z-1d582fa0/
 out/live-contracts/cli-replicates/deepseek-v4-flash/20260720T073745Z-0f3da0bc/
+out/live-contracts/cli-replicates/deepseek-v4-flash/20260720T075536Z-5f9f9295/
+out/live-contracts/codex-verifier/20260720T075240Z-a6dc5088/
+out/live-contracts/check-executor/20260720T075414Z-f3ced823/
 out/live-contracts/dual-model-gate/deepseek-v4-flash/20260718T021119Z-de8da6fc/
 out/live-contracts/dual-model-gate/qwen3.6-flash/20260718T022206Z-49824891/
 ```
