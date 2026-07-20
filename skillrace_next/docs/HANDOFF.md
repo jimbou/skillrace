@@ -181,6 +181,11 @@ directory.
 
 ### 5. Run and inspect the actual experiments
 
+The approved DeepSeek pilot schedule is frozen under `skillrace_next/study/pilot/`.
+Its README contains the eight explicit sequential commands. Verify `schedule.json`
+before the first paid cell; do not replace those commands with a scheduler or retry an
+unfavorable scientific result.
+
 Paid commands require explicit `--live`. For each completed run:
 
 - inspect the first generated test from every method;

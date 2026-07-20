@@ -133,8 +133,13 @@ falsely admitted. Credentials were absent and all three owned containers were re
 
 ### Pilot and full execution
 
+- [x] Freeze the approved bounded pilot schedule. It uses DeepSeek v4 Flash, five Part I
+  skills, three Part II scenarios, two iterations per method, one replicate, one held-out
+  repetition, and only `t1` for pilot held-out evaluation. The eight hash-bound configs
+  and explicit sequential commands are under `skillrace_next/study/pilot/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
-  count. Use the same cheap model for every non-verifier role within one track.
+  count for the full headline study after inspecting the pilot. Use the same cheap model
+  for every non-verifier role within one track.
 - [ ] Create one frozen campaign config per selected skill/scenario and model track, with
   separate input and output roots. The replicate loop creates numbered replicate
   directories inside that campaign output.
