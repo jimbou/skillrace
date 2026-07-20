@@ -296,6 +296,17 @@ falsely admitted. Credentials were absent and all three owned containers were re
   `out/live-contracts/test-proposer/20260720T181555Z-787d16a4/`. `pilot-v6` freezes the
   same eight scientific cells with new IDs and output roots; only cells lacking valid
   prior results should be launched.
+- [x] Complete and audit `pilot-v6` Part I `fix-failing-test`. All six self-contained
+  development tasks exercised implementation-only test repair; 13 authoritative Docker
+  checks passed with no failures, inconclusives, candidates, or patches. One SkillRACE
+  seed prompt contained confusing self-correcting comments that called already-correct
+  functions buggy, but its single executable factorial defect and expected tests remained
+  unambiguous; the agent fixed only that defect. Manual inspection confirmed coherent
+  episode chains and correct root alignment of the independent second SkillRACE run. All
+  artifacts were unchanged, all six cleanup receipts succeeded, exact-key scans were
+  clean, none of 117 Codex commands invoked Docker, and no owned container remained.
+  Evidence is under
+  `out/live-contracts/pilot-v6/deepseek-v4-flash/part1/fix-failing-test/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
