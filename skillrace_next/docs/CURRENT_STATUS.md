@@ -353,6 +353,20 @@ falsely admitted. Credentials were absent and all three owned containers were re
   checking, all ten cleanup receipts succeeded, exact-key scans were clean, none of 199
   Codex commands invoked Docker, and no owned container remained. Evidence is under
   `out/live-contracts/pilot-v7/deepseek-v4-flash/part2/text-template/`.
+- [x] Complete and audit `pilot-v7` Part II `csv-stats`. Five development runs passed;
+  the remaining VeriGrey run was correctly inconclusive because its generated NL check
+  simultaneously required seven listed records and six data rows. No confirmed failure
+  was eligible for patching, so all three methods retained the generated S0. Held-out
+  evaluation began only after all development runs finished, and the independent S0,
+  Random, VeriGrey, and SkillRACE runs each passed both frozen properties. Two development
+  checker bundles needed their one allowed Terra structure correction before Docker: one
+  had invalid manifest fields and one omitted the manifest. Manual inspection confirmed
+  a semantically complete generated skill, relevant self-contained CSV tasks, the valid
+  contradiction ruling, visible CLI/file-based checkers, and authoritative Docker
+  results. All ten artifacts were unchanged during checking, all ten cleanup receipts
+  succeeded, exact-key scans were clean, none of 222 Codex commands invoked Docker, and
+  no owned container remained. Evidence is under
+  `out/live-contracts/pilot-v7/deepseek-v4-flash/part2/csv-stats/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
