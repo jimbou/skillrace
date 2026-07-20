@@ -52,9 +52,11 @@ actual multi-replicate study.
 
 ### Required implementation work
 
-- [ ] Make `replicate_count` execute the direct sequential loop described above. Verify
+- [x] Make `replicate_count` execute the direct sequential loop described above. Verify
   that the expected numbered directories exist, inputs are identical, and no state is
-  shared across replicates.
+  shared across replicates. Offline coverage and the real two-replicate DeepSeek/Codex/
+  Docker contract are green; evidence is under
+  `out/live-contracts/cli-replicates/deepseek-v4-flash/20260720T073745Z-0f3da0bc/`.
 - [ ] Make CLI `--live` and `--scenario` overrides explicit. Warn on disagreement and
   freeze the effective values used by the command.
 - [ ] Rename/rebuild the shared Pi runtime image with a generic, model-independent name.
@@ -269,11 +271,11 @@ build an analysis framework or incomplete-run recovery system.
 
 ## Handoff
 
-The component and single-campaign implementation tasks are complete. The direct
-replicate loop, explicit CLI override behavior, generic runtime image name, experiment
-input preparation, pilot, full study, and simple final aggregation remain. The study will
-run `skillrace_next` directly; legacy cutover is not planned. More operational detail is
-in [SkillRACE Next Handoff](HANDOFF.md).
+The component, single-campaign implementation, and direct replicate loop are complete.
+Explicit CLI override behavior, generic runtime image naming, experiment input
+preparation, pilot, full study, and simple final aggregation remain. The study will run
+`skillrace_next` directly; legacy cutover is not planned. More operational detail is in
+[SkillRACE Next Handoff](HANDOFF.md).
 
 The repository still contains extensive unrelated dirty legacy work. Do not reset,
 clean, reformat, or include those files in future `skillrace_next` commits.

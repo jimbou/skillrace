@@ -61,10 +61,10 @@ For repository-backed runs, set `config.suite_path` to the scenario/test asset r
 `scenario_path` equal to the file passed with `--scenario` so the frozen provenance is
 unambiguous.
 
-One CLI invocation currently runs one campaign. Keep `replicate_count` at `1` and use a
-unique `experiment_id` and `output_root` for every replicate until the direct sequential
-replicate loop is implemented. For paid runs, set config `live` to `true` as well as
-passing `--live`.
+One CLI invocation runs `replicate_count` campaigns sequentially under numbered
+`<output_root>/replicates/0001/`, `0002/`, and so on. Each replicate receives its own
+effective config/output root and shares no method state with another replicate. For paid
+runs, set config `live` to `true` as well as passing `--live`.
 
 ## Documentation
 

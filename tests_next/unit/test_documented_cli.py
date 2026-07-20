@@ -7,9 +7,10 @@ from skillrace_next import cli
 from tests_next.unit.test_config import valid_config_dict
 
 
-def write_config(tmp_path: Path, part: str) -> Path:
+def write_config(tmp_path: Path, part: str, replicate_count: int = 1) -> Path:
     values = valid_config_dict()
     values["part"] = part
+    values["replicate_count"] = replicate_count
     values["output_root"] = str(tmp_path / f"{part}-run")
     path = tmp_path / f"{part}.json"
     path.write_text(json.dumps(values), encoding="utf-8")
@@ -167,7 +168,69 @@ def test_live_part1_passes_explicit_s0_and_properties_to_campaign(
     assert observed["s0_receipt"] == receipt
     assert observed["skill_id"] == "existing-skill"
     assert observed["property_path"] == properties
-    assert observed["output"] == tmp_path / "part1-run" / "campaign"
+    replicate = tmp_path / "part1-run" / "replicates" / "0001"
+    assert observed["config"].output_root == replicate
+    assert observed["output"] == replicate / "campaign"
+
+
+def test_live_part1_runs_requested_replicates_sequentially_and_independently(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_path = write_config(tmp_path, "part1", replicate_count=2)
+    s0 = tmp_path / "s0"
+    s0.mkdir()
+    receipt = tmp_path / "s0-receipt.json"
+    receipt.write_text("{}\n", encoding="utf-8")
+    properties = tmp_path / "properties.json"
+    properties.write_text("[]\n", encoding="utf-8")
+    calls: list[dict[str, object]] = []
+
+    def fake_campaign(config, s0_dir, s0_receipt, skill_id, property_path, output):
+        calls.append(
+            {
+                "config": config,
+                "s0_dir": s0_dir,
+                "s0_receipt": s0_receipt,
+                "skill_id": skill_id,
+                "property_path": property_path,
+                "output": output,
+            }
+        )
+        return {"schema": "skillrace-part1/1"}
+
+    monkeypatch.setattr(cli, "run_part1_campaign", fake_campaign)
+
+    assert cli.main(
+        [
+            "part1",
+            "--config",
+            str(config_path),
+            "--s0-dir",
+            str(s0),
+            "--s0-receipt",
+            str(receipt),
+            "--skill-id",
+            "existing-skill",
+            "--properties",
+            str(properties),
+            "--live",
+        ]
+    ) == 0
+
+    replicate_root = tmp_path / "part1-run" / "replicates"
+    assert [call["output"] for call in calls] == [
+        replicate_root / "0001" / "campaign",
+        replicate_root / "0002" / "campaign",
+    ]
+    assert [call["config"].output_root for call in calls] == [
+        replicate_root / "0001",
+        replicate_root / "0002",
+    ]
+    assert calls[0]["config"] is not calls[1]["config"]
+    assert all(call["s0_dir"] == s0 for call in calls)
+    assert all(call["s0_receipt"] == receipt for call in calls)
+    assert all(call["skill_id"] == "existing-skill" for call in calls)
+    assert all(call["property_path"] == properties for call in calls)
 
 
 def test_live_part2_passes_scenario_and_hidden_tests_to_campaign(
@@ -210,7 +273,9 @@ def test_live_part2_passes_scenario_and_hidden_tests_to_campaign(
 
     assert observed["scenario_path"] == scenario
     assert observed["heldout_paths"] == [hidden_a, hidden_b]
-    assert observed["output"] == tmp_path / "part2-run" / "campaign"
+    replicate = tmp_path / "part2-run" / "replicates" / "0001"
+    assert observed["config"].output_root == replicate
+    assert observed["output"] == replicate / "campaign"
 
 
 def test_failed_live_campaign_writes_terminal_command_receipt(

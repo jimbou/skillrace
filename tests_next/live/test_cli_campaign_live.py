@@ -20,7 +20,14 @@ def _run_id() -> str:
     return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
 
 
-def _write_config(evidence: Path, part: str, iterations: int) -> Path:
+def _write_config(
+    evidence: Path,
+    part: str,
+    iterations: int,
+    *,
+    methods: tuple[str, ...] = ("random", "verigrey", "skillrace"),
+    replicate_count: int = 1,
+) -> Path:
     base = live_config(
         evidence,
         {
@@ -36,7 +43,8 @@ def _write_config(evidence: Path, part: str, iterations: int) -> Path:
         base,
         experiment_id=f"cli-{part}-deepseek-v4-flash",
         part=part,
-        methods=("random", "verigrey", "skillrace"),
+        methods=methods,
+        replicate_count=replicate_count,
         provider="lab",
         model_id="deepseek-v4-flash",
         iteration_budget=iterations,
@@ -108,14 +116,105 @@ def test_real_part1_cli_generates_and_runs_one_test_per_method(
         ]
     ) == 0
 
-    summary = json.loads(
-        (evidence / "run" / "campaign" / "summary.json").read_text(encoding="utf-8")
-    )
+    campaign = evidence / "run" / "replicates" / "0001" / "campaign"
+    summary = json.loads((campaign / "summary.json").read_text(encoding="utf-8"))
     assert summary["s0_hash"] == tree_hash(s0)
     for method in ("random", "verigrey", "skillrace"):
-        iteration = evidence / "run" / "campaign" / "methods" / method / "runs" / "0"
+        iteration = campaign / "methods" / method / "runs" / "0"
         assert (iteration / "execution" / "run.json").is_file()
         assert (iteration / "checks" / "results" / "check_results.json").is_file()
+    assert json.loads((evidence / "run" / "command.json").read_text())["status"] == "completed"
+    _assert_no_secret(evidence, secret)
+
+
+def test_real_part1_cli_runs_two_independent_replicates(
+    live_evidence_root: Path,
+) -> None:
+    secret = os.environ.get("LAB_KEY_UNLIMITED")
+    if not secret:
+        pytest.fail("LAB_KEY_UNLIMITED is required for the replicate CLI contract")
+    evidence = live_evidence_root / "cli-replicates" / "deepseek-v4-flash" / _run_id()
+    evidence.mkdir(parents=True)
+    config = _write_config(
+        evidence,
+        "part1",
+        1,
+        methods=("random",),
+        replicate_count=2,
+    )
+    s0 = evidence / "input" / "s0"
+    s0.mkdir(parents=True)
+    (s0 / "SKILL.md").write_text(
+        "---\nname: exact-artifact\ndescription: Create exact requested local artifacts.\n---\n"
+        "# Exact artifact\nRead the task, create the requested artifact, then read it back and "
+        "correct any mismatch before stopping.\n",
+        encoding="utf-8",
+    )
+    receipt = evidence / "input" / "s0-receipt.json"
+    atomic_write_json(receipt, {"source": "real replicated CLI Part I input"})
+    properties = evidence / "input" / "properties.json"
+    atomic_write_json(
+        properties,
+        [
+            {
+                "property_id": "P1",
+                "description": (
+                    "The artifact requested by the generated task exists and exactly "
+                    "matches the task's observable content requirement."
+                ),
+            }
+        ],
+    )
+
+    assert cli.main(
+        [
+            "part1",
+            "--config",
+            str(config),
+            "--s0-dir",
+            str(s0),
+            "--s0-receipt",
+            str(receipt),
+            "--skill-id",
+            "exact-artifact",
+            "--properties",
+            str(properties),
+            "--live",
+        ]
+    ) == 0
+
+    run_ids: list[str] = []
+    for replicate in ("0001", "0002"):
+        replicate_root = evidence / "run" / "replicates" / replicate
+        summary = json.loads(
+            (replicate_root / "campaign" / "summary.json").read_text(encoding="utf-8")
+        )
+        assert summary["s0_hash"] == tree_hash(s0)
+        run_record = json.loads(
+            (
+                replicate_root
+                / "campaign"
+                / "methods"
+                / "random"
+                / "runs"
+                / "0"
+                / "execution"
+                / "run.json"
+            ).read_text(encoding="utf-8")
+        )
+        run_ids.append(run_record["run_id"])
+        assert (
+            replicate_root
+            / "campaign"
+            / "methods"
+            / "random"
+            / "runs"
+            / "0"
+            / "checks"
+            / "results"
+            / "check_results.json"
+        ).is_file()
+    assert len(set(run_ids)) == 2
     assert json.loads((evidence / "run" / "command.json").read_text())["status"] == "completed"
     _assert_no_secret(evidence, secret)
 
@@ -192,7 +291,7 @@ def test_real_part2_cli_generates_tests_then_opens_hidden_test(
         ]
     ) == 0
 
-    campaign = evidence / "run" / "campaign"
+    campaign = evidence / "run" / "replicates" / "0001" / "campaign"
     summary = json.loads((campaign / "summary.json").read_text(encoding="utf-8"))
     assert len(summary["steps"]) + len(summary["missed_slots"]) == 6
     assert [row["method"] for row in summary["heldout_evaluations"]] == [

@@ -1,4 +1,5 @@
 import argparse
+from dataclasses import replace
 import json
 from pathlib import Path
 import subprocess
@@ -177,25 +178,32 @@ def main(argv: list[str] | None = None) -> int:
                 missing = [name for name, value in required.items() if not value]
                 if missing:
                     raise ValueError("part1 --live requires " + ", ".join(missing))
-                run_part1_campaign(
-                    config,
-                    Path(args.s0_dir),
-                    Path(args.s0_receipt),
-                    args.skill_id,
-                    Path(args.properties),
-                    output / "campaign",
-                )
             else:
                 if not args.scenario or not args.heldout_test:
                     raise ValueError(
                         "part2 --live requires --scenario and at least one --heldout-test"
                     )
-                run_part2_campaign(
-                    config,
-                    Path(args.scenario),
-                    [Path(path) for path in args.heldout_test],
-                    output / "campaign",
+            for replicate_number in range(1, config.replicate_count + 1):
+                replicate_root = (
+                    output / "replicates" / f"{replicate_number:04d}"
                 )
+                replicate_config = replace(config, output_root=replicate_root)
+                if args.command == "part1":
+                    run_part1_campaign(
+                        replicate_config,
+                        Path(args.s0_dir),
+                        Path(args.s0_receipt),
+                        args.skill_id,
+                        Path(args.properties),
+                        replicate_root / "campaign",
+                    )
+                else:
+                    run_part2_campaign(
+                        replicate_config,
+                        Path(args.scenario),
+                        [Path(path) for path in args.heldout_test],
+                        replicate_root / "campaign",
+                    )
         except Exception:
             atomic_write_json(
                 output / "command.json",

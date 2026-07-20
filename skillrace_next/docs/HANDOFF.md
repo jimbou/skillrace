@@ -16,9 +16,8 @@ python -m skillrace_next ...
 No package rename is required to run experiments. The final legacy-package cutover was
 not authorized and was not performed.
 
-What remains is primarily experiment preparation and execution. One technical gap must
-also be resolved before treating `replicate_count > 1` as implemented: the production
-CLI currently runs exactly one campaign per invocation.
+What remains is primarily experiment preparation and execution. The production CLI now
+executes `replicate_count` independent campaigns sequentially in numbered directories.
 
 ## Ready now
 
@@ -44,27 +43,20 @@ CLI currently runs exactly one campaign per invocation.
 The completed live gates are bounded contracts. They prove the pipeline boundaries but
 are not a full scientific run over the repository's skills and scenarios.
 
-### 0. Resolve replicate and matrix execution
+### 0. Replicate execution is complete
 
-One `part1` or `part2` invocation currently executes one skill/scenario/model campaign.
-`ExperimentConfig.replicate_count` is validated and frozen for provenance, but the CLI
-composition does not loop over it. There is also no multi-skill, multi-scenario, or
-multi-model matrix runner in `skillrace_next`.
+One `part1` or `part2` invocation executes `ExperimentConfig.replicate_count` independent
+skill/scenario/model campaigns sequentially. Outputs use:
 
-Do not set `replicate_count` above `1` and assume multiple independent campaigns were
-executed. Until this is implemented, the scientifically safe operational workaround is:
+```text
+<output_root>/replicates/0001/
+<output_root>/replicates/0002/
+...
+```
 
-- set `replicate_count` to `1`;
-- issue one explicit CLI invocation per replicate/cell;
-- give every invocation a unique `experiment_id` and `output_root`; and
-- aggregate only after verifying every expected cell exists.
-
-The settled implementation is the smallest direct outer sequential loop over replicates.
-Use numbered directories such as `0001` and `0002`; give each replicate fresh identical
-inputs and no access to another replicate's state or output. Add a focused failing test
-proving directory separation, input identity, and the expected replicate count. Do not
-add a scheduler, matrix engine, workflow framework, recovery system, parallel campaign
-manager, or cross-replicate state.
+Each replicate receives a fresh effective config/output root, identical input arguments,
+and no state from another replicate. There is intentionally no scheduler, parallel
+campaign manager, or multi-skill/scenario/model matrix runner.
 
 ### 1. Choose the real study inputs
 
@@ -170,15 +162,14 @@ The complete strict config has additional required fields documented in
 [Configuration, Providers, and CLI](CONFIGURATION_AND_CLI.md). In Part II, keep the
 frozen `scenario_path` equal to the explicit `--scenario` argument.
 
-Three config/CLI consistency rules are currently operator-enforced rather than checked
+Two config/CLI consistency rules are currently operator-enforced rather than checked
 by the command:
 
-- set `replicate_count` to `1`, because one invocation runs one campaign;
 - set config `live` to `true` for a paid run and also pass `--live`; and
 - in Part II, pass the same path in config `scenario_path` and `--scenario`.
 
 The CLI gate still prevents paid work unless `--live` is present. Until the planned
-override behavior is implemented, follow the three equality rules above. The settled
+override behavior is implemented, follow the two equality rules above. The settled
 implementation will make CLI arguments authoritative: warn when source config `live` or
 `scenario_path` disagrees, then freeze the effective CLI value so provenance describes
 what actually ran. The warning prevents a silent change; frozen `config.json` must not
@@ -271,6 +262,7 @@ Evidence:
 ```text
 out/live-contracts/cli-part1/deepseek-v4-flash/20260718T012237Z-997c25ac/
 out/live-contracts/cli-part2/deepseek-v4-flash/20260718T014531Z-1d582fa0/
+out/live-contracts/cli-replicates/deepseek-v4-flash/20260720T073745Z-0f3da0bc/
 out/live-contracts/dual-model-gate/deepseek-v4-flash/20260718T021119Z-de8da6fc/
 out/live-contracts/dual-model-gate/qwen3.6-flash/20260718T022206Z-49824891/
 ```
@@ -287,9 +279,9 @@ d8d93ee feat(next): run explicit clean-room campaigns
 ## Start of the next session
 
 1. Read this handoff and [Current Status and Known Issues](CURRENT_STATUS.md).
-2. Confirm whether the next goal is replicate-loop support, CLI override behavior,
-   generic runtime-image naming, Part I input selection, Part II input preparation, the
-   bounded pilot, the full experiment, or final aggregation.
+2. Confirm whether the next goal is CLI override behavior, generic runtime-image naming,
+   Part I input selection, Part II input preparation, the bounded pilot, the full
+   experiment, or final aggregation.
 3. Inspect only the selected input files and their current Git status.
 4. Run the full offline suite before any implementation change:
 

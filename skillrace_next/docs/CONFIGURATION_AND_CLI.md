@@ -14,7 +14,7 @@ The complete field set is:
 | `experiment_id` | Stable run label |
 | `part` | `part1` or `part2` |
 | `methods` | Ordered method names, normally Random, VeriGrey, SkillRACE |
-| `replicate_count` | Frozen requested repetitions; current CLI runs one campaign, so use `1` |
+| `replicate_count` | Number of independent sequential campaign repetitions |
 | `provider`, `model_id` | One supported non-verifier model track |
 | `pi_version` | Pinned Pi version recorded for provenance |
 | `role_budgets` | Turn limits for proposer, weak agent, segmenter, alignment, generator, patcher |
@@ -46,11 +46,11 @@ At command start, `freeze_config` writes:
 The hash is computed from canonical normalized JSON. A running stage must use the frozen
 configuration rather than rereading a mutable source file.
 
-One command invocation currently runs exactly one campaign. `replicate_count` is present
-in the frozen scientific record but is not expanded by the CLI, so keep it at `1` and
-launch each replicate with a unique `experiment_id` and `output_root`. The CLI also does
-not yet reject a mismatch between config `live` and `--live`, or between Part II config
-`scenario_path` and `--scenario`. Until those checks are implemented, set config `live`
+One command invocation runs `replicate_count` campaigns sequentially. Outputs are stored
+under `<output_root>/replicates/0001/`, `0002/`, and so on. Each iteration receives a
+separate effective output root and new campaign-local state while preserving identical
+scientific inputs. The CLI still does not yet make mismatched config `live`/`scenario_path`
+values explicit. Until the planned override behavior is implemented, set config `live`
 to `true` for paid commands and make the two scenario paths identical.
 
 ## Providers and model identity
