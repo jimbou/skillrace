@@ -224,43 +224,61 @@ def propose_test(
     if not isinstance(observation, dict):
         raise ValueError("VeriGrey state has no tool-sequence evidence")
     output = config.output_root / "verigrey-proposals" / uuid.uuid4().hex
-    attempt = output / "pi"
-    attempt.mkdir(parents=True)
-    prompt_path = attempt / "prompt.txt"
-    prompt_path.write_text(
-        "Propose one concrete development task that exercises the supplied least-covered "
-        "tool transition and must meaningfully exercise the supplied skill. A generic "
-        "task that merely reaches the transition is invalid; the transition is not a "
-        "substitute for skill relevance. The task must be self-contained: specify all "
-        "paths, inline input "
-        "data, and an observable expected result. The task container starts with an empty "
-        "/workspace, so do not claim that a file or project already exists. Tell the agent "
-        "to create every needed file, and put every task and artifact path under /workspace. "
-        "Do not use /mnt/data or /tmp. The check_description must not add requirements absent "
-        "from the visible task prompt. Return only one JSON object with exactly "
-        "prompt and check_description; both values must be nonempty strings. The entire "
-        "response must start with { and end with }. Do not use Markdown fences or tools.\n\n"
-        f"NOVELTY TARGET:\n{json.dumps(target, sort_keys=True)}\n\n"
-        f"RECENT TOOL-SEQUENCE EVIDENCE:\n{json.dumps(observation, sort_keys=True)}\n\n"
-        f"SKILL.md:\n{(skill.directory_path / 'SKILL.md').read_text(encoding='utf-8')}\n",
-        encoding="utf-8",
-    )
-    result = pi_runner(
-        PiRequest(
-            operation_id=f"proposal.verigrey.{uuid.uuid4().hex}",
-            provider=config.provider,
-            model=config.model_id,
-            prompt_path=prompt_path,
-            output_dir=attempt,
-            image=config.docker_image,
-            allowed_tools=("read",),
-            max_turns=config.role_budgets["proposer"],
-            timeout_seconds=config.timeouts["pi"],
+    response: dict[str, str] | None = None
+    result: PiResult | None = None
+    diagnostic: str | None = None
+    for ordinal in (1, 2):
+        attempt = output / f"proposal-attempt-{ordinal}"
+        attempt.mkdir(parents=True)
+        correction = (
+            f" Your previous response was invalid: {diagnostic}. Return corrected raw "
+            "JSON only."
+            if diagnostic
+            else ""
         )
-    )
-    if result.status != "completed":
-        raise RuntimeError(f"Pi VeriGrey proposal failed: {result.status}")
-    response = _assistant_json(result.trace_path)
+        prompt_path = attempt / "prompt.txt"
+        prompt_path.write_text(
+            "Propose one concrete development task that exercises the supplied least-covered "
+            "tool transition and must meaningfully exercise the supplied skill. A generic "
+            "task that merely reaches the transition is invalid; the transition is not a "
+            "substitute for skill relevance. Make all inline data, expected values, examples, "
+            "and prose internally consistent; do not emit mutually inconsistent requirements. "
+            "The task must be self-contained: specify all "
+            "paths, inline input data, and an observable expected result. The task container "
+            "starts with an empty /workspace, so do not claim that a file or project already "
+            "exists. Tell the agent to create every needed file, and put every task and "
+            "artifact path under /workspace. Do not use /mnt/data or /tmp. The "
+            "check_description must not add requirements absent from the visible task prompt. "
+            "Return only one JSON object with exactly prompt and check_description; both "
+            "values must be nonempty strings. The entire response must start with { and end "
+            f"with }}. Do not use Markdown fences or tools.{correction}\n\n"
+            f"NOVELTY TARGET:\n{json.dumps(target, sort_keys=True)}\n\n"
+            f"RECENT TOOL-SEQUENCE EVIDENCE:\n{json.dumps(observation, sort_keys=True)}\n\n"
+            f"SKILL.md:\n{(skill.directory_path / 'SKILL.md').read_text(encoding='utf-8')}\n",
+            encoding="utf-8",
+        )
+        result = pi_runner(
+            PiRequest(
+                operation_id=f"proposal.verigrey.{uuid.uuid4().hex}",
+                provider=config.provider,
+                model=config.model_id,
+                prompt_path=prompt_path,
+                output_dir=attempt,
+                image=config.docker_image,
+                allowed_tools=("read",),
+                max_turns=config.role_budgets["proposer"],
+                timeout_seconds=config.timeouts["pi"],
+            )
+        )
+        if result.status != "completed":
+            raise RuntimeError(f"Pi VeriGrey proposal failed: {result.status}")
+        try:
+            response = _assistant_json(result.trace_path)
+            break
+        except (json.JSONDecodeError, OSError, ValueError) as error:
+            diagnostic = str(error)
+    if response is None or result is None:
+        raise ValueError("two malformed VeriGrey proposal responses")
     test_id = "verigrey-" + uuid.uuid4().hex
     case = output / test_id
     environment = case / "environment"

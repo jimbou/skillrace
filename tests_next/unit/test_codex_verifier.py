@@ -89,6 +89,8 @@ def test_guide_states_immutable_artifact_and_authoritative_execution_contract() 
     assert "no Docker access" in guide
     assert "does not meaningfully exercise the supplied skill" in normalized_words
     assert "observed values satisfy the declared pass condition" in normalized_words
+    assert "mutually inconsistent requirements" in normalized_words
+    assert "exit status `2`" in normalized_words
 
 
 def test_docker_command_detection_distinguishes_dockerfile_from_cli_invocation() -> None:

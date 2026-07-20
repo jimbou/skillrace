@@ -231,6 +231,8 @@ def test_proposal_targets_undercovered_transition_and_records_exact_evidence(
     assert "must not add requirements" in pi_prompt
     assert "meaningfully exercise the supplied skill" in pi_prompt
     assert "not a substitute for skill relevance" in pi_prompt
+    assert "internally consistent" in pi_prompt
+    assert "mutually inconsistent requirements" in pi_prompt
     assert json.dumps(target, sort_keys=True) in pi_prompt
     assert proposed.origin_method == "verigrey"
     assert proposed.validation_status == "valid"
@@ -239,3 +241,92 @@ def test_proposal_targets_undercovered_transition_and_records_exact_evidence(
     assert proposal["tool_sequence_evidence"] == state["last_observation"]
     assert "write" in proposed.nl_check_path.read_text(encoding="utf-8")
     assert "bash" in proposed.nl_check_path.read_text(encoding="utf-8")
+
+
+def test_proposal_allows_one_format_correction(tmp_path: Path) -> None:
+    read, write = normalized_sequence()
+    state = update_state({}, [read, write])
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# CSV analysis\n", encoding="utf-8")
+    receipt = tmp_path / "skill-receipt.json"
+    receipt.write_text("{}\n", encoding="utf-8")
+    skill = SkillVersion(
+        skill_id="csv-analysis",
+        version_id="S0",
+        parent_version_id=None,
+        directory_path=skill_dir,
+        tree_hash=tree_hash(skill_dir),
+        creation_role="fixture",
+        model_id="deepseek-v4-flash",
+        receipt_path=receipt,
+    )
+    requests: list[PiRequest] = []
+
+    def correcting_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        request.output_dir.mkdir(parents=True, exist_ok=True)
+        response = (
+            "```json\n{\"prompt\": \"bad\", \"check_description\": \"bad\"}\n```"
+            if len(requests) == 1
+            else json.dumps(
+                {
+                    "prompt": "Create /workspace/data.csv and summarize its rows.",
+                    "check_description": "The row count is reported.",
+                }
+            )
+        )
+        trace = request.output_dir / "trace.jsonl"
+        trace.write_text(
+            json.dumps(
+                {
+                    "type": "message",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": response}],
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        pi_receipt = request.output_dir / "receipt.json"
+        pi_receipt.write_text("{}\n", encoding="utf-8")
+        return PiResult(
+            operation_id=request.operation_id,
+            model=request.model,
+            status="completed",
+            trace_path=trace,
+            usage={},
+            stderr="",
+            receipt_path=pi_receipt,
+            return_code=0,
+            wall_seconds=0.1,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+    def validator(case: CaseRecord, config: object) -> CaseRecord:
+        return replace(
+            case,
+            validation_status="valid",
+            validation_diagnostic="validated",
+            container_image_id="sha256:fixture",
+        )
+
+    proposed = propose_test(
+        state,
+        skill,
+        replace(config_for(tmp_path), role_budgets={"proposer": 4}),
+        pi_runner=correcting_pi,
+        validator=validator,
+    )
+
+    assert len(requests) == 2
+    assert requests[0].output_dir.name == "proposal-attempt-1"
+    assert requests[1].output_dir.name == "proposal-attempt-2"
+    correction = requests[1].prompt_path.read_text(encoding="utf-8")
+    assert "previous response was invalid" in correction
+    assert "raw JSON only" in correction
+    assert proposed.prompt_path.read_text(encoding="utf-8").startswith(
+        "Create /workspace/data.csv"
+    )

@@ -118,3 +118,66 @@ def test_real_yunwu_proposes_valid_test_for_tool_novelty_target(
     for path in evidence.rglob("*"):
         if path.is_file():
             assert secret not in path.read_text(encoding="utf-8", errors="replace")
+
+
+def test_real_deepseek_v4_proposes_relevant_verigrey_test(
+    live_evidence_root: Path,
+) -> None:
+    secret = os.environ.get("LAB_KEY_UNLIMITED")
+    if not secret:
+        pytest.fail("LAB_KEY_UNLIMITED is required for the live VeriGrey contract")
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    evidence = live_evidence_root / "verigrey" / "deepseek-v4-flash" / run_id
+    evidence.mkdir(parents=True)
+    trace = evidence / "source-trace.jsonl"
+    write_trace(trace)
+    sequence = normalize_tool_sequence(trace)
+    state = update_state({}, sequence)
+    atomic_write_json(evidence / "state.json", state)
+    skill_dir = evidence / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        "# CSV analysis\nInspect a concrete CSV, compute every requested aggregate from "
+        "all rows, and report exact numeric results.\n",
+        encoding="utf-8",
+    )
+    skill_receipt = evidence / "skill-receipt.json"
+    atomic_write_json(skill_receipt, {"source": "live fixture"})
+    skill = SkillVersion(
+        skill_id="live-csv-verigrey",
+        version_id="S0",
+        parent_version_id=None,
+        directory_path=skill_dir,
+        tree_hash=tree_hash(skill_dir),
+        creation_role="fixture",
+        model_id="deepseek-v4-flash",
+        receipt_path=skill_receipt,
+    )
+    base = live_config(evidence, {"proposer": 4})
+    config = replace(
+        base,
+        experiment_id="live-verigrey-deepseek-v4",
+        methods=("verigrey",),
+        provider="lab",
+        model_id="deepseek-v4-flash",
+        output_root=evidence,
+        timeouts={**base.timeouts, "pi": 240},
+    )
+
+    proposed = propose_test(state, skill, config)
+
+    assert proposed.validation_status == "valid"
+    prompt = proposed.prompt_path.read_text(encoding="utf-8")
+    assert "csv" in prompt.lower()
+    assert "/mnt/data" not in prompt
+    assert "/tmp" not in prompt
+    proposal = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
+    pi_receipt = json.loads(Path(proposal["pi_receipt_path"]).read_text(encoding="utf-8"))
+    assert pi_receipt["provider"] == "lab"
+    assert pi_receipt["model"] == "deepseek-v4-flash"
+    assert pi_receipt["status"] == "completed"
+    assert pi_receipt["usage"]["total_tokens"] > 0
+    atomic_write_json(evidence / "test-case.json", proposed.to_dict())
+    for path in evidence.rglob("*"):
+        if path.is_file():
+            assert secret not in path.read_text(encoding="utf-8", errors="replace")

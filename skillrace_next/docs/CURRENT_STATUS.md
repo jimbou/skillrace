@@ -242,6 +242,28 @@ falsely admitted. Credentials were absent and all three owned containers were re
   receipts succeeded, exact-key scans were clean, none of 94 Codex commands invoked
   Docker, and no owned container remained. Evidence is under
   `out/live-contracts/pilot-v4/deepseek-v4-flash/part1/js-feature/`.
+- [x] Preserve `pilot-v4` Part I cell 3, `csv-workbench`, as terminal invalid pilot
+  evidence. The first Random task contradicted its six-row fixture by saying `Widget C`
+  appeared once although it appeared twice; Terra chose the concrete rows and passed the
+  result instead of treating the generated contract as ambiguous. After three completed
+  discovery runs, the second VeriGrey proposal returned valid JSON inside a Markdown
+  fence. VeriGrey had no bounded format correction, so the CLI wrote `command.json` with
+  `status: failed` and stopped. No method-quality outcome is reported, the output root is
+  not resumed, all three containers were removed, and no owned container remains.
+  Evidence is under
+  `out/live-contracts/pilot-v4/deepseek-v4-flash/part1/csv-workbench/`.
+- [x] Correct both cell-3 infrastructure findings directly. VeriGrey proposals now receive
+  at most one second Pi call after malformed JSON, using a fresh attempt directory and an
+  explicit raw-JSON correction prompt; a second malformed response fails. All proposers
+  now require their inline data, examples, prose, and expected values to be internally
+  consistent. The Codex guide classifies mutually inconsistent generated tasks as
+  inconclusive or uncovered rather than choosing an interpretation. The full offline suite
+  is green. A fresh relevant and arithmetically consistent DeepSeek v4 VeriGrey proposal
+  passed under
+  `out/live-contracts/verigrey/deepseek-v4-flash/20260720T174026Z-97c3bd60/`.
+  Terra/medium again rejected an unrelated task as uncovered under
+  `out/live-contracts/codex-verifier-relevance/20260720T174135Z-4924c63c/`; none of its 16
+  commands invoked Docker. Exact-key scans were clean and no owned container remained.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.

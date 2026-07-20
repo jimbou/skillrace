@@ -72,6 +72,12 @@ not meaningfully exercise the supplied skill, put every affected property in `un
 and state that the task is inapplicable. Do not turn success or failure on an unrelated
 generic task into evidence about the skill.
 
+If the visible prompt contains mutually inconsistent requirements, examples, or expected
+values, do not choose one interpretation. Declare a checker that reports the conflict and
+uses exit status `2`, or mark the affected property `uncovered` when no executable
+observation can resolve it. A contradictory generated task is not evidence of a skill
+failure or success.
+
 Before finalizing a checker, reconcile its decision expression with the artifact, trace,
 and tool outputs. If the observed values satisfy the declared pass condition, the script
 must exit `0`; do not manufacture a failure through an escaping, whitespace, or path
