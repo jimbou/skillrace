@@ -67,6 +67,14 @@ The exact task prompt is the visible behavioral contract. A natural-language che
 not enforce a condition that the prompt did not request. Put such a property in `uncovered`
 and explain the mismatch instead of creating a hidden requirement.
 
+A checker must not import or call an artifact function, class, or method unless that
+interface and its signature is explicitly required by the prompt. Do not infer a hidden
+API from one artifact implementation and then require replay artifacts to preserve it.
+Exercise the prompt-declared CLI, files, or other visible entrypoint. When a generalized
+probe needs different input files, copy the artifact into `/tmp/skillrace-check-work`,
+change only that scratch copy, and run the visible entrypoint there. If the visible
+contract cannot be exercised defensibly, mark the affected property uncovered.
+
 The proposed task must also be relevant to the supplied skill. If the visible prompt does
 not meaningfully exercise the supplied skill, put every affected property in `uncovered`
 and state that the task is inapplicable. Do not turn success or failure on an unrelated
