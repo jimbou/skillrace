@@ -339,6 +339,20 @@ falsely admitted. Credentials were absent and all three owned containers were re
   under `out/live-contracts/check-executor/20260720T191416Z-882993d6/`. `pilot-v7`
   freezes the same scientific cells with fresh IDs and roots; only cells lacking valid
   prior results should be launched.
+- [x] Complete and audit `pilot-v7` Part II `text-template`. All six development runs
+  passed their generated checks, so no method requested a patch and all three final
+  skills remained the generated S0. Held-out evaluation began only after development
+  finished. The independent S0, Random, and SkillRACE runs passed all three frozen
+  checks. The VeriGrey-labeled stochastic run failed the substitution check because its
+  artifact used `\w+` and therefore did not replace requested keys containing a hyphen or
+  space; its preservation and repetition checks passed. This is a valid held-out run
+  outcome, not a checker defect or an admitted skill regression: every method still had
+  the identical S0 hash. Manual inspection confirmed semantic S0 generation, relevant
+  development tasks, visible CLI/file-based checkers, authoritative Docker results, and
+  the legitimate VeriGrey artifact failure. All ten artifacts were unchanged during
+  checking, all ten cleanup receipts succeeded, exact-key scans were clean, none of 199
+  Codex commands invoked Docker, and no owned container remained. Evidence is under
+  `out/live-contracts/pilot-v7/deepseek-v4-flash/part2/text-template/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
