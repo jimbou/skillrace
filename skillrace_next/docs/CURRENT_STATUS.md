@@ -180,6 +180,12 @@ falsely admitted. Credentials were absent and all three owned containers were re
   inputs, model, methods, and budgets, with fresh experiment IDs and output roots under
   `out/live-contracts/pilot-v3/`. The manifest and exact sequential commands are under
   `skillrace_next/study/pilot-v3/`.
+- [x] Complete and audit `pilot-v3` Part I cell 1, `file-check`. All six development
+  prompts were self-contained under `/workspace`; every checker execution passed with an
+  unchanged artifact; there were no candidates, inconclusives, invalid proposals, or
+  patches. All six containers were removed, exact-key scans were clean, and none of the
+  60 Codex exploratory commands invoked Docker. The terminal summary is under
+  `out/live-contracts/pilot-v3/deepseek-v4-flash/part1/file-check/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
