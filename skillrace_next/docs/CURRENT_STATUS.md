@@ -264,6 +264,10 @@ falsely admitted. Credentials were absent and all three owned containers were re
   Terra/medium again rejected an unrelated task as uncovered under
   `out/live-contracts/codex-verifier-relevance/20260720T174135Z-4924c63c/`; none of its 16
   commands invoked Docker. Exact-key scans were clean and no owned container remained.
+- [x] Freeze `pilot-v5` with the same approved eight cells, inputs, model assignments,
+  methods, budgets, and held-out policy, but fresh experiment IDs and roots under
+  `out/live-contracts/pilot-v5/`. Its hash-bound schedule and exact sequential commands
+  are under `skillrace_next/study/pilot-v5/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
