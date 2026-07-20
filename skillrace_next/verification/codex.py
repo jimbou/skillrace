@@ -107,6 +107,12 @@ def validate_check_manifest(
             or not all(isinstance(argument, str) and argument for argument in argv)
         ):
             raise ValueError("check argv must be a nonempty string list")
+        declared_script_arguments = {
+            raw_script,
+            f"/tmp/skillrace-checks/{raw_script}",
+        }
+        if not any(argument in declared_script_arguments for argument in argv):
+            raise ValueError("check argv must invoke its declared script")
         timeout = check["timeout_seconds"]
         if not isinstance(timeout, int) or isinstance(timeout, bool) or not 1 <= timeout <= 60:
             raise ValueError("check timeout must be in 1..60")

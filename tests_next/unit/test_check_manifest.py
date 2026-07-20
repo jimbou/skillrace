@@ -87,6 +87,10 @@ def non_list_argv(path: Path, value: dict[str, Any]) -> None:
     value["checks"][0]["argv"] = "python3 check.py"
 
 
+def argv_omits_declared_script(path: Path, value: dict[str, Any]) -> None:
+    value["checks"][0]["argv"] = ["/workspace"]
+
+
 def zero_timeout(path: Path, value: dict[str, Any]) -> None:
     value["checks"][0]["timeout_seconds"] = 0
 
@@ -115,6 +119,7 @@ def wrong_artifact_hash(path: Path, value: dict[str, Any]) -> None:
         missing_coverage,
         escaping_script,
         non_list_argv,
+        argv_omits_declared_script,
         zero_timeout,
         excessive_timeout,
         unknown_category,
@@ -125,6 +130,7 @@ def wrong_artifact_hash(path: Path, value: dict[str, Any]) -> None:
         "missing-property-coverage",
         "escaping-script",
         "non-list-argv",
+        "argv-omits-declared-script",
         "zero-timeout",
         "excessive-timeout",
         "unknown-category",
