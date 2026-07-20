@@ -623,6 +623,7 @@ def run_agent(
             working_directory="/workspace",
             user=f"{os.getuid()}:{os.getgid()}",
             environment=(selected_model.key_environment,),
+            seed_working_directory=True,
         )
     )
     prompt = test.prompt_path.read_text(encoding="utf-8")

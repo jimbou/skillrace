@@ -16,6 +16,7 @@ class ContainerSpec:
     working_directory: str
     user: str | None = None
     environment: tuple[str, ...] = ()
+    seed_working_directory: bool = False
 
     def __post_init__(self) -> None:
         if not self.name or not self.image or not self.image_id:
@@ -26,6 +27,8 @@ class ContainerSpec:
             raise ValueError("every mount source must exist")
         if any(not name or "=" in name for name in self.environment):
             raise ValueError("environment entries must be variable names")
+        if not isinstance(self.seed_working_directory, bool):
+            raise ValueError("seed_working_directory must be boolean")
 
 
 @dataclass(frozen=True)
@@ -63,6 +66,49 @@ def start_task_container(spec: ContainerSpec) -> RunningContainer:
     resolved_image_id = inspected.stdout.strip()
     if resolved_image_id != spec.image_id:
         raise RuntimeError("container image ID differs from validated image ID")
+    if spec.seed_working_directory:
+        workspace_mounts = [
+            source
+            for source, destination, mode in spec.mounts
+            if destination.rstrip("/") == spec.working_directory.rstrip("/")
+            and mode == "rw"
+        ]
+        if len(workspace_mounts) != 1:
+            raise ValueError("seeding requires one writable working-directory mount")
+        workspace = workspace_mounts[0]
+        if any(workspace.iterdir()):
+            raise ValueError("seeded working-directory mount must start empty")
+        created = subprocess.run(
+            ["docker", "create", resolved_image_id],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        seed_container_id = created.stdout.strip()
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "cp",
+                    f"{seed_container_id}:{spec.working_directory.rstrip('/')}/.",
+                    str(workspace.resolve()),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        finally:
+            removed = subprocess.run(
+                ["docker", "rm", "-f", seed_container_id],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if removed.returncode != 0:
+                raise RuntimeError("failed to remove workspace seed container")
     command = [
         "docker",
         "run",

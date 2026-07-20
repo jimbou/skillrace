@@ -14,10 +14,129 @@ from skillrace_next.runtime.docker import (
     remove_container,
     start_task_container,
 )
+from skillrace_next.runtime.providers import resolve_model, write_pi_models
 from skillrace_next.storage import atomic_write_json
 
 
 pytestmark = pytest.mark.live
+
+
+def test_real_lab_task_container_preserves_baked_workspace(
+    live_evidence_root: Path,
+) -> None:
+    secret = os.environ.get("LAB_KEY_UNLIMITED")
+    if not secret:
+        pytest.skip("LAB_KEY_UNLIMITED is required for the live contract")
+
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    evidence = live_evidence_root / "task-runner-seeded" / run_id
+    artifact = evidence / "artifact"
+    runtime_evidence = evidence / "runtime"
+    artifact.mkdir(parents=True)
+    runtime_evidence.mkdir()
+    image = "skillrace-next/task-fixture:test"
+    fixture = Path("tests_next/fixtures/task").resolve()
+    subprocess.run(
+        ["docker", "build", "-q", "-t", image, str(fixture)],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    inspected = subprocess.run(
+        ["docker", "image", "inspect", image, "--format", "{{.Id}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    image_id = inspected.stdout.strip()
+    selected = resolve_model("lab", "deepseek-v4-flash")
+    models_path = write_pi_models(runtime_evidence / "models.json", selected)
+    running = start_task_container(
+        ContainerSpec(
+            name="skillrace-next-live-" + uuid.uuid4().hex[:12],
+            image=image,
+            image_id=image_id,
+            mounts=(
+                (artifact, "/workspace", "rw"),
+                (runtime_evidence, "/evidence", "rw"),
+                (models_path, "/home/node/.pi/agent/models.json", "ro"),
+            ),
+            network="host",
+            cpus="1",
+            memory="512m",
+            working_directory="/workspace",
+            user=f"{os.getuid()}:{os.getgid()}",
+            environment=(selected.key_environment,),
+            seed_working_directory=True,
+        )
+    )
+    try:
+        result = exec_task(
+            running,
+            [
+                "pi",
+                "--provider",
+                selected.provider,
+                "--model",
+                selected.upstream_model,
+                "--thinking",
+                "medium",
+                "--print",
+                "--tools",
+                "read,write",
+                "--no-extensions",
+                "--no-skills",
+                "--no-prompt-templates",
+                "--no-themes",
+                "--session",
+                "/evidence/trace.jsonl",
+                "Read /workspace/initial.txt, then create /workspace/seed-result.txt "
+                "containing exactly the same text. Do not modify initial.txt.",
+            ],
+            timeout_seconds=240,
+        )
+        (runtime_evidence / "stdout.txt").write_text(
+            result.stdout.replace(secret, "[REDACTED]"), encoding="utf-8"
+        )
+        (runtime_evidence / "stderr.txt").write_text(
+            result.stderr.replace(secret, "[REDACTED]"), encoding="utf-8"
+        )
+        atomic_write_json(
+            runtime_evidence / "exec.json",
+            {
+                "schema": "skillrace-task-exec/1",
+                "model": selected.friendly_model,
+                "image_id": image_id,
+                "container_id": running.container_id,
+                "exit_code": result.exit_code,
+                "timed_out": result.timed_out,
+                "duration_seconds": result.duration_seconds,
+                "timeout_seconds": 240,
+            },
+        )
+    finally:
+        cleanup = remove_container(running)
+        atomic_write_json(
+            runtime_evidence / "cleanup.json",
+            {
+                "schema": "skillrace-container-cleanup/1",
+                "container_id": running.container_id,
+                "success": cleanup.success,
+                "removed": cleanup.removed,
+                "stderr": cleanup.stderr.replace(secret, "[REDACTED]"),
+            },
+        )
+
+    assert result.exit_code == 0
+    assert not result.timed_out
+    assert (artifact / "initial.txt").read_text(encoding="utf-8") == "from-image\n"
+    assert (artifact / "seed-result.txt").read_text(encoding="utf-8") == "from-image\n"
+    assert cleanup.success and cleanup.removed
+    for path in evidence.rglob("*"):
+        if path.is_file():
+            assert secret not in path.read_text(encoding="utf-8", errors="replace")
 
 
 def test_real_task_container_preserves_weak_agent_artifact_and_trace(

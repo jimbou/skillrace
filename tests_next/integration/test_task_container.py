@@ -1,4 +1,5 @@
 from pathlib import Path
+from dataclasses import replace
 import os
 import subprocess
 import uuid
@@ -96,6 +97,28 @@ def test_start_exec_copy_capture_and_cleanup_reuses_built_image(
     assert cleanup.success
     assert cleanup.removed
     assert remove_container(running).success
+
+
+def test_start_seeds_baked_workspace_into_host_artifact(
+    tmp_path: Path, task_image: tuple[str, str]
+) -> None:
+    artifact = tmp_path / "artifact"
+    evidence = tmp_path / "evidence"
+    artifact.mkdir()
+    evidence.mkdir()
+    spec = replace(
+        container_spec(task_image, artifact, evidence),
+        seed_working_directory=True,
+    )
+
+    running = start_task_container(spec)
+    try:
+        assert (artifact / "initial.txt").read_text(encoding="utf-8") == "from-image\n"
+    finally:
+        cleanup = remove_container(running)
+
+    assert cleanup.success
+    assert cleanup.removed
 
 
 def test_task_image_includes_pytest_for_restricted_checker_user(

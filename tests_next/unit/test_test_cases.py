@@ -276,6 +276,7 @@ def test_run_agent_reuses_validated_image_and_returns_live_container_identity(
 
     assert captured["spec"].image == "sha256:validated-image"
     assert captured["spec"].image_id == "sha256:validated-image"
+    assert captured["spec"].seed_working_directory is True
     model_index = captured["argv"].index("--model")
     assert captured["argv"][model_index + 1] == "deepseek-v3.2"
     skill_index = captured["argv"].index("--skill")

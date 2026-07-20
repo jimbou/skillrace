@@ -11,3 +11,5 @@ RUN mkdir -p /home/node/.pi/agent \
     && chown -R node:node /home/node/.pi
 
 WORKDIR /workspace
+
+RUN printf 'from-image\n' > /workspace/initial.txt
