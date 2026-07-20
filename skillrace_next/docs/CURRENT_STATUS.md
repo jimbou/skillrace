@@ -176,6 +176,10 @@ falsely admitted. Credentials were absent and all three owned containers were re
   is rejected; a second invalid response fails the component. The separate real DeepSeek
   v4 alignment passed and was manually inspected under
   `out/live-contracts/tree-merger/20260720T151700Z-595f4d98/`.
+- [x] Freeze `pilot-v3` after both pilot infrastructure corrections. It keeps the approved
+  inputs, model, methods, and budgets, with fresh experiment IDs and output roots under
+  `out/live-contracts/pilot-v3/`. The manifest and exact sequential commands are under
+  `skillrace_next/study/pilot-v3/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
@@ -183,9 +187,9 @@ falsely admitted. Credentials were absent and all three owned containers were re
   separate input and output roots. The replicate loop creates numbered replicate
   directories inside that campaign output.
 - [ ] Start with a bounded pilot using about five Part I skills and two or three Part II
-  scenarios. Freeze another fresh pilot root after the `pilot-v2` alignment fix; preserve
-  both interrupted predecessor outputs. This is correction of a recorded infrastructure
-  defect, not a retry of an unfavorable scientific outcome.
+  scenarios. Run the frozen `pilot-v3` schedule and preserve both interrupted predecessor
+  outputs. This is correction of recorded infrastructure defects, not a retry of an
+  unfavorable scientific outcome.
 - [ ] For the pilot, start with a 10-minute wall timeout for weak-agent execution and its
   post-patch replay, and a 5-minute timeout for Codex checker authoring. Keep turn budgets
   separate from wall-clock timeouts. Confirm or adjust the proposer, generator, patcher,
