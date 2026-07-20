@@ -226,6 +226,9 @@ def test_proposal_targets_undercovered_transition_and_records_exact_evidence(
     target = {"source": write, "target": bash, "count": 1}
     assert len(requests) == 1
     pi_prompt = requests[0].prompt_path.read_text(encoding="utf-8")
+    assert "starts with an empty /workspace" in pi_prompt
+    assert "Do not use /mnt/data or /tmp" in pi_prompt
+    assert "must not add requirements" in pi_prompt
     assert json.dumps(target, sort_keys=True) in pi_prompt
     assert proposed.origin_method == "verigrey"
     assert proposed.validation_status == "valid"

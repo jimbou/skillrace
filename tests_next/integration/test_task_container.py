@@ -20,7 +20,7 @@ def task_image() -> tuple[str, str]:
     tag = "skillrace-next/task-fixture:test"
     fixture = Path("tests_next/fixtures/task").resolve()
     subprocess.run(
-        ["docker", "build", "--network=none", "-q", "-t", tag, str(fixture)],
+        ["docker", "build", "-q", "-t", tag, str(fixture)],
         check=True,
         capture_output=True,
         text=True,
@@ -96,6 +96,34 @@ def test_start_exec_copy_capture_and_cleanup_reuses_built_image(
     assert cleanup.success
     assert cleanup.removed
     assert remove_container(running).success
+
+
+def test_task_image_includes_pytest_for_restricted_checker_user(
+    task_image: tuple[str, str],
+) -> None:
+    tag, _ = task_image
+    completed = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--network=none",
+            "--user",
+            "65534:65534",
+            tag,
+            "python3",
+            "-m",
+            "pytest",
+            "--version",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.startswith("pytest 9.1.1")
 
 
 def test_timeout_kills_child_but_preserves_container_and_partial_artifact(

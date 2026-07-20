@@ -528,7 +528,11 @@ def propose_test(
     prompt_path.write_text(
         "Propose one concrete development task that exercises the selected unreached "
         "reasoning branch. The task must be self-contained: specify all paths, inline "
-        "input data, and an observable expected result. Return only one JSON object with "
+        "input data, and an observable expected result. The task container starts with an "
+        "empty /workspace, so do not claim that a file or project already exists. Tell the "
+        "agent to create every needed file, and put every task and artifact path under "
+        "/workspace. Do not use /mnt/data or /tmp. The check_description must not add "
+        "requirements absent from the visible task prompt. Return only one JSON object with "
         "exactly prompt and check_description; both values must be nonempty strings. "
         "check_description must state a concrete artifact observation. The entire response "
         "must start with { and end with }. "

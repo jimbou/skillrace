@@ -179,6 +179,30 @@ def test_validate_test_rejects_path_escaping_suite_root(tmp_path: Path) -> None:
     assert "outside" in result.validation_diagnostic
 
 
+@pytest.mark.parametrize("external_root", ["/mnt/data/input.csv", "/tmp/input.csv"])
+def test_validate_test_rejects_generated_tasks_outside_workspace(
+    tmp_path: Path, external_root: str
+) -> None:
+    test = pending_test(tmp_path)
+    test.prompt_path.write_text(
+        f"Read {external_root} and write /workspace/result.txt.\n",
+        encoding="utf-8",
+    )
+    test = replace(test, prompt_hash=file_hash(test.prompt_path))
+    build_called = False
+
+    def must_not_build(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        nonlocal build_called
+        build_called = True
+        raise AssertionError("invalid task must be rejected before Docker build")
+
+    result = validate_test(test, config_for(tmp_path), must_not_build)
+
+    assert result.validation_status == "invalid_test"
+    assert "outside /workspace" in result.validation_diagnostic
+    assert build_called is False
+
+
 def test_validate_test_returns_invalid_test_when_docker_build_fails(tmp_path: Path) -> None:
     test = pending_test(tmp_path)
 

@@ -370,6 +370,9 @@ def test_skillrace_proposal_records_selected_branch_and_validates_test(
     assert receipt["target_node_id"] == "alternative"
     assert receipt["pi_receipt_path"] == str(requests[0].output_dir / "receipt.json")
     proposal_prompt = requests[0].prompt_path.read_text(encoding="utf-8")
+    assert "starts with an empty /workspace" in proposal_prompt
+    assert "Do not use /mnt/data or /tmp" in proposal_prompt
+    assert "must not add requirements" in proposal_prompt
     assert "Try an alternative workflow" in proposal_prompt
     assert "Do not use Markdown fences" in proposal_prompt
     assert "self-contained" in proposal_prompt

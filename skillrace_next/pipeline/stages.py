@@ -533,8 +533,14 @@ def validate_test(
             raise ValueError("test path is outside the configured suite and output roots")
         if not test.prompt_path.is_file():
             raise ValueError("prompt file is missing")
-        if not test.prompt_path.read_text(encoding="utf-8").strip():
+        prompt = test.prompt_path.read_text(encoding="utf-8")
+        if not prompt.strip():
             raise ValueError("prompt is empty")
+        for external_root in ("/mnt/data", "/tmp"):
+            if external_root in prompt:
+                raise ValueError(
+                    f"generated task path is outside /workspace: {external_root}"
+                )
         if not test.environment_directory.is_dir():
             raise ValueError("environment directory is missing")
         if not test.nl_check_path.is_file():

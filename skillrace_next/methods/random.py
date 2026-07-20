@@ -71,7 +71,12 @@ def _proposal_prompt(
     return (
         "Propose one independent development test for this skill. Return only one JSON "
         "object with exactly two keys: prompt (a nonempty task string) and property_ids "
-        "(a nonempty list chosen only from the supplied property IDs). Do not use tools.\n\n"
+        "(a nonempty list chosen only from the supplied property IDs). The task container "
+        "starts with an empty /workspace, so the prompt must include all input data and tell "
+        "the agent to create every needed file. Do not claim that a file or project already "
+        "exists. Put every task and artifact path under /workspace. Do not use /mnt/data or "
+        "/tmp. The selected properties must not add requirements absent from the visible "
+        "task prompt. Do not use tools.\n\n"
         f"SKILL.md:\n{skill_text}\n\n"
         f"Properties:\n{json.dumps(properties, sort_keys=True)}"
         f"{correction}\n"

@@ -137,6 +137,30 @@ falsely admitted. Credentials were absent and all three owned containers were re
   skills, three Part II scenarios, two iterations per method, one replicate, one held-out
   repetition, and only `t1` for pilot held-out evaluation. The eight hash-bound configs
   and explicit sequential commands are under `skillrace_next/study/pilot/`.
+- [x] Run and inspect the first four Part I pilot cells far enough to identify whether the
+  development-test contract is scientifically sound. `file-check` completed with one
+  confirmed failure and a rejected patch. `js-feature` completed, but its accepted patch
+  responded to an NL-check condition that the visible task had not requested.
+  `csv-workbench` generated tasks that promised nonexistent `/mnt/data` fixtures, and
+  `fix-failing-test` generated tasks that promised nonexistent projects in an empty
+  workspace. The latter cell was interrupted before repair and has a terminal failure
+  receipt. These are pilot-design findings, not method-quality results.
+- [x] Correct the development-test grounding failure before further paid cells. All three
+  proposers now state that the task starts with an empty `/workspace`, require inline
+  inputs and `/workspace` paths, and forbid checks from adding hidden requirements.
+  Deterministic validation rejects `/mnt/data` and `/tmp` tasks before Docker. The Codex
+  guide classifies missing promised inputs and checker dependencies as inconclusive, and
+  the pinned task image provides pytest to restricted checker users. Fresh evidence is:
+
+  - `out/live-contracts/test-proposer/20260720T144717Z-d15d3f71/`;
+  - `out/live-contracts/codex-verifier/20260720T144823Z-f1e8229b/`; and
+  - `out/live-contracts/check-executor/20260720T145025Z-9e501a70/`.
+
+  Manual inspection confirmed a self-contained DeepSeek proposal, prompt-matched Codex
+  scripts with no Docker command, two authoritative Docker passes, unchanged artifact
+  hash, credential-free evidence, and container removal. The task image used by the
+  checker execution is pinned in evidence as
+  `sha256:657012cd9be070f55fcff63ff7a7abcc97dc73e08c09bc804de8880437a3feef`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
@@ -144,7 +168,10 @@ falsely admitted. Credentials were absent and all three owned containers were re
   separate input and output roots. The replicate loop creates numbered replicate
   directories inside that campaign output.
 - [ ] Start with a bounded pilot using about five Part I skills and two or three Part II
-  scenarios.
+  scenarios. Preserve the interrupted original pilot output. Freeze a new pilot run ID
+  and output root before restarting so cells produced under the corrected task contract
+  are not mixed with the invalid original cells. This is a new corrected pilot, not a
+  retry of an unfavorable scientific outcome.
 - [ ] For the pilot, start with a 10-minute wall timeout for weak-agent execution and its
   post-patch replay, and a 5-minute timeout for Codex checker authoring. Keep turn budgets
   separate from wall-clock timeouts. Confirm or adjust the proposer, generator, patcher,

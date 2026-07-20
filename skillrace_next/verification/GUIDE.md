@@ -56,3 +56,13 @@ values, and artifact-relative `evidence_paths`.
 Exit status `0` means pass, `1` means fail, and `2` means inconclusive. Do not encode a
 verdict only in prose. If a property cannot be checked defensibly, put its `property_id`
 and a specific `reason` in `uncovered`; do not guess.
+
+Missing promised input files are a task-definition problem, not evidence that the skill
+failed. Missing checker runtime dependencies are a checker-environment problem, not an
+artifact failure. In either case, use exit status `2` and report the concrete missing input
+or dependency. Never turn a missing command, import failure, or dependency setup failure
+into exit status `1`.
+
+The exact task prompt is the visible behavioral contract. A natural-language check must
+not enforce a condition that the prompt did not request. Put such a property in `uncovered`
+and explain the mismatch instead of creating a hidden requirement.

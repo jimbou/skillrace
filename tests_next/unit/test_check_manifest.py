@@ -13,6 +13,14 @@ NL_CHECKS = [
 ]
 
 
+def test_verifier_guide_marks_missing_inputs_and_dependencies_inconclusive() -> None:
+    guide = Path("skillrace_next/verification/GUIDE.md").read_text(encoding="utf-8")
+
+    assert "Missing promised input files" in guide
+    assert "Missing checker runtime dependencies" in guide
+    assert "exit status `2`" in guide
+
+
 def valid_manifest(tmp_path: Path) -> Path:
     output = tmp_path / "output"
     checks = output / "checks"

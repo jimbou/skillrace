@@ -79,7 +79,6 @@ def test_real_codex_bundle_executes_authoritatively_in_real_task_container(
         [
             "docker",
             "build",
-            "--network=none",
             "-q",
             "-t",
             image,
