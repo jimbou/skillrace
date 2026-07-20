@@ -208,9 +208,17 @@ deleting it.
 
 ### Runtime image naming
 
-The pinned Pi runtime image tag still contains the historical `deepseek-v3.2` label even
-when its mounted model catalog selects a Lab model. Rename/rebuild it with a generic name
-that contains no model ID. Preserve the old and new image IDs in the evidence.
+Complete. Pi uses `skillrace/pi-runtime:0.73.1`, whose final OCI labels contain no model
+name and record the model catalog as runtime-mounted. The metadata-only rebuild reused a
+hash-tagged exact local source image rather than rebuilding Pi/npm layers. Old/new image
+IDs are preserved under
+`out/live-contracts/pi-runtime-image/20260720T080623Z-08a6e6aa/`. Fresh DeepSeek and Qwen
+Pi contracts passed under:
+
+```text
+out/live-contracts/lab-provider/deepseek-v4-flash/20260720T080649Z-5b696d04/
+out/live-contracts/lab-provider/qwen3.6-flash/20260720T080700Z-80109b00/
+```
 
 ### Thin `analyze` command
 
@@ -275,9 +283,8 @@ d8d93ee feat(next): run explicit clean-room campaigns
 ## Start of the next session
 
 1. Read this handoff and [Current Status and Known Issues](CURRENT_STATUS.md).
-2. Confirm whether the next goal is CLI override behavior, generic runtime-image naming,
-   Part I input selection, Part II input preparation, the bounded pilot, the full
-   experiment, or final aggregation.
+2. Confirm whether the next goal is Part I input selection, Part II input preparation,
+   the bounded pilot, the full experiment, or final aggregation.
 3. Inspect only the selected input files and their current Git status.
 4. Run the full offline suite before any implementation change:
 

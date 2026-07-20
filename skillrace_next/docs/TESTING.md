@@ -37,8 +37,25 @@ Useful focused commands:
   tests_next/integration/test_heldout_isolation.py
 ```
 
-The final Task 16 offline run had 155 passing unit/integration tests. This count records
-that run; rerun the command after future code changes.
+The 2026-07-20 runtime-image cycle had 159 passing unit/integration tests. This count
+records that run; rerun the command after future code changes.
+
+### Generic Pi runtime image
+
+The first test in `test_pi_runtime_live.py` performs a local metadata-only rebuild of
+`skillrace/pi-runtime:0.73.1`. It inspects the legacy pinned image ID, gives that exact ID
+a hash-derived local source tag, rebuilds only model-neutral OCI metadata, and records the
+old/new IDs under `out/live-contracts/pi-runtime-image/`. It does not repeat the expensive
+Pi/npm installation.
+
+Run that build contract before offline Docker integration tests on a machine that does
+not yet have the generic tag:
+
+```bash
+.venv/bin/python -m pytest \
+  tests_next/live/test_pi_runtime_live.py::test_generic_pi_runtime_image_is_rebuilt_from_pinned_local_image \
+  --live -v -s
+```
 
 ## Individual live contracts
 
@@ -67,7 +84,7 @@ Provider-specific transport contracts are in
 
 | Contract | Real boundary exercised |
 |---|---|
-| Pi runtime | Direct provider response and Pi tool use |
+| Pi runtime | Model-neutral pinned image build, direct provider response, and Pi tool use |
 | Task runner | Weak Pi agent inside a real task container, durable artifact/trace |
 | Test proposer | Same-track Pi proposal followed by deterministic Docker validation |
 | Codex verifier | Terra/medium over read-only inputs produced by a real task run |

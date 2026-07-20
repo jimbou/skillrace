@@ -98,6 +98,10 @@ model catalog, permits an explicit tool set and turn count, captures the session
 tool events, usage, stdout/stderr, timeout, and receipt, and removes the invocation
 container through Docker `--rm`.
 
+The shared model-independent image tag is `skillrace/pi-runtime:0.73.1`. Its final OCI
+metadata records `org.skillrace.track.model=runtime-mounted`; the actual DeepSeek, Qwen,
+or Yunwu catalog is mounted by `run_pi` for each invocation.
+
 Pi role calls use at most one SDK-level retry. Weak experimental task executions are not
 automatically retried.
 

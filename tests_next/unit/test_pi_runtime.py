@@ -4,7 +4,20 @@ from pathlib import Path
 import subprocess
 from typing import Any
 
+from skillrace_next.runtime import pi
 from skillrace_next.runtime.pi import PiRequest, direct_provider_preflight, run_pi
+
+
+def test_pi_runtime_image_name_and_metadata_are_model_independent() -> None:
+    assert getattr(pi, "PI_RUNTIME_IMAGE", None) == "skillrace/pi-runtime:0.73.1"
+    dockerfile = Path("skillrace_next/runtime/Dockerfile.pi-runtime").read_text(
+        encoding="utf-8"
+    )
+    assert "deepseek" not in dockerfile.lower()
+    assert "qwen" not in dockerfile.lower()
+    assert 'org.skillrace.track.model="runtime-mounted"' in dockerfile
+    fixture = Path("tests_next/fixtures/task/Dockerfile").read_text(encoding="utf-8")
+    assert "FROM skillrace/pi-runtime:0.73.1" in fixture
 
 
 def test_run_pi_builds_bounded_yunwu_command_and_saves_sanitized_evidence(

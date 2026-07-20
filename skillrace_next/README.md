@@ -136,6 +136,10 @@ The current provider table supports:
 The current final-development tracks are the two Lab models. Provider names and friendly
 model names are stored separately so receipts do not confuse the two gateways.
 
+All Pi calls use the model-independent runtime tag `skillrace/pi-runtime:0.73.1`.
+The selected provider/model catalog is mounted per invocation; it is not encoded in the
+image name or final OCI labels.
+
 ## Public commands
 
 ```bash

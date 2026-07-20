@@ -1,0 +1,7 @@
+ARG SOURCE_IMAGE=skillrace/pi-runtime-source:pinned
+FROM ${SOURCE_IMAGE}
+
+LABEL org.opencontainers.image.title="skillrace-next-pi-runtime" \
+      org.opencontainers.image.description="Shared Pi runtime with a model catalog mounted per invocation" \
+      org.opencontainers.image.source="skillrace_next/runtime/Dockerfile.pi-runtime" \
+      org.skillrace.track.model="runtime-mounted"

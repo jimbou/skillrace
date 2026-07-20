@@ -21,6 +21,7 @@ from .providers import (
 
 
 _AVAILABLE_TOOLS = {"read", "bash", "edit", "write", "grep", "find", "ls"}
+PI_RUNTIME_IMAGE = "skillrace/pi-runtime:0.73.1"
 
 
 _PI_RUNNER = r'''#!/usr/bin/env node

@@ -7,7 +7,12 @@ import uuid
 
 import pytest
 
-from skillrace_next.runtime.pi import PiRequest, direct_provider_preflight, run_pi
+from skillrace_next.runtime.pi import (
+    PI_RUNTIME_IMAGE,
+    PiRequest,
+    direct_provider_preflight,
+    run_pi,
+)
 from skillrace_next.storage import atomic_write_json
 
 
@@ -99,7 +104,7 @@ def test_final_lab_model_gate_runs_fresh_preflights_and_bounded_slices(
                 model=model,
                 prompt_path=prompt,
                 output_dir=evidence / "pi-preflight",
-                image="skillrace/pi-base:0.73.1-deepseek-v3.2",
+                image=PI_RUNTIME_IMAGE,
                 allowed_tools=("read", "write"),
                 max_turns=4,
                 timeout_seconds=240,

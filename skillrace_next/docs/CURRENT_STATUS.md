@@ -61,9 +61,11 @@ actual multi-replicate study.
   freeze the effective values used by the command. Offline tests cover both fields and
   both `live` directions. The real paid override contract is green under
   `out/live-contracts/cli-replicates/deepseek-v4-flash/20260720T075536Z-5f9f9295/`.
-- [ ] Rename/rebuild the shared Pi runtime image with a generic, model-independent name.
+- [x] Rename/rebuild the shared Pi runtime image with a generic, model-independent name.
   Preserve the old and new image IDs in the evidence so the rename does not obscure
-  provenance.
+  provenance. The new tag is `skillrace/pi-runtime:0.73.1`; build provenance is under
+  `out/live-contracts/pi-runtime-image/20260720T080623Z-08a6e6aa/`. Fresh real Pi runs
+  passed for DeepSeek and Qwen under `out/live-contracts/lab-provider/`.
 
 Use a focused failing test for each implementation item. Do not introduce a scheduler,
 matrix engine, workflow framework, compatibility layer, or general configuration system.
@@ -261,10 +263,12 @@ extract code only if a later concrete change creates a necessary boundary.
 
 ### Generic runtime image name
 
-The pinned Pi base image/tag and OCI metadata still mention `deepseek-v3.2` while the
-same runtime image is used for Lab models through mounted `models.json`. The image ID is
-recorded and behavior is correct, but the naming is confusing. Rename/rebuild it with a
-generic name that contains no model ID, preserving both image IDs in the evidence.
+Resolved. The pinned shared tag is `skillrace/pi-runtime:0.73.1`, and final OCI metadata
+records the catalog as `runtime-mounted`. The metadata-only rebuild used a hash-derived
+local source tag, so it reused the existing Pi layers instead of repeating the expensive
+npm/base build. Evidence preserves source image ID `sha256:64a4b2fb...f58a` and generic
+runtime image ID `sha256:7d808680...65c8`. Real DeepSeek and Qwen Pi tool contracts both
+passed on the generic image.
 
 ### End-of-study aggregation
 
@@ -276,10 +280,10 @@ build an analysis framework or incomplete-run recovery system.
 
 ## Handoff
 
-The component, single-campaign implementation, and direct replicate loop are complete.
-Explicit CLI override behavior, generic runtime image naming, experiment input
-preparation, pilot, full study, and simple final aggregation remain. The study will run
-`skillrace_next` directly; legacy cutover is not planned. More operational detail is in
+The component, single-campaign implementation, direct replicate loop, CLI override
+behavior, and generic runtime image are complete. Experiment input preparation, pilot,
+full study, and simple final aggregation remain. The study will run `skillrace_next`
+directly; legacy cutover is not planned. More operational detail is in
 [SkillRACE Next Handoff](HANDOFF.md).
 
 The repository still contains extensive unrelated dirty legacy work. Do not reset,

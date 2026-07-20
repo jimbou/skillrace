@@ -8,6 +8,7 @@ import uuid
 import pytest
 
 from skillrace_next.runtime.pi import (
+    PI_RUNTIME_IMAGE,
     PiRequest,
     direct_provider_preflight,
     run_pi,
@@ -55,7 +56,7 @@ def test_real_lab_direct_and_pi_tool_contract(
             model=model,
             prompt_path=prompt,
             output_dir=pi_dir,
-            image="skillrace/pi-base:0.73.1-deepseek-v3.2",
+            image=PI_RUNTIME_IMAGE,
             allowed_tools=("read", "write"),
             max_turns=4,
             timeout_seconds=240,

@@ -1,6 +1,6 @@
 FROM python:3.12.13-bookworm AS checker-python
 
-FROM skillrace/pi-base:0.73.1-deepseek-v3.2
+FROM skillrace/pi-runtime:0.73.1
 
 COPY --from=checker-python /usr/local /usr/local
 
