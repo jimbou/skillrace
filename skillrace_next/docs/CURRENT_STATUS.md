@@ -165,6 +165,17 @@ falsely admitted. Credentials were absent and all three owned containers were re
   inputs and budgets but use new experiment IDs and roots under
   `out/live-contracts/pilot-v2/`. The manifest and exact sequential commands are under
   `skillrace_next/study/pilot-v2/`; the original pilot configs and evidence are unchanged.
+- [x] Preserve the terminal `pilot-v2` cell-1 infrastructure failure. All six discovery
+  runs produced authoritative checker results, but the second SkillRACE tree alignment
+  returned a semantic answer wrapped in prose and a JSON fence. The alignment parser had
+  no bounded correction loop, so the CLI wrote `status: failed` and stopped before
+  grouping or repair. No scientific outcome is reported for this cell and it will not be
+  resumed or retried in the same output root.
+- [x] Give tree alignment the same one-correction format contract as other model-authored
+  JSON components. The first malformed, structurally invalid, or unknown-parent response
+  is rejected; a second invalid response fails the component. The separate real DeepSeek
+  v4 alignment passed and was manually inspected under
+  `out/live-contracts/tree-merger/20260720T151700Z-595f4d98/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
@@ -172,9 +183,9 @@ falsely admitted. Credentials were absent and all three owned containers were re
   separate input and output roots. The replicate loop creates numbered replicate
   directories inside that campaign output.
 - [ ] Start with a bounded pilot using about five Part I skills and two or three Part II
-  scenarios. Run the frozen `pilot-v2` schedule and preserve the interrupted original
-  pilot output. This is a new corrected pilot, not a retry of an unfavorable scientific
-  outcome.
+  scenarios. Freeze another fresh pilot root after the `pilot-v2` alignment fix; preserve
+  both interrupted predecessor outputs. This is correction of a recorded infrastructure
+  defect, not a retry of an unfavorable scientific outcome.
 - [ ] For the pilot, start with a 10-minute wall timeout for weak-agent execution and its
   post-patch replay, and a 5-minute timeout for Codex checker authoring. Keep turn budgets
   separate from wall-clock timeouts. Confirm or adjust the proposer, generator, patcher,

@@ -205,6 +205,70 @@ def test_ambiguous_first_placement_uses_one_batched_alignment_call(
     )
 
 
+def test_ambiguous_alignment_gets_one_format_correction(tmp_path: Path) -> None:
+    calls: list[PiRequest] = []
+    responses = [
+        "The chain is a top-level alternative.\n\n"
+        "```json\n{\"parent_node_id\": \"root\"}\n```",
+        '{"parent_node_id":"root"}',
+    ]
+
+    def alignment_pi(request: PiRequest) -> PiResult:
+        calls.append(request)
+        request.output_dir.mkdir(parents=True, exist_ok=True)
+        trace = request.output_dir / "trace.jsonl"
+        trace.write_text(
+            json.dumps(
+                {
+                    "type": "message",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": responses.pop(0)}],
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        receipt = request.output_dir / "receipt.json"
+        receipt.write_text("{}\n", encoding="utf-8")
+        return PiResult(
+            operation_id=request.operation_id,
+            model=request.model,
+            status="completed",
+            trace_path=trace,
+            usage={},
+            stderr="",
+            receipt_path=receipt,
+            return_code=0,
+            wall_seconds=0.1,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+    merged = merge_episodes(
+        existing_branch_tree(),
+        valid_episodes(),
+        "run-corrected",
+        [],
+        replace(config_for(tmp_path), role_budgets={"tree_alignment": 4}),
+        tmp_path / "merge",
+        alignment_pi,
+    )
+
+    assert len(calls) == 2
+    assert "previous response was invalid" in calls[1].prompt_path.read_text(
+        encoding="utf-8"
+    )
+    first_created = next(
+        node for node in merged["nodes"] if "episode-1" in node["member_episode_ids"]
+    )
+    assert any(
+        edge["source_node_id"] == "root"
+        and edge["target_node_id"] == first_created["node_id"]
+        for edge in merged["edges"]
+    )
+
+
 def test_duplicate_episode_membership_is_rejected(tmp_path: Path) -> None:
     tree = root_tree()
     tree["nodes"][0]["member_run_ids"] = ["run-1"]

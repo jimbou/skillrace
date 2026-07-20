@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 import json
 import os
@@ -95,12 +96,12 @@ def live_config(evidence: Path, roles: dict[str, int]) -> ExperimentConfig:
     )
 
 
-def test_real_yunwu_aligns_real_episodes_in_one_batched_tree_call(
+def test_real_deepseek_v4_aligns_real_episodes_in_one_batched_tree_call(
     live_evidence_root: Path,
 ) -> None:
-    secret = os.environ.get("yunwu_key")
+    secret = os.environ.get("LAB_KEY_UNLIMITED")
     if not secret:
-        pytest.skip("yunwu_key is required for the live tree merger")
+        pytest.fail("LAB_KEY_UNLIMITED is required for the live tree merger")
     source = latest_episode_run()
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     evidence = live_evidence_root / "tree-merger" / run_id
@@ -116,7 +117,15 @@ def test_real_yunwu_aligns_real_episodes_in_one_batched_tree_call(
         episodes,
         f"tree-source-{source.name}",
         [failure],
-        live_config(evidence, {"tree_alignment": 4}),
+        replace(
+            live_config(evidence, {"tree_alignment": 4}),
+            provider="lab",
+            model_id="deepseek-v4-flash",
+            timeouts={
+                **live_config(evidence, {"tree_alignment": 4}).timeouts,
+                "pi": 600,
+            },
+        ),
         evidence / "merge",
     )
 
@@ -132,8 +141,8 @@ def test_real_yunwu_aligns_real_episodes_in_one_batched_tree_call(
     merge_receipt = json.loads((evidence / "merge" / "tree-merge.json").read_text())
     alignment_receipt = Path(merge_receipt["alignment_receipt_path"])
     receipt = json.loads(alignment_receipt.read_text(encoding="utf-8"))
-    assert receipt["provider"] == "yunwu"
-    assert receipt["model"] == "deepseek-v3.2"
+    assert receipt["provider"] == "lab"
+    assert receipt["model"] == "deepseek-v4-flash"
     assert receipt["status"] == "completed"
     assert receipt["usage"]["total_tokens"] > 0
     for path in evidence.rglob("*"):

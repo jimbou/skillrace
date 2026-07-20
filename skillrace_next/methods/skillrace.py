@@ -330,41 +330,58 @@ def _alignment_parent(
     output: Path,
     pi_runner: PiRunner,
 ) -> tuple[str, Path]:
-    attempt = output / "alignment"
-    attempt.mkdir(parents=True)
-    prompt_path = attempt / "prompt.txt"
-    prompt_path.write_text(
-        "Choose the single existing parent node under which this ordered run episode "
-        "chain best belongs. Return only one JSON object with exactly parent_node_id. "
-        "The entire response must start with { and end with }. Do not use Markdown fences. "
-        "The value must be an existing node ID. This is one batched alignment decision "
-        "for the complete episode list.\n\n"
-        f"TREE:\n{json.dumps(tree, sort_keys=True)}\n\n"
-        f"EPISODES:\n{json.dumps(episodes, sort_keys=True)}\n",
-        encoding="utf-8",
-    )
-    result = pi_runner(
-        PiRequest(
-            operation_id=f"tree-alignment.{run_id}.{uuid.uuid4().hex}",
-            provider=config.provider,
-            model=config.model_id,
-            prompt_path=prompt_path,
-            output_dir=attempt,
-            image=config.docker_image,
-            allowed_tools=("read",),
-            max_turns=config.role_budgets["tree_alignment"],
-            timeout_seconds=config.timeouts["pi"],
+    diagnostic: str | None = None
+    known_nodes = {node["node_id"] for node in tree["nodes"]}
+    for ordinal in (1, 2):
+        attempt = output / f"alignment-attempt-{ordinal}"
+        attempt.mkdir(parents=True)
+        prompt_path = attempt / "prompt.txt"
+        correction = (
+            f"\nYour previous response was invalid: {diagnostic}. Return corrected raw "
+            "JSON only."
+            if diagnostic
+            else ""
         )
-    )
-    if result.status != "completed":
-        raise RuntimeError(f"Pi tree alignment failed: {result.status}")
-    response = _assistant_json(result.trace_path)
-    if not isinstance(response, dict) or set(response) != {"parent_node_id"}:
-        raise ValueError("tree alignment response is invalid")
-    parent = response["parent_node_id"]
-    if parent not in {node["node_id"] for node in tree["nodes"]}:
-        raise ValueError("tree alignment selected an unknown parent")
-    return parent, result.receipt_path
+        prompt_path.write_text(
+            "Choose the single existing parent node under which this ordered run episode "
+            "chain best belongs. Return only one JSON object with exactly parent_node_id. "
+            "The entire response must start with { and end with }. Do not use Markdown "
+            "fences. The value must be an existing node ID. This is one batched alignment "
+            "decision for the complete episode list."
+            f"{correction}\n\n"
+            f"TREE:\n{json.dumps(tree, sort_keys=True)}\n\n"
+            f"EPISODES:\n{json.dumps(episodes, sort_keys=True)}\n",
+            encoding="utf-8",
+        )
+        result = pi_runner(
+            PiRequest(
+                operation_id=f"tree-alignment.{run_id}.{uuid.uuid4().hex}",
+                provider=config.provider,
+                model=config.model_id,
+                prompt_path=prompt_path,
+                output_dir=attempt,
+                image=config.docker_image,
+                allowed_tools=("read",),
+                max_turns=config.role_budgets["tree_alignment"],
+                timeout_seconds=config.timeouts["pi"],
+            )
+        )
+        if result.status != "completed":
+            raise RuntimeError(f"Pi tree alignment failed: {result.status}")
+        try:
+            response = _assistant_json(result.trace_path)
+            if not isinstance(response, dict) or set(response) != {"parent_node_id"}:
+                raise ValueError("tree alignment response is invalid")
+            parent = response["parent_node_id"]
+            if parent not in known_nodes:
+                raise ValueError("tree alignment selected an unknown parent")
+        except (json.JSONDecodeError, ValueError) as error:
+            diagnostic = str(error)
+            if ordinal == 1:
+                continue
+            raise ValueError("two invalid tree alignment responses") from error
+        return parent, result.receipt_path
+    raise RuntimeError("tree alignment loop did not return")
 
 
 def _new_node_id(run_id: str, episode_id: str) -> str:
