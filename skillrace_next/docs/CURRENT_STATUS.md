@@ -1,6 +1,6 @@
 # Current Status and Known Issues
 
-Date: 2026-07-18
+Date: 2026-07-20
 
 ## Executive status
 
@@ -29,20 +29,53 @@ stop without writing when a required input is absent, exact replay changed the f
 to pass, and S0→S1 was admitted. All S0/final-skill hidden cells then passed. The active
 credential scan was clean and no container remained.
 
-## Remaining before a multi-replicate full study
+## Open TODOs
 
-The implemented CLI executes one campaign per invocation. `replicate_count` is validated
-and frozen but is not expanded into multiple independent campaigns, and there is no
-multi-skill/scenario/model matrix runner. Do not interpret `replicate_count > 1` as
-executed replication. Run explicit one-replicate configs with unique output roots, or add
-the smallest direct sequential replicate loop before the full study. See
+The component and single-campaign pipeline is ready. The following work remains for the
+actual multi-replicate study.
+
+### Required implementation work
+
+- [ ] Make replicate execution authoritative. The current CLI runs one campaign per
+  invocation and does not expand `replicate_count`. Implement the smallest direct
+  sequential replicate loop, or use an explicit one-replicate-per-command launcher that
+  verifies every expected cell and gives each one a unique `experiment_id` and
+  `output_root`. Do not set `replicate_count > 1` and assume it ran multiple campaigns.
+- [ ] Reject a paid command when config `live` disagrees with the presence of `--live`.
+  Until this is implemented, set config `live` to `true` whenever passing `--live`.
+- [ ] Reject Part II when frozen config `scenario_path` differs from `--scenario`. Until
+  this is implemented, pass the identical path in both places.
+
+Use focused failing tests for each implementation item. Keep replicate execution direct
+and sequential; do not introduce a scheduler, matrix engine, or workflow framework. See
 [SkillRACE Next Handoff](HANDOFF.md#0-resolve-replicate-and-matrix-execution).
 
-The CLI also does not currently enforce that config `live` matches the `--live` flag or
-that Part II config `scenario_path` matches `--scenario`. For current runs, set config
-`live` to `true` whenever passing `--live`, and make the two scenario paths identical.
-Before a large study, add focused mismatch-rejection tests or enforce and audit these
-equalities in the explicit run launcher.
+### Required experiment preparation and execution
+
+- [ ] Select the real Part I S0 skills, Part II public scenarios, held-out tests, model
+  tracks, iteration budgets, held-out repetitions, and replicate count.
+- [ ] Create or verify every Part I S0 provenance receipt and ordered property file.
+- [ ] Convert each selected held-out test to a strict `skillrace-test-case/1` record while
+  preserving its prompt, Docker environment, NL checks, hashes, and receipt.
+- [ ] Create frozen per-cell experiment configs with separate input and output roots.
+- [ ] Run a bounded pilot and manually inspect the first proposer output, generated S0,
+  episode/tree merge, generated skill, patch, Codex checker bundle, Docker result, and
+  replay result for semantic correctness.
+- [ ] Run the full study without retrying unfavorable scientific outcomes, verify every
+  expected cell exists, scan evidence for credentials, and confirm no owned Docker
+  container remains.
+- [ ] Combine the per-campaign summaries into the final study report. The existing
+  `analyze` command does not aggregate multiple cells, so use an explicit external
+  aggregation procedure or implement a direct aggregator after defining its exact report.
+
+### Optional, separately authorized, or deferred
+
+- [ ] Rename/rebuild the runtime image if removing the historical `deepseek-v3.2` label is
+  worth changing image references. Preserve the existing image-ID evidence.
+- [ ] Refactor large modules only when a concrete future change creates a clear boundary;
+  line count alone is not a reason.
+- [ ] Perform the legacy package rename/cutover only after explicit user approval. It is
+  not required to run `skillrace_next` experiments.
 
 ## Confirmed working behavior
 
@@ -204,17 +237,14 @@ separately authorized legacy cutover are described in
 The repository still contains extensive unrelated dirty legacy work. Do not reset,
 clean, reformat, or include those files in future `skillrace_next` commits.
 
-## Completion criteria
+## Task 16 completion record
 
-Task 16 is complete only when:
-
-- the P0 issues are resolved;
-- the concrete CLI actually invokes the supplied Part I/Part II campaign;
-- affected offline and individual live contracts are fresh and green;
-- the chosen final-gate criterion is explicit and passes both model tracks without
-  retries for favorable behavior;
-- evidence is sanitized and linked from terminal receipts;
-- no owned Docker containers remain;
-- legacy import and forbidden-architecture searches are clean;
-- focused Task 16 commits contain only `skillrace_next/` and `tests_next/`; and
-- the user separately approves any later package rename/cutover.
+- [x] P0 and P1 issues resolved.
+- [x] Concrete CLI invokes the supplied Part I and Part II campaigns.
+- [x] Affected offline and individual live contracts passed.
+- [x] The explicit final-gate criterion passed both model tracks without retries for
+  favorable behavior.
+- [x] Evidence was sanitized and linked from terminal receipts.
+- [x] No owned Docker container remained after final verification.
+- [x] Legacy-import and forbidden-architecture searches were reviewed.
+- [x] Task 16 commits contained only `skillrace_next/` and `tests_next/` changes.
