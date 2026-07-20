@@ -1,0 +1,1 @@
+[{"description":"After the refactoring the project test suite still passes (behavior unchanged).","property_id":"P1"},{"description":"Behavior preserved by refactoring the implementation, not by editing tests.","property_id":"P2"},{"description":"The diff shows a real structural change (the refactor was performed, not a no-op).","property_id":"P3"}]

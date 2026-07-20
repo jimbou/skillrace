@@ -1,0 +1,1 @@
+[{"description":"On a valid config the tool parses it and reports/normalizes the expected values.","property_id":"P1"},{"description":"On a missing required key or bad value type the tool exits non-zero and names the problem (no traceback, no silent accept).","property_id":"P2"}]

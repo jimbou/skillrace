@@ -73,13 +73,26 @@ See [SkillRACE Next Handoff](HANDOFF.md#0-resolve-replicate-and-matrix-execution
 
 ### Part I preparation
 
-- [ ] Inspect `skills/` and select the 30 skills that best fit the Part I experiment.
+- [x] Inspect `skills/` and select the 30 skills that best fit the Part I experiment.
   Record the selection criteria and final ordered list; do not alter the selected S0
-  contents.
-- [ ] Create or verify the provenance receipt for each selected S0. The receipt must bind
-  the exact original skill tree/hash used by every discovery method.
-- [ ] Create an ordered property file for each selected skill. These properties describe
-  what the three Part I test creators should investigate.
+  contents. The fixed rule, ordered 30, and seven exclusions are recorded in
+  `skillrace_next/study/part1/selection.json`.
+- [x] Create or verify the provenance receipt for each selected S0. Every receipt under
+  `skillrace_next/study/part1/<skill>/s0-receipt.json` binds the exact unchanged source
+  tree and `SKILL.md` hashes plus the prepared property hash. Run
+  `verify_part1_study` immediately before each study launch so later source edits fail
+  closed.
+- [x] Create an ordered property file for each selected skill. Existing ordered
+  `id`/`nl` properties were normalized directly to the clean-room `P1...Pn` contract.
+  Focused properties were authored for the two selected skills that lacked them,
+  `file-check` and `js-feature`.
+
+The real prepared-input contract passed with DeepSeek v4 Flash, Terra/medium Codex, and
+Docker at
+`out/live-contracts/part1-study-inputs/deepseek-v4-flash/20260720T081754Z-03ff7db6/`.
+Manual inspection confirmed a semantically valid proposal, exact artifact creation and
+read-back, an appropriately uncovered trace-only property, an exact-content checker,
+authoritative Docker pass JSON, unchanged artifact hash, and container removal.
 
 ### Part II preparation
 

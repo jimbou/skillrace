@@ -20,7 +20,8 @@ The new Part I and Part II commands passed separate real DeepSeek CLI contracts 
 2026-07-18. Part II generated six development tasks, admitted one general Random repair,
 and loaded/evaluated the hidden test only after all methods finished. The final bounded
 gate then passed both Lab model tracks. Task 16 implementation and verification are
-complete. Do not perform the package rename or legacy cutover yet.
+complete. The fixed 30-skill Part I input bundle is prepared under
+`skillrace_next/study/part1/`. Do not perform the package rename or legacy cutover yet.
 
 See [Current status and known issues](docs/CURRENT_STATUS.md) before running paid tests.
 
@@ -50,6 +51,16 @@ Existing scenario assets are directly usable when they satisfy the new input con
 - Each Part II held-out test needs a strict `skillrace-test-case/1` JSON record whose
   paths and hashes identify its prompt, Docker environment, NL checks, and proposal
   receipt.
+
+The prepared Part I selection is recorded in
+`skillrace_next/study/part1/selection.json`. Each selected skill has a normalized ordered
+property list and hash-bound S0 receipt in its same-named bundle directory. The receipt
+points to the unchanged source under `skills/`; it is not a copied skill. Verify all 30
+source hashes before launching campaigns:
+
+```bash
+.venv/bin/python -c "from pathlib import Path; from skillrace_next.study_inputs import verify_part1_study; root=Path.cwd(); print(verify_part1_study(root, root/'skillrace_next/study/part1/selection.json'))"
+```
 
 Legacy scenario `test.json` files are not silently interpreted or migrated. If an
 existing held-out test uses a different schema, preserve its prompt/environment/check
@@ -182,7 +193,7 @@ Offline tests do not spend provider budget:
 Check the clean-room import boundary:
 
 ```bash
-rg -n '(^|[[:space:]])(from|import)[[:space:]]+skillrace([[:space:].]|$)' \
+rg -n '^[[:space:]]*(from[[:space:]]+skillrace([.]|[[:space:]]|$)|import[[:space:]]+skillrace([.]|[[:space:]]|$))' \
   skillrace_next tests_next
 ```
 

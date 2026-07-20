@@ -80,6 +80,17 @@ Provider-specific transport contracts are in
 `tests_next/live/test_lab_provider_live.py`. Bounded campaign contracts are in
 `test_part1_tiny_live.py` and `test_part2_tiny_live.py`.
 
+The fixed Part I study bundle has its own real contract:
+
+```bash
+.venv/bin/python -m pytest \
+  tests_next/live/test_cli_campaign_live.py::test_real_part1_prepared_s0_and_properties_contract \
+  --live -v -s
+```
+
+The inspected passing evidence is
+`out/live-contracts/part1-study-inputs/deepseek-v4-flash/20260720T081754Z-03ff7db6/`.
+
 ## What each live contract proves
 
 | Contract | Real boundary exercised |

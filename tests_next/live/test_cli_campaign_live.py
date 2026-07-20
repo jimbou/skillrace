@@ -10,6 +10,7 @@ import pytest
 from skillrace_next import cli
 from skillrace_next.records import TestCase as CaseRecord
 from skillrace_next.storage import atomic_write_json, file_hash, tree_hash
+from skillrace_next.study_inputs import verify_part1_study
 from tests_next.live.test_tree_merge_live import live_config
 
 
@@ -227,6 +228,66 @@ def test_real_part1_cli_runs_two_independent_replicates(
     frozen = json.loads((evidence / "run" / "config.json").read_text())
     assert frozen["live"] is True
     assert json.loads((evidence / "run" / "command.json").read_text())["status"] == "completed"
+    _assert_no_secret(evidence, secret)
+
+
+def test_real_part1_prepared_s0_and_properties_contract(
+    live_evidence_root: Path,
+) -> None:
+    secret = os.environ.get("LAB_KEY_UNLIMITED")
+    if not secret:
+        pytest.fail("LAB_KEY_UNLIMITED is required for the prepared Part I contract")
+    repo = Path(__file__).parents[2]
+    study = repo / "skillrace_next" / "study" / "part1"
+    assert verify_part1_study(repo, study / "selection.json") == 30
+
+    evidence = (
+        live_evidence_root
+        / "part1-study-inputs"
+        / "deepseek-v4-flash"
+        / _run_id()
+    )
+    evidence.mkdir(parents=True)
+    config = _write_config(
+        evidence,
+        "part1",
+        1,
+        methods=("random",),
+    )
+    s0 = repo / "skills" / "file-check"
+    prepared = study / "file-check"
+
+    assert cli.main(
+        [
+            "part1",
+            "--config",
+            str(config),
+            "--s0-dir",
+            str(s0),
+            "--s0-receipt",
+            str(prepared / "s0-receipt.json"),
+            "--skill-id",
+            "file-check",
+            "--properties",
+            str(prepared / "properties.json"),
+            "--live",
+        ]
+    ) == 0
+
+    campaign = evidence / "run" / "replicates" / "0001" / "campaign"
+    summary = json.loads((campaign / "summary.json").read_text(encoding="utf-8"))
+    assert summary["s0_hash"] == tree_hash(s0)
+    iteration = campaign / "methods" / "random" / "runs" / "0"
+    results = json.loads(
+        (iteration / "checks" / "results" / "check_results.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert results["artifact_unchanged"] is True
+    assert all(item["status"] in {"pass", "fail"} for item in results["results"])
+    assert json.loads((evidence / "run" / "command.json").read_text())["status"] == (
+        "completed"
+    )
     _assert_no_secret(evidence, secret)
 
 

@@ -77,28 +77,32 @@ The implemented final-development tracks are:
 `yunwu/deepseek-v3.2` remains supported. Within a track, do not mix cheap models across
 proposer, weak-agent, segmenter, alignment, generator, or patcher roles.
 
-### 2. Prepare Part I inputs
+### 2. Part I inputs are prepared
 
-Each selected Part I skill needs:
+The approved 30-skill ordered selection, exclusions, normalized properties, and
+hash-bound receipts are under:
 
 ```text
-skills/<skill>/SKILL.md
-skills/<skill>/<provenance-receipt>.json
-scenarios/<scenario>/properties.json
+skillrace_next/study/part1/selection.json
+skillrace_next/study/part1/<skill>/properties.json
+skillrace_next/study/part1/<skill>/s0-receipt.json
 ```
 
-`properties.json` must be an ordered, nonempty list of unique property IDs and
-descriptions. The Part I CLI does not invent S0 provenance or property definitions.
+The selected S0 itself remains unchanged under `skills/<skill>/`. Receipts point to and
+bind that source tree; no skill copy was made. Before launching any campaign, call
+`verify_part1_study` to reject any S0 or prepared-property hash drift. The separate real
+contract evidence is under
+`out/live-contracts/part1-study-inputs/deepseek-v4-flash/20260720T081754Z-03ff7db6/`.
 
 Example invocation:
 
 ```bash
 python -m skillrace_next part1 \
   --config path/to/part1-config.json \
-  --s0-dir skills/my-skill \
-  --s0-receipt skills/my-skill/receipt.json \
-  --skill-id my-skill \
-  --properties scenarios/my-scenario/properties.json \
+  --s0-dir skills/file-check \
+  --s0-receipt skillrace_next/study/part1/file-check/s0-receipt.json \
+  --skill-id file-check \
+  --properties skillrace_next/study/part1/file-check/properties.json \
   --live
 ```
 
