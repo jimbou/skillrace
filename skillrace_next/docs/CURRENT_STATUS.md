@@ -196,6 +196,26 @@ falsely admitted. Credentials were absent and all three owned containers were re
   containers were removed, exact-key scans were clean, and none of 104 Codex exploratory
   commands invoked Docker. Evidence is under
   `out/live-contracts/pilot-v3/deepseek-v4-flash/part1/js-feature/`.
+- [x] Preserve `pilot-v3` Part I cell 3, `csv-workbench`, as invalid pilot evidence. One
+  VeriGrey proposal was an unrelated arithmetic task rather than a CSV task. Its weak
+  agent completed the visible task and observed `84`, but the generated Python checker
+  compared the real newline with a literal backslash-plus-`n`, falsely reported failure,
+  and caused an invalid patch attempt. The other confirmed CSV failure and both rejected
+  patch outcomes remain preserved, but no method-quality result is reported for this
+  cell. The terminal evidence remains under
+  `out/live-contracts/pilot-v3/deepseek-v4-flash/part1/csv-workbench/`.
+- [x] Correct the two cell-3 infrastructure failures without adding a new pipeline layer.
+  All three proposer prompts now require the generated task to exercise the supplied
+  skill; branch or tool-transition coverage cannot substitute for relevance. The Codex
+  guide now marks an unrelated task `uncovered` and requires checker decision expressions
+  to agree with their observed pass conditions, including correct newline escaping.
+  The fresh DeepSeek proposer contract passed under
+  `out/live-contracts/test-proposer/20260720T162920Z-4106ddb8/`. Terra/medium produced
+  semantically correct checks for a relevant artifact under
+  `out/live-contracts/codex-verifier/20260720T162942Z-6ce60058/`, then correctly marked an
+  arithmetic task against a CSV skill as uncovered under
+  `out/live-contracts/codex-verifier-relevance/20260720T163201Z-94253818/`. Exact-key
+  scans were clean and none of the Codex commands invoked Docker.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.

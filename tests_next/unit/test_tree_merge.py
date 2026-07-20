@@ -437,6 +437,8 @@ def test_skillrace_proposal_records_selected_branch_and_validates_test(
     assert "starts with an empty /workspace" in proposal_prompt
     assert "Do not use /mnt/data or /tmp" in proposal_prompt
     assert "must not add requirements" in proposal_prompt
+    assert "meaningfully exercise the supplied skill" in proposal_prompt
+    assert "not a substitute for skill relevance" in proposal_prompt
     assert "Try an alternative workflow" in proposal_prompt
     assert "Do not use Markdown fences" in proposal_prompt
     assert "self-contained" in proposal_prompt

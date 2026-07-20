@@ -66,3 +66,14 @@ into exit status `1`.
 The exact task prompt is the visible behavioral contract. A natural-language check must
 not enforce a condition that the prompt did not request. Put such a property in `uncovered`
 and explain the mismatch instead of creating a hidden requirement.
+
+The proposed task must also be relevant to the supplied skill. If the visible prompt does
+not meaningfully exercise the supplied skill, put every affected property in `uncovered`
+and state that the task is inapplicable. Do not turn success or failure on an unrelated
+generic task into evidence about the skill.
+
+Before finalizing a checker, reconcile its decision expression with the artifact, trace,
+and tool outputs. If the observed values satisfy the declared pass condition, the script
+must exit `0`; do not manufacture a failure through an escaping, whitespace, or path
+representation mistake. In source-code string literals, distinguish an actual newline
+from the two literal characters backslash and `n`.

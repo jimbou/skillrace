@@ -154,3 +154,114 @@ def test_real_codex_authors_checks_without_mutating_yunwu_run_inputs(
     for path in evidence.rglob("*"):
         if path.is_file():
             assert secret not in path.read_text(encoding="utf-8", errors="replace")
+
+
+def test_real_codex_marks_task_unrelated_to_skill_uncovered(
+    live_evidence_root: Path,
+) -> None:
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    evidence = live_evidence_root / "codex-verifier-relevance" / run_id
+    workspace = evidence / "verifier_workspace"
+    input_dir = workspace / "input"
+    output = workspace / "output"
+    (input_dir / "skill").mkdir(parents=True)
+    (input_dir / "environment").mkdir()
+    (input_dir / "artifact").mkdir()
+    output.mkdir(parents=True)
+    shutil.copy2("skillrace_next/verification/GUIDE.md", workspace / "GUIDE.md")
+    (input_dir / "skill" / "SKILL.md").write_text(
+        "# CSV analysis\nInspect CSV schemas and compute requested aggregates.\n",
+        encoding="utf-8",
+    )
+    (input_dir / "prompt.txt").write_text(
+        "Create /workspace/calc.py that prints the product of 7 and 12, run it, and "
+        "report 84.\n",
+        encoding="utf-8",
+    )
+    (input_dir / "environment" / "Dockerfile").write_text(
+        "FROM skillrace-next/task-fixture:test\nWORKDIR /workspace\n",
+        encoding="utf-8",
+    )
+    (input_dir / "artifact" / "calc.py").write_text("print(7 * 12)\n", encoding="utf-8")
+    (input_dir / "trace.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "message",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "84"}],
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (input_dir / "tool_outputs.jsonl").write_text(
+        json.dumps({"toolName": "bash", "output": "84\n"}) + "\n",
+        encoding="utf-8",
+    )
+    artifact_hash = tree_hash(input_dir / "artifact")
+    atomic_write_json(
+        input_dir / "run.json",
+        {"run_id": f"codex-relevance-{run_id}", "artifact_hash": artifact_hash},
+    )
+    atomic_write_json(
+        input_dir / "nl_checks.json",
+        [
+            {
+                "property_id": "P1",
+                "description": "CSV aggregates are numerically correct.",
+            }
+        ],
+    )
+    config = ExperimentConfig(
+        experiment_id="live-codex-relevance",
+        part="part1",
+        methods=("verigrey",),
+        replicate_count=1,
+        provider="lab",
+        model_id="deepseek-v4-flash",
+        pi_version="0.73.1",
+        role_budgets={"proposer": 4, "weak_agent": 4, "patcher": 6},
+        verifier_backend="codex",
+        verifier_command=("codex", "exec"),
+        verifier_model="gpt-5.6-terra",
+        verifier_reasoning="medium",
+        docker_image="skillrace-next/task-fixture:test",
+        resource_limits={"cpus": "1", "memory_mb": 512},
+        network_policy="none",
+        timeouts={
+            "provider": 60,
+            "pi": 180,
+            "docker": 180,
+            "codex": 300,
+            "check": 60,
+            "patch": 300,
+        },
+        suite_path=evidence,
+        scenario_path=evidence,
+        iteration_budget=1,
+        live=True,
+        output_root=evidence,
+        heldout_repetitions=1,
+    )
+
+    bundle = author_checks(workspace, config)
+
+    manifest = json.loads(bundle.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["checks"] == []
+    assert [item["property_id"] for item in manifest["uncovered"]] == ["P1"]
+    assert "skill" in manifest["uncovered"][0]["reason"].lower()
+    events = [
+        json.loads(line)
+        for line in bundle.codex_receipt_path.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    commands = [
+        item["command"]
+        for event in events
+        if isinstance((item := event.get("item")), dict)
+        and item.get("type") == "command_execution"
+        and isinstance(item.get("command"), str)
+    ]
+    assert all(not command_invokes_docker(command) for command in commands)

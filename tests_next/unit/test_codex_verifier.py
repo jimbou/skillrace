@@ -79,6 +79,7 @@ def write_valid_bundle(output: Path, artifact_hash: str) -> None:
 def test_guide_states_immutable_artifact_and_authoritative_execution_contract() -> None:
     guide = Path("skillrace_next/verification/GUIDE.md").read_text(encoding="utf-8")
     normalized = guide.lower()
+    normalized_words = " ".join(guide.split())
 
     assert "must not modify, repair, complete, reformat" in guide
     assert "only writable directory" in guide
@@ -86,6 +87,8 @@ def test_guide_states_immutable_artifact_and_authoritative_execution_contract() 
     assert "not verdicts" in normalized
     assert "mark it uncovered" in guide
     assert "no Docker access" in guide
+    assert "does not meaningfully exercise the supplied skill" in normalized_words
+    assert "observed values satisfy the declared pass condition" in normalized_words
 
 
 def test_docker_command_detection_distinguishes_dockerfile_from_cli_invocation() -> None:

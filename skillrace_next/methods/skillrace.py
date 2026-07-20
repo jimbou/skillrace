@@ -544,7 +544,9 @@ def propose_test(
     prompt_path = attempt / "prompt.txt"
     prompt_path.write_text(
         "Propose one concrete development task that exercises the selected unreached "
-        "reasoning branch. The task must be self-contained: specify all paths, inline "
+        "reasoning branch and must meaningfully exercise the supplied skill. A generic "
+        "task that merely resembles the branch is invalid; the branch is not a substitute "
+        "for skill relevance. The task must be self-contained: specify all paths, inline "
         "input data, and an observable expected result. The task container starts with an "
         "empty /workspace, so do not claim that a file or project already exists. Tell the "
         "agent to create every needed file, and put every task and artifact path under "

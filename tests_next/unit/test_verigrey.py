@@ -229,6 +229,8 @@ def test_proposal_targets_undercovered_transition_and_records_exact_evidence(
     assert "starts with an empty /workspace" in pi_prompt
     assert "Do not use /mnt/data or /tmp" in pi_prompt
     assert "must not add requirements" in pi_prompt
+    assert "meaningfully exercise the supplied skill" in pi_prompt
+    assert "not a substitute for skill relevance" in pi_prompt
     assert json.dumps(target, sort_keys=True) in pi_prompt
     assert proposed.origin_method == "verigrey"
     assert proposed.validation_status == "valid"
