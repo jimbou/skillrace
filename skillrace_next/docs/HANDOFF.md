@@ -1,6 +1,6 @@
 # SkillRACE Next Handoff
 
-Date: 2026-07-18
+Date: 2026-07-20
 
 ## Bottom line
 
@@ -16,8 +16,10 @@ python -m skillrace_next ...
 No package rename is required to run experiments. The final legacy-package cutover was
 not authorized and was not performed.
 
-What remains is primarily experiment preparation and execution. The production CLI now
-executes `replicate_count` independent campaigns sequentially in numbered directories.
+The study inputs and bounded pilot are prepared and complete. What remains is choosing
+the full-study scale, freezing its per-cell configs, running it, and aggregating its
+campaign summaries. The production CLI executes `replicate_count` independent campaigns
+sequentially in numbered directories.
 
 ## Ready now
 
@@ -35,6 +37,9 @@ executes `replicate_count` independent campaigns sequentially in numbered direct
   receives neither provider credentials nor Docker access.
 - Same-track Pi performs patching from immutable evidence.
 - Checker scripts execute through `docker exec`; their JSON output is authoritative.
+- Before weak execution, files baked into the validated image's `/workspace` are copied
+  into the durable host artifact and then mounted back. This preserves supplied projects
+  and test harnesses while keeping the final artifact inspectable and immutable.
 - Weak-agent timeout is an experimental outcome. Its partial artifact is checked without
   retrying the weak agent for luck.
 
@@ -58,14 +63,11 @@ Each replicate receives a fresh effective config/output root, identical input ar
 and no state from another replicate. There is intentionally no scheduler, parallel
 campaign manager, or multi-skill/scenario/model matrix runner.
 
-### 1. Choose the real study inputs
+### 1. Choose the full-study scale
 
-The next operator must select, without guessing:
+The 30 Part I skills, ten Part II scenarios, and 100 held-out records are already selected
+and hash-bound. The next operator must still choose, explicitly:
 
-- the 30 best-fitting existing skills as Part I S0 inputs, with recorded selection
-  criteria and an ordered final list;
-- which public scenarios are Part II inputs;
-- which tests are held out until final evaluation;
 - iteration budgets, held-out repetitions, and the explicit replicate/cell schedule; and
 - which model tracks are included in the actual study.
 
@@ -181,10 +183,11 @@ directory.
 
 ### 5. Run and inspect the actual experiments
 
-The approved DeepSeek pilot schedule is frozen under `skillrace_next/study/pilot/`.
-Its README contains the eight explicit sequential commands. Verify `schedule.json`
-before the first paid cell; do not replace those commands with a scheduler or retry an
-unfavorable scientific result.
+The bounded DeepSeek pilot is complete across immutable schedules `pilot-v3` through
+`pilot-v8`; each fresh schedule was used only after a documented infrastructure
+correction. The final cell and authoritative harness-preservation evidence are under
+`out/live-contracts/pilot-v8/deepseek-v4-flash/part2/fix-failing-test/`. Do not rerun
+completed pilot cells or resume interrupted predecessor roots.
 
 Paid commands require explicit `--live`. For each completed run:
 
@@ -202,8 +205,8 @@ receipt.
 
 ## Recorded later work and non-work
 
-These items do not block a single campaign. Runtime naming and final aggregation remain
-study TODOs; cutover and line-count refactoring do not.
+These items do not block a single campaign. Final aggregation remains a study TODO;
+cutover and line-count refactoring do not.
 
 ### Legacy package cutover
 
@@ -257,7 +260,7 @@ and sequential; extract code only if a future concrete change creates a clear bo
 
 ## Verification already completed
 
-- 155 unit/integration tests passed.
+- The full current offline suite passes.
 - Separate real production Part I and Part II CLI contracts passed.
 - Individual live contracts passed for provider/Pi, task execution, proposal, Codex
   verifier, Docker checker execution, episode creation, tree merge/alignment, SkillRACE

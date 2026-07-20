@@ -391,23 +391,34 @@ falsely admitted. Credentials were absent and all three owned containers were re
   successful cleanup under
   `out/live-contracts/check-executor-baseline/20260720T205633Z-590c27f6/`. Exact-key
   scans were clean and no owned container remained.
+- [x] Complete and audit `pilot-v8` Part II `fix-failing-test`. All six development
+  runs passed, so no confirmed failure warranted patching and every method retained the
+  generated S0. The held-out image's original two-function implementation and two-test
+  harness were present in every weak-agent workspace. The independent S0, Random,
+  VeriGrey, and SkillRACE runs each repaired only the implementation and passed both the
+  frozen suite-success and harness-preservation checks. Terra explicitly compared the
+  final public test with the environment baseline and rejected harness-control changes;
+  no held-out property was uncovered. One development checker bundle needed its allowed
+  deterministic structure correction before Docker. All ten artifacts were unchanged
+  during checking, all ten cleanup receipts succeeded, exact-key scans were clean, none
+  of 165 Codex commands invoked Docker, and no owned container remained. Evidence is
+  under `out/live-contracts/pilot-v8/deepseek-v4-flash/part2/fix-failing-test/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
 - [ ] Create one frozen campaign config per selected skill/scenario and model track, with
   separate input and output roots. The replicate loop creates numbered replicate
   directories inside that campaign output.
-- [ ] Finish the bounded pilot using the remaining frozen `pilot-v7` cells. Preserve all
+- [x] Finish the bounded pilot using the frozen v3-v8 cells. Preserve all
   interrupted predecessor outputs and do not resume a terminal output root. Starting a
   fresh root after a recorded infrastructure correction is not a retry of an unfavorable
   scientific outcome.
-- [ ] For the pilot, start with a 10-minute wall timeout for weak-agent execution and its
+- [x] For the pilot, use a 10-minute wall timeout for weak-agent execution and its
   post-patch replay, and a 5-minute timeout for Codex checker authoring. Keep turn budgets
-  separate from wall-clock timeouts. Confirm or adjust the proposer, generator, patcher,
-  Docker-build, and executable-check limits from observed pilot evidence before the full
-  study. The current development fixture uses 3 minutes for Pi execution/replay, 5 minutes
-  for Codex, 5 minutes for patching, 3 minutes for Docker build, and 1 minute for checks.
-- [ ] Manually inspect the pilot's first proposer output, generated S0, episode/tree merge,
+  separate from wall-clock timeouts. Pilot v7/v8 used 10 minutes for Pi execution/replay
+  and patching, 5 minutes for Codex, 3 minutes for Docker build, and 1 minute for checks.
+  These bounds completed the pilot without masking any agent timeout as infrastructure.
+- [x] Manually inspect the pilot's first proposer output, generated S0, episode/tree merge,
   generated skill, patch, Codex checker bundle, Docker result, and replay result for
   semantic correctness.
 - [ ] Run the full study without retrying unfavorable scientific outcomes. Verify every
