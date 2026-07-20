@@ -149,6 +149,29 @@ def test_random_proposal_accepts_one_standard_json_fence(tmp_path: Path) -> None
     assert len(calls) == 1
 
 
+def test_random_proposal_accepts_outer_fence_when_prompt_contains_code_fence(
+    tmp_path: Path,
+) -> None:
+    calls: list[PiRequest] = []
+    response = "```json\n" + json.dumps(
+        {
+            "prompt": "Create example.py containing:\n```python\nprint('ok')\n```",
+            "property_ids": ["P1"],
+        }
+    ) + "\n```"
+
+    proposed = propose_test(
+        skill_version(tmp_path),
+        PROPERTIES,
+        config_for(tmp_path),
+        tmp_path / "proposal",
+        fake_pi_responses([response, response], calls),
+    )
+
+    assert "```python" in proposed.prompt_path.read_text(encoding="utf-8")
+    assert len(calls) == 1
+
+
 def test_random_proposal_stops_after_second_malformed_response(tmp_path: Path) -> None:
     calls: list[PiRequest] = []
 

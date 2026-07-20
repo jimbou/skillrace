@@ -37,7 +37,6 @@ def _assistant_json(trace_path: Path) -> dict[str, Any]:
     if (
         response.startswith("```json\n")
         and response.endswith("\n```")
-        and response.count("```") == 2
     ):
         response = response[len("```json\n") : -len("\n```")]
     value = json.loads(response)
