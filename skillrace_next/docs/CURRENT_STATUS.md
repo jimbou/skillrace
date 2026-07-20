@@ -282,13 +282,27 @@ falsely admitted. Credentials were absent and all three owned containers were re
   nine cleanup receipts succeeded, exact-key scans were clean, none of 140 Codex commands
   invoked Docker, and no owned container remained. Evidence is under
   `out/live-contracts/pilot-v5/deepseek-v4-flash/part1/csv-workbench/`.
+- [x] Preserve `pilot-v5` Part I `fix-failing-test` as a terminal parser failure. The
+  first Random slot reached its one allowed replacement. Both replacement responses were
+  valid proposal JSON inside one outer JSON fence, with Python code fences inside the
+  JSON prompt string. The parser's outer-fence allowance incorrectly counted the inner
+  prompt fences and rejected both responses as malformed. The CLI wrote `status: failed`;
+  no weak-agent or checker run started, and the output root will not be resumed.
+- [x] Correct the nested-fence parser defect directly. Random proposal parsing now removes
+  its already-supported single outer JSON fence without counting code fences contained
+  inside the JSON string. The focused regression test failed before the one-line fix;
+  the Random unit file and full offline suite are green. A fresh real DeepSeek v4 proposal
+  passed deterministic validation under
+  `out/live-contracts/test-proposer/20260720T181555Z-787d16a4/`. `pilot-v6` freezes the
+  same eight scientific cells with new IDs and output roots; only cells lacking valid
+  prior results should be launched.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
 - [ ] Create one frozen campaign config per selected skill/scenario and model track, with
   separate input and output roots. The replicate loop creates numbered replicate
   directories inside that campaign output.
-- [ ] Finish the bounded pilot using the remaining frozen `pilot-v5` cells. Preserve all
+- [ ] Finish the bounded pilot using the remaining frozen `pilot-v6` cells. Preserve all
   interrupted predecessor outputs and do not resume a terminal output root. Starting a
   fresh root after a recorded infrastructure correction is not a retry of an unfavorable
   scientific outcome.
