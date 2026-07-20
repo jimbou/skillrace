@@ -229,6 +229,19 @@ falsely admitted. Credentials were absent and all three owned containers were re
   all cleanup receipts succeeded, exact-key scans were clean, none of 72 Codex commands
   invoked Docker, and no owned container remained. Evidence is under
   `out/live-contracts/pilot-v4/deepseek-v4-flash/part1/file-check/`.
+- [x] Complete and audit `pilot-v4` Part I cell 2, `js-feature`. All six prompts were
+  self-contained JavaScript implementation/testing tasks that meaningfully exercised the
+  skill. Discovery produced 11 passes and three failures. Exact confirmation retained
+  three distinct `validation_missing` bugs: two on one SkillRACE `deepClone` artifact and
+  one on a VeriGrey `findMissingNumber` test. DeepSeek produced three small, relevant
+  skill patches, but exact replay left each targeted failure unchanged, so all three were
+  correctly rejected. There were no inconclusives, infrastructure failures, or invalid
+  proposals. Manual inspection confirmed that the checkers enforced visible requirements
+  and that all patch diffs addressed the observed missing test coverage without weakening
+  checks. All 12 discovery/confirmation/replay artifacts were unchanged, all 12 cleanup
+  receipts succeeded, exact-key scans were clean, none of 94 Codex commands invoked
+  Docker, and no owned container remained. Evidence is under
+  `out/live-contracts/pilot-v4/deepseek-v4-flash/part1/js-feature/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
