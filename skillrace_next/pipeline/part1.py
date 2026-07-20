@@ -127,6 +127,11 @@ def run_part1(
         patched = patch(representative, group_dir / "patch")
         if patched.get("model_id") != config.model_id or patched.get("backend") != "pi":
             raise ValueError("patcher must use the same-track Pi backend")
+        if isinstance(patched.get("candidate_skill"), SkillVersion):
+            patched = {
+                **patched,
+                "candidate_skill": patched["candidate_skill"].to_dict(),
+            }
         stage_costs["patch"] += patched.get("cost", 0)
         patches.append(patched)
     summary = summarize_part1(

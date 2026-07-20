@@ -155,3 +155,60 @@ def test_second_invalid_proposal_records_missed_slot_without_agent_run(
             / "missed-slot.json"
         ).read_text(encoding="utf-8")
     ) == result["missed_slots"][0]
+
+
+def test_part1_summary_serializes_a_patched_candidate_skill(tmp_path: Path) -> None:
+    s0 = skill_version(tmp_path)
+    config = replace(
+        config_for(tmp_path), methods=("random",), iteration_budget=1
+    )
+
+    def propose(method, state, skill, slot, output):
+        return {"test_id": "test-1", "method": method}
+
+    def execute(method, skill, test, slot, output):
+        return {
+            "run_id": "run-1",
+            "test_id": test["test_id"],
+            "method": method,
+            "model_id": config.model_id,
+            "skill_hash": skill.tree_hash,
+            "cost": 1,
+        }
+
+    def check(method, run, test, output):
+        return [
+            {
+                "check_id": "P1-C1",
+                "property_group": "output",
+                "status": "fail",
+                "failing_check_signature": "P1-C1:wrong-bytes",
+                "root_cause_category": "format_contract",
+            }
+        ]
+
+    result = run_part1(
+        s0,
+        config,
+        tmp_path / "part1-candidate",
+        propose=propose,
+        execute=execute,
+        check=check,
+        update_state=lambda method, state, run, results, output: state,
+        confirm=lambda candidate, output: True,
+        patch=lambda candidate, output: {
+            "candidate_skill": s0,
+            "decision": "accepted",
+            "model_id": config.model_id,
+            "backend": "pi",
+            "cost": 1,
+        },
+    )
+
+    assert result["patches"][0]["candidate_skill"] == s0.to_dict()
+    saved = json.loads(
+        (tmp_path / "part1-candidate" / "summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert saved == result
