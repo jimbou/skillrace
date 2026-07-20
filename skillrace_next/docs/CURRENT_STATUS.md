@@ -367,6 +367,30 @@ falsely admitted. Credentials were absent and all three owned containers were re
   succeeded, exact-key scans were clean, none of 222 Codex commands invoked Docker, and
   no owned container remained. Evidence is under
   `out/live-contracts/pilot-v7/deepseek-v4-flash/part2/csv-stats/`.
+- [x] Preserve `pilot-v7` Part II `fix-failing-test` as invalid workspace evidence. All
+  six development runs passed, but the first held-out weak-agent container saw an empty
+  `/workspace`: the durable empty host artifact mount had hidden the initial project
+  baked into the validated test image. The agent consequently fabricated a different
+  implementation and test suite, then repaired its own fabricated failure. Terra passed
+  pytest but marked harness preservation uncovered even though the immutable environment
+  Dockerfile defined the original files. The cell was interrupted during the next
+  held-out checker to avoid further invalid paid work, no owned container remained, and
+  the output root will not be resumed.
+- [x] Correct held-out workspace initialization and preservation checking directly. Weak
+  execution now copies the validated image's existing `/workspace` into the empty durable
+  host artifact before mounting it back into the task container. Checker containers do
+  not seed, so final artifacts remain immutable. The Codex guide now identifies the
+  supplied environment Dockerfile and build context as the authoritative initial-workspace
+  baseline for test or harness preservation. Focused tests failed before both changes;
+  the surrounding runtime tests and full offline suite are green. A real DeepSeek v4
+  task read and preserved a baked input under
+  `out/live-contracts/task-runner-seeded/20260720T205131Z-2701a626/`. Terra/medium covered
+  both output correctness and input preservation, with no Docker access, under
+  `out/live-contracts/codex-verifier-baseline/20260720T205316Z-40dd77da/`; its two exact
+  scripts then passed through authoritative Docker execution with unchanged artifact and
+  successful cleanup under
+  `out/live-contracts/check-executor-baseline/20260720T205633Z-590c27f6/`. Exact-key
+  scans were clean and no owned container remained.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
