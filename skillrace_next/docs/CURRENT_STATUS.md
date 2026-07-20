@@ -321,13 +321,31 @@ falsely admitted. Credentials were absent and all three owned containers were re
   unchanged during checking, all cleanup receipts succeeded, exact-key scans were clean,
   none of 135 Codex commands invoked Docker, and no owned container remained. Evidence is
   under `out/live-contracts/pilot-v6/deepseek-v4-flash/part1/regex-expert/`.
+- [x] Preserve `pilot-v6` Part II `text-template` as invalid checker evidence. Random
+  iteration 0 exposed a real triple-brace failure and produced a small general DeepSeek
+  patch. The frozen checker also imported the first artifact's undeclared two-argument
+  `render` function. The replay artifact used a valid three-argument helper behind the
+  prompt-declared file/CLI workflow, so the hidden API assumption caused a false replay
+  failure and invalidated the admission decision. The cell was interrupted during the
+  next method's checker authoring to avoid further paid work; no owned container remained,
+  and the root will not be resumed.
+- [x] Correct the verifier hidden-API defect directly. The guide now forbids importing or
+  calling artifact functions unless the prompt explicitly declares the interface and
+  signature. Generalized probes must use a scratch artifact copy and the visible
+  CLI/file workflow, or be marked uncovered. The focused guide test and full offline
+  suite are green. Fresh Terra/medium authoring over a real Yunwu artifact passed under
+  `out/live-contracts/codex-verifier/20260720T191247Z-dd0d3a62/`; its exact scripts then
+  produced two authoritative Docker passes with unchanged artifact and successful cleanup
+  under `out/live-contracts/check-executor/20260720T191416Z-882993d6/`. `pilot-v7`
+  freezes the same scientific cells with fresh IDs and roots; only cells lacking valid
+  prior results should be launched.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
 - [ ] Create one frozen campaign config per selected skill/scenario and model track, with
   separate input and output roots. The replicate loop creates numbered replicate
   directories inside that campaign output.
-- [ ] Finish the bounded pilot using the remaining frozen `pilot-v6` cells. Preserve all
+- [ ] Finish the bounded pilot using the remaining frozen `pilot-v7` cells. Preserve all
   interrupted predecessor outputs and do not resume a terminal output root. Starting a
   fresh root after a recorded infrastructure correction is not a retry of an unfavorable
   scientific outcome.
