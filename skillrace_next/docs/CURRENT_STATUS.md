@@ -216,6 +216,10 @@ falsely admitted. Credentials were absent and all three owned containers were re
   arithmetic task against a CSV skill as uncovered under
   `out/live-contracts/codex-verifier-relevance/20260720T163201Z-94253818/`. Exact-key
   scans were clean and none of the Codex commands invoked Docker.
+- [x] Freeze the corrected schedule as `pilot-v4`, retaining the approved eight cells,
+  model, methods, inputs, budgets, and held-out policy while assigning fresh experiment
+  IDs and output roots under `out/live-contracts/pilot-v4/`. The hash-bound schedule and
+  exact sequential commands are under `skillrace_next/study/pilot-v4/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
