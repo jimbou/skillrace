@@ -59,17 +59,19 @@ executed. Until this is implemented, the scientifically safe operational workaro
 - give every invocation a unique `experiment_id` and `output_root`; and
 - aggregate only after verifying every expected cell exists.
 
-If code support is desired, implement the smallest direct outer sequential loop over
-replicates, with a focused failing test proving distinct output directories and S0/input
-identity. Do not add a scheduler, matrix engine, workflow framework, recovery system, or
-parallel campaign manager. Independent-cell parallelism can be considered only after the
-sequential outer loop is correct.
+The settled implementation is the smallest direct outer sequential loop over replicates.
+Use numbered directories such as `0001` and `0002`; give each replicate fresh identical
+inputs and no access to another replicate's state or output. Add a focused failing test
+proving directory separation, input identity, and the expected replicate count. Do not
+add a scheduler, matrix engine, workflow framework, recovery system, parallel campaign
+manager, or cross-replicate state.
 
 ### 1. Choose the real study inputs
 
 The next operator must select, without guessing:
 
-- which existing skills are Part I S0 inputs;
+- the 30 best-fitting existing skills as Part I S0 inputs, with recorded selection
+  criteria and an ordered final list;
 - which public scenarios are Part II inputs;
 - which tests are held out until final evaluation;
 - iteration budgets, held-out repetitions, and the explicit replicate/cell schedule; and
@@ -117,9 +119,19 @@ scenarios/<scenario>/scenario.md
 scenarios/<scenario>/heldout/<test>/test-case.json
 ```
 
+The public scenario does not need pre-authored development NL checks. During development,
+each method generates its own prompt, Docker environment, and NL checks from that
+scenario. The held-out records below are separate Part II final-evaluation inputs.
+
 Each `test-case.json` must use schema `skillrace-test-case/1` and bind the exact prompt,
 Docker environment, NL checks, proposal receipt, and their hashes. Relative paths are
 resolved against the record's directory.
+
+Under the current verifier contract, the held-out NL checks state the required behavior
+and real Codex authors executable scripts from them at evaluation time. Existing
+executable checks can help audit whether a test is strong, but they are not a replacement
+for the `TestCase` NL-check field. Freeze the held-out definitions before the final run;
+changing them after inspecting final skills would make them no longer held out.
 
 Many existing repository scenarios use older scenario-specific `test.json` files. Those
 files are not automatically compatible. Reuse their prompt, environment, NL-check, and
@@ -165,12 +177,12 @@ by the command:
 - set config `live` to `true` for a paid run and also pass `--live`; and
 - in Part II, pass the same path in config `scenario_path` and `--scenario`.
 
-The CLI gate still prevents paid work unless `--live` is present. The gap is that it does
-not reject a frozen config whose `live` value disagrees with that flag, and it does not
-reject a Part II scenario argument that disagrees with the frozen provenance path. Before
-a full study, either enforce these two equalities with focused tests or validate them in
-the run-launch script and inspect every frozen config. Prefer direct rejection of a
-mismatch; do not silently rewrite the frozen scientific inputs.
+The CLI gate still prevents paid work unless `--live` is present. Until the planned
+override behavior is implemented, follow the three equality rules above. The settled
+implementation will make CLI arguments authoritative: warn when source config `live` or
+`scenario_path` disagrees, then freeze the effective CLI value so provenance describes
+what actually ran. The warning prevents a silent change; frozen `config.json` must not
+retain a value known to be false for that run.
 
 Before spending provider budget, freeze each config without `--live`:
 
@@ -198,31 +210,31 @@ Do not rerun an incorrect artifact, timeout, rejected patch, or unfavorable meth
 to obtain a better outcome. Stop on persistent provider failure and preserve the failed
 receipt.
 
-## Optional later work
+## Recorded later work and non-work
 
-These items are not blockers for using `skillrace_next` now.
+These items do not block a single campaign. Runtime naming and final aggregation remain
+study TODOs; cutover and line-count refactoring do not.
 
 ### Legacy package cutover
 
 Cutover would rename or install `skillrace_next` as `skillrace`, move/archive the old
-implementation, and update canonical imports and entry points. This requires explicit
-approval. It should be a separate task with fresh tests and a carefully scoped commit.
+implementation, and update canonical imports and entry points. It is not planned for this
+study. Run `skillrace_next` directly and leave the legacy package untouched rather than
+deleting it.
 
 ### Runtime image naming
 
 The pinned Pi runtime image tag still contains the historical `deepseek-v3.2` label even
-when its mounted model catalog selects a Lab model. Receipts preserve the real image ID
-and model identity, so behavior is correct. Rename/rebuild only if clearer artifact
-naming is worth invalidating the existing image-name references; preserve the old image
-hash evidence.
+when its mounted model catalog selects a Lab model. Rename/rebuild it with a generic name
+that contains no model ID. Preserve the old and new image IDs in the evidence.
 
 ### Thin `analyze` command
 
 `python -m skillrace_next analyze` copies an existing run summary into `analysis.json`.
-It does not verify or aggregate multiple experiment cells. A full multi-replicate study
-therefore needs either an explicit external aggregation step or a newly specified direct
-aggregator. Add it only when the exact required report and expected cell set have been
-settled.
+It does not verify or aggregate multiple experiment cells. After the final output layout
+is known, write one small Python script that reads all expected campaign summaries and
+computes the chosen key metrics, averages, and comparisons. No analysis framework or
+incomplete-run recovery system is needed.
 
 ### Large modules
 
@@ -275,8 +287,9 @@ d8d93ee feat(next): run explicit clean-room campaigns
 ## Start of the next session
 
 1. Read this handoff and [Current Status and Known Issues](CURRENT_STATUS.md).
-2. Confirm whether the goal is replicate-loop support, input conversion, a bounded
-   pilot, the full experiment, analysis aggregation, or legacy cutover.
+2. Confirm whether the next goal is replicate-loop support, CLI override behavior,
+   generic runtime-image naming, Part I input selection, Part II input preparation, the
+   bounded pilot, the full experiment, or final aggregation.
 3. Inspect only the selected input files and their current Git status.
 4. Run the full offline suite before any implementation change:
 

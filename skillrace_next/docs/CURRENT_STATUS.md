@@ -34,48 +34,89 @@ credential scan was clean and no container remained.
 The component and single-campaign pipeline is ready. The following work remains for the
 actual multi-replicate study.
 
+### Decisions now settled
+
+- Replicates will use one direct sequential loop. Replicate `0001`, `0002`, and so on
+  receive separate numbered output directories. Every replicate starts from fresh input
+  copies and has no access to another replicate's state or output.
+- CLI arguments are authoritative when they duplicate config fields. `--live` determines
+  whether paid work runs, and Part II `--scenario` determines the public scenario. If the
+  supplied config disagrees, print a clear warning and freeze the effective CLI value so
+  the saved provenance describes what actually ran. Do not leave a knowingly false value
+  in frozen `config.json`.
+- Part I will use the 30 best-fitting skills selected from the repository `skills/` tree.
+- Part II will use selected scenarios from the repository `scenarios/` tree.
+- Run only `skillrace_next`; keep the legacy `skillrace` package untouched and ignore it.
+  No cutover or deletion is needed for the study.
+- Do not refactor modules merely because they are long.
+
 ### Required implementation work
 
-- [ ] Make replicate execution authoritative. The current CLI runs one campaign per
-  invocation and does not expand `replicate_count`. Implement the smallest direct
-  sequential replicate loop, or use an explicit one-replicate-per-command launcher that
-  verifies every expected cell and gives each one a unique `experiment_id` and
-  `output_root`. Do not set `replicate_count > 1` and assume it ran multiple campaigns.
-- [ ] Reject a paid command when config `live` disagrees with the presence of `--live`.
-  Until this is implemented, set config `live` to `true` whenever passing `--live`.
-- [ ] Reject Part II when frozen config `scenario_path` differs from `--scenario`. Until
-  this is implemented, pass the identical path in both places.
+- [ ] Make `replicate_count` execute the direct sequential loop described above. Verify
+  that the expected numbered directories exist, inputs are identical, and no state is
+  shared across replicates.
+- [ ] Make CLI `--live` and `--scenario` overrides explicit. Warn on disagreement and
+  freeze the effective values used by the command.
+- [ ] Rename/rebuild the shared Pi runtime image with a generic, model-independent name.
+  Preserve the old and new image IDs in the evidence so the rename does not obscure
+  provenance.
 
-Use focused failing tests for each implementation item. Keep replicate execution direct
-and sequential; do not introduce a scheduler, matrix engine, or workflow framework. See
-[SkillRACE Next Handoff](HANDOFF.md#0-resolve-replicate-and-matrix-execution).
+Use a focused failing test for each implementation item. Do not introduce a scheduler,
+matrix engine, workflow framework, compatibility layer, or general configuration system.
+See [SkillRACE Next Handoff](HANDOFF.md#0-resolve-replicate-and-matrix-execution).
 
-### Required experiment preparation and execution
+### Part I preparation
 
-- [ ] Select the real Part I S0 skills, Part II public scenarios, held-out tests, model
-  tracks, iteration budgets, held-out repetitions, and replicate count.
-- [ ] Create or verify every Part I S0 provenance receipt and ordered property file.
-- [ ] Convert each selected held-out test to a strict `skillrace-test-case/1` record while
-  preserving its prompt, Docker environment, NL checks, hashes, and receipt.
-- [ ] Create frozen per-cell experiment configs with separate input and output roots.
-- [ ] Run a bounded pilot and manually inspect the first proposer output, generated S0,
-  episode/tree merge, generated skill, patch, Codex checker bundle, Docker result, and
-  replay result for semantic correctness.
-- [ ] Run the full study without retrying unfavorable scientific outcomes, verify every
-  expected cell exists, scan evidence for credentials, and confirm no owned Docker
-  container remains.
-- [ ] Combine the per-campaign summaries into the final study report. The existing
-  `analyze` command does not aggregate multiple cells, so use an explicit external
-  aggregation procedure or implement a direct aggregator after defining its exact report.
+- [ ] Inspect `skills/` and select the 30 skills that best fit the Part I experiment.
+  Record the selection criteria and final ordered list; do not alter the selected S0
+  contents.
+- [ ] Create or verify the provenance receipt for each selected S0. The receipt must bind
+  the exact original skill tree/hash used by every discovery method.
+- [ ] Create an ordered property file for each selected skill. These properties describe
+  what the three Part I test creators should investigate.
 
-### Optional, separately authorized, or deferred
+### Part II preparation
 
-- [ ] Rename/rebuild the runtime image if removing the historical `deepseek-v3.2` label is
-  worth changing image references. Preserve the existing image-ID evidence.
-- [ ] Refactor large modules only when a concrete future change creates a clear boundary;
-  line count alone is not a reason.
-- [ ] Perform the legacy package rename/cutover only after explicit user approval. It is
-  not required to run `skillrace_next` experiments.
+- [ ] Select the Part II scenarios from `scenarios/` and make each public scenario
+  description sufficiently specific to define the desired artifact and architecture.
+  Pre-authored development NL checks are not required: Random, VeriGrey, and SkillRACE
+  generate their own development prompt, Docker environment, and NL checks from this
+  public scenario.
+- [ ] Audit the existing final tests and executable checks for each selected scenario.
+  Decide which are strong enough to use as held-out tests and replace or strengthen weak
+  ones before the final run.
+- [ ] Package every selected held-out test as `skillrace-test-case/1`, preserving its
+  prompt, Docker environment, fixed NL checks, hashes, and receipt. These are Part II
+  tests. Under the current verifier contract, the NL checks state the required behavior
+  and real Codex authors the executable scripts from them at evaluation time.
+- [ ] Freeze the held-out definitions before the final experiment begins. They may be
+  loaded only after all methods produce their final skills, but creating or changing them
+  after seeing those skills would make them no longer scientifically held out.
+
+### Pilot and full execution
+
+- [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
+  count. Use the same cheap model for every non-verifier role within one track.
+- [ ] Create one frozen campaign config per selected skill/scenario and model track, with
+  separate input and output roots. The replicate loop creates numbered replicate
+  directories inside that campaign output.
+- [ ] Start with a bounded pilot using about five Part I skills and two or three Part II
+  scenarios.
+- [ ] For the pilot, start with a 10-minute wall timeout for weak-agent execution and its
+  post-patch replay, and a 5-minute timeout for Codex checker authoring. Keep turn budgets
+  separate from wall-clock timeouts. Confirm or adjust the proposer, generator, patcher,
+  Docker-build, and executable-check limits from observed pilot evidence before the full
+  study. The current development fixture uses 3 minutes for Pi execution/replay, 5 minutes
+  for Codex, 5 minutes for patching, 3 minutes for Docker build, and 1 minute for checks.
+- [ ] Manually inspect the pilot's first proposer output, generated S0, episode/tree merge,
+  generated skill, patch, Codex checker bundle, Docker result, and replay result for
+  semantic correctness.
+- [ ] Run the full study without retrying unfavorable scientific outcomes. Verify every
+  expected campaign/replicate exists, scan evidence for credentials, and confirm no owned
+  Docker container remains.
+- [ ] After the output structure is final, write one small Python aggregation script that
+  reads all campaign summaries and reports the selected key metrics, averages, and
+  comparisons across runs. This is end-of-study work; no aggregation framework is needed.
 
 ## Confirmed working behavior
 
@@ -203,36 +244,36 @@ The final Task 16 cycle ran focused red/green tests, all 155 unit/integration te
 separate real production Part I/II CLI contracts, semantic evidence inspection, and the
 final two-model gate. Legacy-import and forbidden-architecture searches were reviewed.
 
-## P2: lower-priority clarity and maintainability
+## Recorded lower-priority decisions
 
-### P2-1: large modules
+### No line-count refactor
 
 `pipeline/stages.py`, `methods/skillrace.py`, and `runtime/pi.py` exceed the design's
-rough 400-line preference. Do not split them solely by line count. If Task 16 fixes make
-one file hold two clearly distinct responsibilities, extract only that concrete boundary.
+rough 400-line preference. This is not a TODO. Do not split them solely by line count;
+extract code only if a later concrete change creates a necessary boundary.
 
-### P2-2: runtime image name retains the old development model label
+### Generic runtime image name
 
 The pinned Pi base image/tag and OCI metadata still mention `deepseek-v3.2` while the
 same runtime image is used for Lab models through mounted `models.json`. The image ID is
-recorded and behavior is correct, but the naming is confusing. Rename/rebuild only after
-the functional gates are green, preserving the content hash/image ID evidence.
+recorded and behavior is correct, but the naming is confusing. Rename/rebuild it with a
+generic name that contains no model ID, preserving both image IDs in the evidence.
 
-### P2-3: `analyze` is intentionally thin
+### End-of-study aggregation
 
 The analysis modules compute metrics during pipeline completion. The CLI `analyze`
-command only copies an existing summary into `analysis.json`; it does not aggregate cells
-or repair incomplete runs. Expand it only if the final CLI contract requires a concrete
-additional report.
+command only copies one existing summary into `analysis.json`. After the experiment
+output layout is final, add one simple Python script that reads the completed campaign
+summaries and computes the required cross-run totals, averages, and comparisons. Do not
+build an analysis framework or incomplete-run recovery system.
 
 ## Handoff
 
-The component and single-campaign implementation tasks are complete. Replicate expansion
-and the two config/CLI consistency checks above remain before an automated
-multi-replicate study. Full experiment input selection, conversion of any legacy
-held-out records, actual study execution, optional analysis aggregation, and the
-separately authorized legacy cutover are described in
-[SkillRACE Next Handoff](HANDOFF.md).
+The component and single-campaign implementation tasks are complete. The direct
+replicate loop, explicit CLI override behavior, generic runtime image name, experiment
+input preparation, pilot, full study, and simple final aggregation remain. The study will
+run `skillrace_next` directly; legacy cutover is not planned. More operational detail is
+in [SkillRACE Next Handoff](HANDOFF.md).
 
 The repository still contains extensive unrelated dirty legacy work. Do not reset,
 clean, reformat, or include those files in future `skillrace_next` commits.
