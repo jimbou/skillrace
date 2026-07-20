@@ -307,6 +307,20 @@ falsely admitted. Credentials were absent and all three owned containers were re
   clean, none of 117 Codex commands invoked Docker, and no owned container remained.
   Evidence is under
   `out/live-contracts/pilot-v6/deepseek-v4-flash/part1/fix-failing-test/`.
+- [x] Complete and audit `pilot-v6` Part I `regex-expert`. Six relevant tasks produced
+  ten discovery passes, three failures, and one inconclusive result. Exact confirmation
+  retained all three failures: one validator accepted Unicode digits and trailing-newline
+  input, while two accepted trailing-newline input because Python `$` is not an absolute
+  end anchor. DeepSeek produced three general skill edits; exact replay admitted the one
+  that changed the targeted failure to pass without regressing either prior pass, and
+  rejected the two whose failure remained. The inconclusive result came from a generated
+  NL check that required an embedded-code output line incompatible with the visible
+  prompt's exact success format; Terra/medium correctly prevented it from becoming a
+  skill outcome. Manual inspection confirmed coherent episode chains, root alignment,
+  checker semantics, all three patch diffs, and exact replays. All 12 artifacts were
+  unchanged during checking, all cleanup receipts succeeded, exact-key scans were clean,
+  none of 135 Codex commands invoked Docker, and no owned container remained. Evidence is
+  under `out/live-contracts/pilot-v6/deepseek-v4-flash/part1/regex-expert/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
