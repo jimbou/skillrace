@@ -268,16 +268,30 @@ falsely admitted. Credentials were absent and all three owned containers were re
   methods, budgets, and held-out policy, but fresh experiment IDs and roots under
   `out/live-contracts/pilot-v5/`. Its hash-bound schedule and exact sequential commands
   are under `skillrace_next/study/pilot-v5/`.
+- [x] Complete and audit `pilot-v5` Part I `csv-workbench`. All six discovery runs
+  completed. Authoritative Docker execution produced seven passes, two failures, and two
+  inconclusive results with unchanged artifacts. Exact confirmation retained one
+  `validation_missing` bug. DeepSeek's patch improved one prior failure but regressed a
+  prior pass, so the no-regression admission rule correctly rejected it and retained S0.
+  Manual inspection found one minor non-operative row-order typo and two material
+  arithmetic/median contradictions in generated prompts; Terra/medium classified both
+  material contradictions as inconclusive instead of turning them into skill outcomes.
+  This is useful pipeline-safety evidence, but generated-task consistency is still a
+  pilot-quality limitation and this cell alone is not a headline method comparison. The
+  episode chain was coherent, the second SkillRACE run was correctly root-aligned, all
+  nine cleanup receipts succeeded, exact-key scans were clean, none of 140 Codex commands
+  invoked Docker, and no owned container remained. Evidence is under
+  `out/live-contracts/pilot-v5/deepseek-v4-flash/part1/csv-workbench/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
 - [ ] Create one frozen campaign config per selected skill/scenario and model track, with
   separate input and output roots. The replicate loop creates numbered replicate
   directories inside that campaign output.
-- [ ] Start with a bounded pilot using about five Part I skills and two or three Part II
-  scenarios. Run the frozen `pilot-v3` schedule and preserve both interrupted predecessor
-  outputs. This is correction of recorded infrastructure defects, not a retry of an
-  unfavorable scientific outcome.
+- [ ] Finish the bounded pilot using the remaining frozen `pilot-v5` cells. Preserve all
+  interrupted predecessor outputs and do not resume a terminal output root. Starting a
+  fresh root after a recorded infrastructure correction is not a retry of an unfavorable
+  scientific outcome.
 - [ ] For the pilot, start with a 10-minute wall timeout for weak-agent execution and its
   post-patch replay, and a 5-minute timeout for Codex checker authoring. Keep turn budgets
   separate from wall-clock timeouts. Confirm or adjust the proposer, generator, patcher,
