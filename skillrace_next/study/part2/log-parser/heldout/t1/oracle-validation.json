@@ -1,0 +1,69 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "log-parser/t1",
+  "state": "validated",
+  "contract_identity_sha256": "4e8c75539d9c56aebee647371577d9b624e8c494ff5b2b4d794be7c28aa81753",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T17:35:46.660097+00:00",
+  "image_digest": "sha256:9bd73fb4e1c8fb5f7507d750519fab7e0b7d28a11b5428c9b30fdf1f9623cfb4",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "dd04a626aa375a15ee05b5fbc344c8fd0e99076b83a7f1a12876d385ae265b10",
+    "criteria": {
+      "counts": {
+        "command": [
+          "bash",
+          "/check/oracle/counts.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.087015,
+        "script_sha256": "6273f83304b53f285bdb4fb3e4511d70cd21b0fab1117b4764f734e642190413",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "counts": {
+        "command": [
+          "bash",
+          "/check/oracle/counts.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL logstat.py missing",
+        "duration_seconds": 0.065544,
+        "script_sha256": "6273f83304b53f285bdb4fb3e4511d70cd21b0fab1117b4764f734e642190413",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "crash": {
+      "overlay_sha256": "08d95bfffe35fe437b8ae514a9d34d53e5c77d860b84dee4228850b79d77734d",
+      "criteria": {
+        "counts": {
+          "command": [
+            "bash",
+            "/check/oracle/counts.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "RuntimeError: negative implementation",
+          "duration_seconds": 0.085714,
+          "script_sha256": "6273f83304b53f285bdb4fb3e4511d70cd21b0fab1117b4764f734e642190413",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "counts"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

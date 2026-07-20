@@ -106,33 +106,31 @@ python -m skillrace_next part1 \
   --live
 ```
 
-### 3. Prepare Part II held-out records
+### 3. Part II held-out records are prepared
 
-Part II needs one nonempty public scenario file and at least one held-out test record:
+The complete repository D2 suite is frozen under:
 
 ```text
-scenarios/<scenario>/scenario.md
-scenarios/<scenario>/heldout/<test>/test-case.json
+skillrace_next/study/part2/selection.json
+skillrace_next/study/part2/<scenario>/scenario.md
+skillrace_next/study/part2/<scenario>/heldout/<test>/test-case.json
 ```
 
-The public scenario does not need pre-authored development NL checks. During development,
-each method generates its own prompt, Docker environment, and NL checks from that
-scenario. The held-out records below are separate Part II final-evaluation inputs.
+It contains all ten selected scenarios and 100 strict held-out records. During
+development, each method still generates its own prompt, Docker environment, and NL
+checks from the public scenario. The frozen records are separate final-evaluation inputs
+and are not loaded until development finishes.
 
-Each `test-case.json` must use schema `skillrace-test-case/1` and bind the exact prompt,
-Docker environment, NL checks, proposal receipt, and their hashes. Relative paths are
-resolved against the record's directory.
+Each record binds the exact prompt, Docker environment, artifact-readable NL checks, and
+source receipt. The receipt and selection manifest also bind the original test contract,
+candidate, oracle evidence, and all 192 audited legacy scripts. These copied scripts are
+review provenance only; real Codex authors executable evaluation scripts from the prompt,
+artifact, trace, and fixed NL checks.
 
-Under the current verifier contract, the held-out NL checks state the required behavior
-and real Codex authors executable scripts from them at evaluation time. Existing
-executable checks can help audit whether a test is strong, but they are not a replacement
-for the `TestCase` NL-check field. Freeze the held-out definitions before the final run;
-changing them after inspecting final skills would make them no longer held out.
-
-Many existing repository scenarios use older scenario-specific `test.json` files. Those
-files are not automatically compatible. Reuse their prompt, environment, NL-check, and
-receipt assets, but create a strict `TestCase` record beside them. Do not add a schema
-migration or compatibility layer.
+Run `verify_part2_study` before creating campaign configs. It verifies the frozen bundle
+without consulting the mutable source `scenarios/` tree. The inspected real contract is
+under
+`out/live-contracts/part2-study-inputs/deepseek-v4-flash/20260720T084119Z-9a9369c2/`.
 
 The existing `skills/` and `scenarios/` trees were not modified during the clean-room
 work. They are outside the prior write scope and contain substantial unrelated dirty
@@ -144,9 +142,8 @@ Example invocation:
 ```bash
 python -m skillrace_next part2 \
   --config path/to/part2-config.json \
-  --scenario scenarios/my-scenario/scenario.md \
-  --heldout-test scenarios/my-scenario/heldout/t1/test-case.json \
-  --heldout-test scenarios/my-scenario/heldout/t2/test-case.json \
+  --scenario skillrace_next/study/part2/text-template/scenario.md \
+  --heldout-test skillrace_next/study/part2/text-template/heldout/t1/test-case.json \
   --live
 ```
 
@@ -156,9 +153,9 @@ For repository-backed inputs, use separate input and output roots:
 
 ```json
 {
-  "suite_path": "scenarios/my-scenario",
-  "scenario_path": "scenarios/my-scenario/scenario.md",
-  "output_root": "out/my-experiment"
+  "suite_path": "skillrace_next/study/part2/text-template",
+  "scenario_path": "skillrace_next/study/part2/text-template/scenario.md",
+  "output_root": "out/part2-text-template"
 }
 ```
 

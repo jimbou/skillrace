@@ -1,0 +1,219 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "regex-validate/t2",
+  "state": "validated",
+  "contract_identity_sha256": "4c774a4303cacc9795d3772bf2a06e85fcd5dfc84f5d988a532df59cc2d0c865",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T17:36:17.087546+00:00",
+  "image_digest": "sha256:f18e44f0a03a29fdc53e9ff9da23cbd1722d64d12f19e648b59c1414cfbb8344",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "7cb05003b8918377823e393dc2645fab69e3c83dd0267adc52abb0d16ac0ca1c",
+    "criteria": {
+      "accepts-valid": {
+        "command": [
+          "bash",
+          "/check/oracle/accepts-valid.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.079443,
+        "script_sha256": "d4a36f4929ee2b4c68b20de61bda82fe9165bbc8f77c2dee94d662189ceeeb9e",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "anchored": {
+        "command": [
+          "bash",
+          "/check/oracle/anchored.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.099287,
+        "script_sha256": "af746d97d89473ea3317d88baf0f6274ec6bb7962f924ac5cb6a4331aeffba49",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "rejects-invalid": {
+        "command": [
+          "bash",
+          "/check/oracle/rejects-invalid.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.095566,
+        "script_sha256": "83d3da814cd40ba137b13c7513b5288c7a11159a1797e2c1df7acc7a9391d3dd",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "accepts-valid": {
+        "command": [
+          "bash",
+          "/check/oracle/accepts-valid.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "ModuleNotFoundError: No module named 'validate'",
+        "duration_seconds": 0.070946,
+        "script_sha256": "d4a36f4929ee2b4c68b20de61bda82fe9165bbc8f77c2dee94d662189ceeeb9e",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "anchored": {
+        "command": [
+          "bash",
+          "/check/oracle/anchored.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "ModuleNotFoundError: No module named 'validate'",
+        "duration_seconds": 0.069886,
+        "script_sha256": "af746d97d89473ea3317d88baf0f6274ec6bb7962f924ac5cb6a4331aeffba49",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "rejects-invalid": {
+        "command": [
+          "bash",
+          "/check/oracle/rejects-invalid.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "ModuleNotFoundError: No module named 'validate'",
+        "duration_seconds": 0.082401,
+        "script_sha256": "83d3da814cd40ba137b13c7513b5288c7a11159a1797e2c1df7acc7a9391d3dd",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "reject-all": {
+      "overlay_sha256": "11e9012222972385d5c5aa448215d7d7d633c6e4a8756e3686d8d4ce898fad90",
+      "criteria": {
+        "accepts-valid": {
+          "command": [
+            "bash",
+            "/check/oracle/accepts-valid.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "AssertionError: ('should accept', 'a')",
+          "duration_seconds": 0.083539,
+          "script_sha256": "d4a36f4929ee2b4c68b20de61bda82fe9165bbc8f77c2dee94d662189ceeeb9e",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "anchored": {
+          "command": [
+            "bash",
+            "/check/oracle/anchored.sh"
+          ],
+          "exit_code": 0,
+          "final_output_line": "ok",
+          "duration_seconds": 0.08599,
+          "script_sha256": "af746d97d89473ea3317d88baf0f6274ec6bb7962f924ac5cb6a4331aeffba49",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "rejects-invalid": {
+          "command": [
+            "bash",
+            "/check/oracle/rejects-invalid.sh"
+          ],
+          "exit_code": 0,
+          "final_output_line": "ok",
+          "duration_seconds": 0.074649,
+          "script_sha256": "83d3da814cd40ba137b13c7513b5288c7a11159a1797e2c1df7acc7a9391d3dd",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "accepts-valid"
+      ],
+      "killed_assigned": true
+    },
+    "accept-all": {
+      "overlay_sha256": "cb8ce54e5eaf82309ce21e64dfa6255038326e6df15f56704782232f9a7e3b07",
+      "criteria": {
+        "accepts-valid": {
+          "command": [
+            "bash",
+            "/check/oracle/accepts-valid.sh"
+          ],
+          "exit_code": 0,
+          "final_output_line": "ok",
+          "duration_seconds": 0.094816,
+          "script_sha256": "d4a36f4929ee2b4c68b20de61bda82fe9165bbc8f77c2dee94d662189ceeeb9e",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "anchored": {
+          "command": [
+            "bash",
+            "/check/oracle/anchored.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "AssertionError: ('anchoring: should reject', ' a')",
+          "duration_seconds": 0.084046,
+          "script_sha256": "af746d97d89473ea3317d88baf0f6274ec6bb7962f924ac5cb6a4331aeffba49",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "rejects-invalid": {
+          "command": [
+            "bash",
+            "/check/oracle/rejects-invalid.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "AssertionError: ('should reject', '-lead')",
+          "duration_seconds": 0.088928,
+          "script_sha256": "83d3da814cd40ba137b13c7513b5288c7a11159a1797e2c1df7acc7a9391d3dd",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "rejects-invalid"
+      ],
+      "killed_assigned": true
+    },
+    "unanchored": {
+      "overlay_sha256": "48621f2fcf41eb9b4df3eb0f8be569bd579b9637ee52ada3815bc3685da5cc16",
+      "criteria": {
+        "accepts-valid": {
+          "command": [
+            "bash",
+            "/check/oracle/accepts-valid.sh"
+          ],
+          "exit_code": 0,
+          "final_output_line": "ok",
+          "duration_seconds": 0.103833,
+          "script_sha256": "d4a36f4929ee2b4c68b20de61bda82fe9165bbc8f77c2dee94d662189ceeeb9e",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "anchored": {
+          "command": [
+            "bash",
+            "/check/oracle/anchored.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "AssertionError: ('anchoring: should reject', ' a')",
+          "duration_seconds": 0.085329,
+          "script_sha256": "af746d97d89473ea3317d88baf0f6274ec6bb7962f924ac5cb6a4331aeffba49",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "rejects-invalid": {
+          "command": [
+            "bash",
+            "/check/oracle/rejects-invalid.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "AssertionError: ('should reject', '-lead')",
+          "duration_seconds": 0.089083,
+          "script_sha256": "83d3da814cd40ba137b13c7513b5288c7a11159a1797e2c1df7acc7a9391d3dd",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "anchored"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

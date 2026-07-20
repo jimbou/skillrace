@@ -1,0 +1,1 @@
+Create /workspace/tool.py: `slugify NAME` (positional) prints NAME lowercased with spaces turned to hyphens, e.g. `python3 tool.py slugify "Hello World"` prints hello-world. Missing NAME exits non-zero.

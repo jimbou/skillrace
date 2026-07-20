@@ -166,6 +166,9 @@ an ordered nonempty JSON list such as:
 For Part II, `--scenario` may point directly at a nonempty scenario text or Markdown file
 under `scenarios/`. It is the public input used both to generate S0 and to seed each
 method's development-test creation. There is no external development-suite argument.
+The frozen study inputs are already prepared under `skillrace_next/study/part2/`; for
+those runs, set `suite_path` to the selected prepared scenario directory and pass its
+copied `scenario.md` plus prepared `heldout/*/test-case.json` records.
 
 Held-out tests are stricter. Each `--heldout-test` must name one serialized
 `skillrace-test-case/1` object with exactly these record fields:
@@ -240,8 +243,8 @@ python -m skillrace_next part1 \
 
 python -m skillrace_next part2 \
   --config path/to/part2.json \
-  --scenario scenarios/my-scenario/scenario.md \
-  --heldout-test scenarios/my-scenario/heldout/t1/test-case.json \
+  --scenario skillrace_next/study/part2/text-template/scenario.md \
+  --heldout-test skillrace_next/study/part2/text-template/heldout/t1/test-case.json \
   --live
 ```
 

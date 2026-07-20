@@ -1,0 +1,1 @@
+{"skill": "argparse-cli", "base_image": "skillrace/skillgen-base:0.73.1-construction", "prompt": "Create /workspace/tool.py, a CLI with subcommands `add --a A --b B` (prints A+B, integers) and `greet --name N` (prints 'Hello, N!'). Missing/unknown args exit non-zero with no traceback. Make `python3 tool.py add --a 2 --b 3` print 5."}

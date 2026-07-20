@@ -1,0 +1,62 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "csv-stats/t9",
+  "candidate_sha256": "735669d6eb6b0b7c39e7d147d8801b4e4d0840b5f7999e6076336e029d9cde11",
+  "dockerfile_sha256": "eac2befac5c76622c92d9a1312f85c6f48d0f4c2b7b9c4257a7fac9169c4cf03",
+  "content_identity_sha256": "a42f640380f6c7d100b678d4ca83614fc01b48399efae373bd1602f79efebadf",
+  "duplicate_justification": null,
+  "entrypoint": "python3 stats.py <op> --column <name> --file <path>",
+  "criteria": [
+    {
+      "id": "fast",
+      "script": "checks/fast.sh",
+      "script_sha256": "2c4a58aa482df8c3329b6b40e3fca1bc33fe290230c3c7a3f375e65732631b62",
+      "kind": "performance",
+      "expected": {
+        "status": "zero",
+        "output": "the command finishes within ten seconds and prints the exact numeric result"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    },
+    {
+      "id": "mean",
+      "script": "checks/mean.sh",
+      "script_sha256": "dfe889e838834aa0694be59f68bd90151f43e10200fc1fcc7557431fbb13bd53",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    },
+    {
+      "id": "sum",
+      "script": "checks/sum.sh",
+      "script_sha256": "14c7116e2a36017fd230855cb1456225ad1d0d0382f103e21a7fa5c95e4f5b19",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "crash",
+      "overlay": "oracle/negative/crash",
+      "fault": "implementation crashes before producing the required behavior",
+      "overlay_sha256": "7f212b24a83dc321f4876f1d2f7859af348d42d1913cf3367f26650096e89627"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "4444c304261910f4a4548f2306d5ebbb32dc606e73e123f5753cd2653c03462b",
+  "contract_identity_sha256": "d7626fe9f05ab0509caa017d0cd5200216c703d9990eac51291b912e73c93ddc"
+}

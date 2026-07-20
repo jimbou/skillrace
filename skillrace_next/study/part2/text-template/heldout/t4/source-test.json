@@ -1,0 +1,36 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "text-template/t4",
+  "candidate_sha256": "a8d9eb90ab03e51e62b9f2aaef46c2f92d2c0c9f249176925054922669f72d6a",
+  "dockerfile_sha256": "686bf09a0afcda43ca529a1c6752fe1685179f81e50a99253833b4acb027f458",
+  "content_identity_sha256": "655c25fd334b95bf24c3cd02537fc4eebfe92e21c17a69322d69868957d85573",
+  "duplicate_justification": null,
+  "entrypoint": "python3 render.py <template> <data.json> <out>",
+  "criteria": [
+    {
+      "id": "passthrough",
+      "script": "checks/passthrough.sh",
+      "script_sha256": "fe6d6403b28485e2f61caa136e37d0faa9b843210e75db119ade91ef77479a8c",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "no-output"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "no-output",
+      "overlay": "oracle/negative/no-output",
+      "fault": "exits zero but creates no fresh output",
+      "overlay_sha256": "d0bc0edd39b8dcb7deb1f748b1fbb80e3eb4f7ae405aa772d9429a4323590c67"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "2bcf4051358e0ba9b3150068d623534870f12fd7efafdc1c651ce6fbdbd64fe5",
+  "contract_identity_sha256": "e4f276106a31150ced9b2f74e60cdb5ec47cc15c841d737042edebb9fd651121"
+}

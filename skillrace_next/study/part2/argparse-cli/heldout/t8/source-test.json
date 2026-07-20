@@ -1,0 +1,55 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "argparse-cli/t8",
+  "candidate_sha256": "c8406c13ebe62735485eb38281245652e7df40b5f525eca34d38b5f1dd68d2d9",
+  "dockerfile_sha256": "f90a750388374a2ff1ffce8099f8e58dbea61404fe3d9d625319d983c2bd14ac",
+  "content_identity_sha256": "5d8ed21ced93c5bb317b123e7155341a5c42a2dd03cdfcaafd86d11f401a3ae0",
+  "duplicate_justification": null,
+  "entrypoint": "python3 tool.py <subcommand>",
+  "criteria": [
+    {
+      "id": "missing-nonzero",
+      "script": "checks/missing-nonzero.sh",
+      "script_sha256": "85811dfe0b3561b4e241455ad451c93eeb1c0a19824036456b207c15372471f8",
+      "kind": "error",
+      "expected": {
+        "status": "zero",
+        "output": "the declared invalid input is rejected with a named, traceback-free diagnostic"
+      },
+      "negative_ids": [
+        "accepts-invalid"
+      ]
+    },
+    {
+      "id": "slugify",
+      "script": "checks/slugify.sh",
+      "script_sha256": "63720b625628cd6a76efae18930df4a707e467eba1a97eeb3b2809d4e7ab0a68",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "crash",
+      "overlay": "oracle/negative/crash",
+      "fault": "all valid commands exit non-zero",
+      "overlay_sha256": "0c942dc899e5ffeab7768c6e190050a492a60b4c5c44400bda4bc4d848d5c06f"
+    },
+    {
+      "id": "accepts-invalid",
+      "overlay": "oracle/negative/accepts-invalid",
+      "fault": "invalid commands exit zero",
+      "overlay_sha256": "1a293ef36f7e5428f661ae7680f163e79e2dcd26d509ef561e1583ce67de4869"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "5f52205d629fe20275e3f61370d4d53ffe2e5dd950c8c567371b7c5d9ba2f2d2",
+  "contract_identity_sha256": "6a63f52572dc9254b9a3994b246d1983f2e472781f705572f6431b606da0e7cc"
+}

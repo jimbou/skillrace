@@ -1,0 +1,103 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "interval-merge/t4",
+  "state": "validated",
+  "contract_identity_sha256": "7b54991c62c2bbe962c367f6314b93a817740d8dd37d7fe244b2b48df092933e",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T17:35:36.336745+00:00",
+  "image_digest": "sha256:f18e44f0a03a29fdc53e9ff9da23cbd1722d64d12f19e648b59c1414cfbb8344",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "522c262873aef9cbea2c476b2a9d23ada71da0facdd91856cf54f4eaea34f49c",
+    "criteria": {
+      "empty": {
+        "command": [
+          "bash",
+          "/check/oracle/empty.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.089044,
+        "script_sha256": "5fab89ab2e2416f0e9c28dcbf2ac9b1f7a2ce2a10be72c0ba20abff9c95ec9f4",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "single": {
+        "command": [
+          "bash",
+          "/check/oracle/single.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.072017,
+        "script_sha256": "d7b619d336a657f7e2dec2511a8aae108ef8e9497ffba605bae1d5928df1fa6a",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "empty": {
+        "command": [
+          "bash",
+          "/check/oracle/empty.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "ModuleNotFoundError: No module named 'intervals'",
+        "duration_seconds": 0.080831,
+        "script_sha256": "5fab89ab2e2416f0e9c28dcbf2ac9b1f7a2ce2a10be72c0ba20abff9c95ec9f4",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "single": {
+        "command": [
+          "bash",
+          "/check/oracle/single.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "ModuleNotFoundError: No module named 'intervals'",
+        "duration_seconds": 0.073775,
+        "script_sha256": "d7b619d336a657f7e2dec2511a8aae108ef8e9497ffba605bae1d5928df1fa6a",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "crash": {
+      "overlay_sha256": "629a6db3c4eb4d0b71d4756819334b31deb7524aded80231565211dc4ce350ac",
+      "criteria": {
+        "empty": {
+          "command": [
+            "bash",
+            "/check/oracle/empty.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "RuntimeError: negative implementation",
+          "duration_seconds": 0.065396,
+          "script_sha256": "5fab89ab2e2416f0e9c28dcbf2ac9b1f7a2ce2a10be72c0ba20abff9c95ec9f4",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "single": {
+          "command": [
+            "bash",
+            "/check/oracle/single.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "RuntimeError: negative implementation",
+          "duration_seconds": 0.08654,
+          "script_sha256": "d7b619d336a657f7e2dec2511a8aae108ef8e9497ffba605bae1d5928df1fa6a",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "empty",
+        "single"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

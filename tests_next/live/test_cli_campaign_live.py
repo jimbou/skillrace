@@ -8,6 +8,7 @@ import uuid
 import pytest
 
 from skillrace_next import cli
+from skillrace_next.part2_study import verify_part2_study
 from skillrace_next.records import TestCase as CaseRecord
 from skillrace_next.storage import atomic_write_json, file_hash, tree_hash
 from skillrace_next.study_inputs import verify_part1_study
@@ -29,6 +30,7 @@ def _write_config(
     methods: tuple[str, ...] = ("random", "verigrey", "skillrace"),
     replicate_count: int = 1,
     source_live: bool = True,
+    suite_path: Path | None = None,
 ) -> Path:
     base = live_config(
         evidence,
@@ -52,7 +54,7 @@ def _write_config(
         iteration_budget=iterations,
         heldout_repetitions=1,
         network_policy="host",
-        suite_path=evidence,
+        suite_path=suite_path or evidence,
         scenario_path=evidence / "scenario.md",
         live=source_live,
         output_root=evidence / "run",
@@ -385,4 +387,77 @@ def test_real_part2_cli_generates_tests_then_opens_hidden_test(
             assert (iteration_root / "checks" / "results" / "check_results.json").is_file()
     assert len(list((evidence / "run").rglob("nl_checks.json"))) >= 7
     assert json.loads((evidence / "run" / "command.json").read_text())["status"] == "completed"
+    _assert_no_secret(evidence, secret)
+
+
+def test_real_part2_prepared_scenario_and_heldout_contract(
+    live_evidence_root: Path,
+) -> None:
+    secret = os.environ.get("LAB_KEY_UNLIMITED")
+    if not secret:
+        pytest.fail("LAB_KEY_UNLIMITED is required for the prepared Part II contract")
+    repo = Path(__file__).parents[2]
+    study = repo / "skillrace_next" / "study" / "part2"
+    assert verify_part2_study(study / "selection.json") == 100
+
+    evidence = (
+        live_evidence_root
+        / "part2-study-inputs"
+        / "deepseek-v4-flash"
+        / _run_id()
+    )
+    evidence.mkdir(parents=True)
+    config = _write_config(
+        evidence,
+        "part2",
+        1,
+        methods=("random",),
+        suite_path=study,
+    )
+    scenario = study / "text-template" / "scenario.md"
+    heldout = study / "text-template" / "heldout" / "t1" / "test-case.json"
+
+    assert cli.main(
+        [
+            "part2",
+            "--config",
+            str(config),
+            "--scenario",
+            str(scenario),
+            "--heldout-test",
+            str(heldout),
+            "--live",
+        ]
+    ) == 0
+
+    replicate = evidence / "run" / "replicates" / "0001"
+    campaign = replicate / "campaign"
+    summary = json.loads((campaign / "summary.json").read_text(encoding="utf-8"))
+    assert (replicate / "generated-s0" / "base" / "SKILL.md").is_file()
+    assert len(summary["steps"]) + len(summary["missed_slots"]) == 1
+    assert [row["method"] for row in summary["heldout_evaluations"]] == [
+        "s0",
+        "random",
+    ]
+    for label in ("s0", "random"):
+        results_path = (
+            campaign
+            / "heldout"
+            / label
+            / "text-template"
+            / "t1"
+            / "0"
+            / "checks"
+            / "results"
+            / "check_results.json"
+        )
+        results = json.loads(results_path.read_text(encoding="utf-8"))
+        assert results["artifact_unchanged"] is True
+        assert results["results"]
+        assert all(
+            item["status"] in {"pass", "fail"} for item in results["results"]
+        )
+    assert json.loads((evidence / "run" / "command.json").read_text())["status"] == (
+        "completed"
+    )
     _assert_no_secret(evidence, secret)

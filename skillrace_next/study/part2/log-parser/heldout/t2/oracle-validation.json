@@ -1,0 +1,103 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "log-parser/t2",
+  "state": "validated",
+  "contract_identity_sha256": "fb8d4d13932605415536c116630c925ccf95012c8689144dcdfc82b17e9ba5dc",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T17:35:51.442316+00:00",
+  "image_digest": "sha256:33a0a966a5c3ff1c77fd1a0c04093fc6f1ab899dab1c4708af580b71c3a3ae46",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "dd04a626aa375a15ee05b5fbc344c8fd0e99076b83a7f1a12876d385ae265b10",
+    "criteria": {
+      "no-crash": {
+        "command": [
+          "bash",
+          "/check/oracle/no-crash.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.116021,
+        "script_sha256": "b0db2332bc6c04f2e9b23236966f318f4d15bbcd5f66b04d7ba31bd93987af3e",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "skips-malformed": {
+        "command": [
+          "bash",
+          "/check/oracle/skips-malformed.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.092076,
+        "script_sha256": "73b1a8f06fa212b5c21b65b95e347bd2438cedd1edad8f2f3ee52dc10de25f71",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "no-crash": {
+        "command": [
+          "bash",
+          "/check/oracle/no-crash.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL logstat.py missing",
+        "duration_seconds": 0.056153,
+        "script_sha256": "b0db2332bc6c04f2e9b23236966f318f4d15bbcd5f66b04d7ba31bd93987af3e",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "skips-malformed": {
+        "command": [
+          "bash",
+          "/check/oracle/skips-malformed.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL logstat.py missing",
+        "duration_seconds": 0.071486,
+        "script_sha256": "73b1a8f06fa212b5c21b65b95e347bd2438cedd1edad8f2f3ee52dc10de25f71",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "crash": {
+      "overlay_sha256": "08d95bfffe35fe437b8ae514a9d34d53e5c77d860b84dee4228850b79d77734d",
+      "criteria": {
+        "no-crash": {
+          "command": [
+            "bash",
+            "/check/oracle/no-crash.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "RuntimeError: negative implementation",
+          "duration_seconds": 0.11144,
+          "script_sha256": "b0db2332bc6c04f2e9b23236966f318f4d15bbcd5f66b04d7ba31bd93987af3e",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "skips-malformed": {
+          "command": [
+            "bash",
+            "/check/oracle/skips-malformed.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "RuntimeError: negative implementation",
+          "duration_seconds": 0.074369,
+          "script_sha256": "73b1a8f06fa212b5c21b65b95e347bd2438cedd1edad8f2f3ee52dc10de25f71",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "no-crash",
+        "skips-malformed"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

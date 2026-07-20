@@ -1,0 +1,1 @@
+{"skill": "argparse-cli", "base_image": "skillrace/skillgen-base:0.73.1-construction", "prompt": "Create /workspace/tool.py: `flag --verbose` (boolean store_true) prints 'verbose=True' or 'verbose=False'. Make `python3 tool.py flag --verbose` print verbose=True and `python3 tool.py flag` print verbose=False."}

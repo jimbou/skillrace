@@ -1,0 +1,103 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "config-parser/t6",
+  "state": "validated",
+  "contract_identity_sha256": "8d2179f091249f80e5394daec0191cb3ac14f4efff624671f3d5be57674369f2",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T17:35:12.331964+00:00",
+  "image_digest": "sha256:3cdc2aaade59f4bc833f7f9c24b6e5d588ea3762d2a24497435d6e3f5f080d13",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "3f173197b15eff7c365cac99b04a79318f24e336431683227ae99aef26d0a9fa",
+    "criteria": {
+      "port-value": {
+        "command": [
+          "bash",
+          "/check/oracle/port-value.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.099209,
+        "script_sha256": "50eaf732b056dca890a243e1b6d13394935afc4e59abf3c9e44dfd38ede9bc91",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "valid": {
+        "command": [
+          "bash",
+          "/check/oracle/valid.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.095007,
+        "script_sha256": "25efcfbcc8a73feabb4e46c469da40521625bd2d9b206c106090854f6eb3a57d",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "port-value": {
+        "command": [
+          "bash",
+          "/check/oracle/port-value.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL loadcfg.py missing",
+        "duration_seconds": 0.050206,
+        "script_sha256": "50eaf732b056dca890a243e1b6d13394935afc4e59abf3c9e44dfd38ede9bc91",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "valid": {
+        "command": [
+          "bash",
+          "/check/oracle/valid.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL loadcfg.py missing",
+        "duration_seconds": 0.065864,
+        "script_sha256": "25efcfbcc8a73feabb4e46c469da40521625bd2d9b206c106090854f6eb3a57d",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "crash": {
+      "overlay_sha256": "4b7896bb4c7dc3a8ab08216ec42a5895ff8445379c68c822b96fb6a8d3ecbf31",
+      "criteria": {
+        "port-value": {
+          "command": [
+            "bash",
+            "/check/oracle/port-value.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected exit 0: rc=2",
+          "duration_seconds": 0.074328,
+          "script_sha256": "50eaf732b056dca890a243e1b6d13394935afc4e59abf3c9e44dfd38ede9bc91",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "valid": {
+          "command": [
+            "bash",
+            "/check/oracle/valid.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected exit 0: rc=2",
+          "duration_seconds": 0.089286,
+          "script_sha256": "25efcfbcc8a73feabb4e46c469da40521625bd2d9b206c106090854f6eb3a57d",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "port-value",
+        "valid"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

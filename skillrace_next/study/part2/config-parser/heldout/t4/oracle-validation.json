@@ -1,0 +1,137 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "config-parser/t4",
+  "state": "validated",
+  "contract_identity_sha256": "a809aa9c582c63a80ed65fb9cb154faac0932b0006a4590ac2c1b3451630c263",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T17:35:03.937412+00:00",
+  "image_digest": "sha256:b21d97fb6feff5fc032335034299e6ed5f10915bd0c80f6adddc92363ae9de87",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "3f173197b15eff7c365cac99b04a79318f24e336431683227ae99aef26d0a9fa",
+    "criteria": {
+      "exits-nonzero": {
+        "command": [
+          "bash",
+          "/check/oracle/exits-nonzero.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.093265,
+        "script_sha256": "2d59a14993e2b9bd3268dfe8d779381f302594153acf593caea052485b4e1d96",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "names-problem": {
+        "command": [
+          "bash",
+          "/check/oracle/names-problem.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.103658,
+        "script_sha256": "c7ab0c375eef323ab6fec732a78f0d92f9c6b399f409cf85bff84dbd66c1c1b6",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "no-traceback": {
+        "command": [
+          "bash",
+          "/check/oracle/no-traceback.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.093521,
+        "script_sha256": "822fdc54e8291762b20f8821f72d7f21bb17126bfb7dbf010ad83e53912b7b40",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "exits-nonzero": {
+        "command": [
+          "bash",
+          "/check/oracle/exits-nonzero.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL loadcfg.py missing",
+        "duration_seconds": 0.0554,
+        "script_sha256": "2d59a14993e2b9bd3268dfe8d779381f302594153acf593caea052485b4e1d96",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "names-problem": {
+        "command": [
+          "bash",
+          "/check/oracle/names-problem.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL loadcfg.py missing",
+        "duration_seconds": 0.064344,
+        "script_sha256": "c7ab0c375eef323ab6fec732a78f0d92f9c6b399f409cf85bff84dbd66c1c1b6",
+        "isolation": "fresh-container-per-criterion"
+      },
+      "no-traceback": {
+        "command": [
+          "bash",
+          "/check/oracle/no-traceback.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL loadcfg.py missing",
+        "duration_seconds": 0.056156,
+        "script_sha256": "822fdc54e8291762b20f8821f72d7f21bb17126bfb7dbf010ad83e53912b7b40",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "accepts-invalid": {
+      "overlay_sha256": "4661c761ba1b76e4fa4805f564e342771db19e31210f3cffbc3a590c0d5526d9",
+      "criteria": {
+        "exits-nonzero": {
+          "command": [
+            "bash",
+            "/check/oracle/exits-nonzero.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL accepted invalid config",
+          "duration_seconds": 0.083377,
+          "script_sha256": "2d59a14993e2b9bd3268dfe8d779381f302594153acf593caea052485b4e1d96",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "names-problem": {
+          "command": [
+            "bash",
+            "/check/oracle/names-problem.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected non-zero exit: rc=0",
+          "duration_seconds": 0.074008,
+          "script_sha256": "c7ab0c375eef323ab6fec732a78f0d92f9c6b399f409cf85bff84dbd66c1c1b6",
+          "isolation": "fresh-container-per-criterion"
+        },
+        "no-traceback": {
+          "command": [
+            "bash",
+            "/check/oracle/no-traceback.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL expected non-zero exit: rc=0",
+          "duration_seconds": 0.080009,
+          "script_sha256": "822fdc54e8291762b20f8821f72d7f21bb17126bfb7dbf010ad83e53912b7b40",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "exits-nonzero",
+        "names-problem",
+        "no-traceback"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

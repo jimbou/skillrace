@@ -1,0 +1,1 @@
+[{"description":"The program executes a valid SQLite query and prints exactly the answer requested by the generated public question.","property_id":"P1"},{"description":"The query uses the actual public database schema and handles aggregation, NULL, filtering, grouping, and distinctness according to the question.","property_id":"P2"}]

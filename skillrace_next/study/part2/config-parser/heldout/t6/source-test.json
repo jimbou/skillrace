@@ -1,0 +1,49 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "config-parser/t6",
+  "candidate_sha256": "a992a62cc6a376f1889f7abf3fcf8520093f1d62f13a02061434efec5a6e0ad4",
+  "dockerfile_sha256": "e9ab14bac930fc80aea4dde698079508095aeebde4b6e2304ba89740b7a5ad4e",
+  "content_identity_sha256": "fbdec3834215dbb55e3f15c4a237a4b55d14c8906b73383b1ac16b7bf25818f3",
+  "duplicate_justification": null,
+  "entrypoint": "python3 loadcfg.py <path>",
+  "criteria": [
+    {
+      "id": "port-value",
+      "script": "checks/port-value.sh",
+      "script_sha256": "50eaf732b056dca890a243e1b6d13394935afc4e59abf3c9e44dfd38ede9bc91",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    },
+    {
+      "id": "valid",
+      "script": "checks/valid.sh",
+      "script_sha256": "25efcfbcc8a73feabb4e46c469da40521625bd2d9b206c106090854f6eb3a57d",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "crash",
+      "overlay": "oracle/negative/crash",
+      "fault": "crash",
+      "overlay_sha256": "4b7896bb4c7dc3a8ab08216ec42a5895ff8445379c68c822b96fb6a8d3ecbf31"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "3f173197b15eff7c365cac99b04a79318f24e336431683227ae99aef26d0a9fa",
+  "contract_identity_sha256": "8d2179f091249f80e5394daec0191cb3ac14f4efff624671f3d5be57674369f2"
+}

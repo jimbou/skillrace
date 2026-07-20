@@ -1,0 +1,55 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "argparse-cli/t4",
+  "candidate_sha256": "39d10931d715f6894c7956a6a5fc8b896b3af073b7a792d16b5770041f643537",
+  "dockerfile_sha256": "f90a750388374a2ff1ffce8099f8e58dbea61404fe3d9d625319d983c2bd14ac",
+  "content_identity_sha256": "63861f4673503f30fb287a8764139eba0bd8068f837e76be2481d6aec40c45f2",
+  "duplicate_justification": null,
+  "entrypoint": "python3 tool.py <subcommand>",
+  "criteria": [
+    {
+      "id": "invalid-choice-nonzero",
+      "script": "checks/invalid-choice-nonzero.sh",
+      "script_sha256": "a0621697ea204a5b3ffa864405678c9aaa34191cdbf2200ebd1b41ccbc40f5e2",
+      "kind": "error",
+      "expected": {
+        "status": "zero",
+        "output": "the declared invalid input is rejected with a named, traceback-free diagnostic"
+      },
+      "negative_ids": [
+        "accepts-invalid"
+      ]
+    },
+    {
+      "id": "valid-choice",
+      "script": "checks/valid-choice.sh",
+      "script_sha256": "7844c5a871f29e6a3c01931c7bc661d9a1ede6037d7705d1743bba4de37ef3c7",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "crash",
+      "overlay": "oracle/negative/crash",
+      "fault": "all valid commands exit non-zero",
+      "overlay_sha256": "0c942dc899e5ffeab7768c6e190050a492a60b4c5c44400bda4bc4d848d5c06f"
+    },
+    {
+      "id": "accepts-invalid",
+      "overlay": "oracle/negative/accepts-invalid",
+      "fault": "invalid commands exit zero",
+      "overlay_sha256": "1a293ef36f7e5428f661ae7680f163e79e2dcd26d509ef561e1583ce67de4869"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "5f52205d629fe20275e3f61370d4d53ffe2e5dd950c8c567371b7c5d9ba2f2d2",
+  "contract_identity_sha256": "df7b4727c715f1b7d99b1b06ca8dcd225f6cb008b097639ec795f7e4b0885eed"
+}

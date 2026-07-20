@@ -1,0 +1,68 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "argparse-cli/t5",
+  "candidate_sha256": "e7eb1d8682ed3dd956c62b3a8adc19aaac230509d4a01d4bfd8f8ab038e472d0",
+  "dockerfile_sha256": "f90a750388374a2ff1ffce8099f8e58dbea61404fe3d9d625319d983c2bd14ac",
+  "content_identity_sha256": "89c7d6928affe950004d4db0d2cfaf4910092f6ab90a1f399f89050637ab3417",
+  "duplicate_justification": null,
+  "entrypoint": "python3 tool.py <subcommand>",
+  "criteria": [
+    {
+      "id": "bad-times-nonzero",
+      "script": "checks/bad-times-nonzero.sh",
+      "script_sha256": "1efc3e5123d3b80c4d550e4c79460722d4b110646c3452854a2b66be800e2da8",
+      "kind": "error",
+      "expected": {
+        "status": "zero",
+        "output": "the declared invalid input is rejected with a named, traceback-free diagnostic"
+      },
+      "negative_ids": [
+        "accepts-invalid"
+      ]
+    },
+    {
+      "id": "help-ok",
+      "script": "checks/help-ok.sh",
+      "script_sha256": "f4527e794984f865eab61e5c5112d14b1b17a1ec3ba13fb5831812eb624da62f",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    },
+    {
+      "id": "repeat",
+      "script": "checks/repeat.sh",
+      "script_sha256": "a3daaddd313b4d06d2d1986113c622ded9be2bdc784d82d00263e1e1d3a76a24",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "crash",
+      "overlay": "oracle/negative/crash",
+      "fault": "all valid commands exit non-zero",
+      "overlay_sha256": "0c942dc899e5ffeab7768c6e190050a492a60b4c5c44400bda4bc4d848d5c06f"
+    },
+    {
+      "id": "accepts-invalid",
+      "overlay": "oracle/negative/accepts-invalid",
+      "fault": "invalid commands exit zero",
+      "overlay_sha256": "1a293ef36f7e5428f661ae7680f163e79e2dcd26d509ef561e1583ce67de4869"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "5f52205d629fe20275e3f61370d4d53ffe2e5dd950c8c567371b7c5d9ba2f2d2",
+  "contract_identity_sha256": "7707531f3de01e5533f2877be1434534a972d0e4fdd8feb96d360718ea89384f"
+}

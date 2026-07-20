@@ -1,0 +1,1 @@
+Create /workspace/tool.py: `--help` exits 0 and lists a `count` subcommand; `count --file F` prints the number of lines in F; a missing file exits non-zero on stderr with no traceback. Make `python3 tool.py count --file sample.txt` correct.

@@ -21,7 +21,8 @@ The new Part I and Part II commands passed separate real DeepSeek CLI contracts 
 and loaded/evaluated the hidden test only after all methods finished. The final bounded
 gate then passed both Lab model tracks. Task 16 implementation and verification are
 complete. The fixed 30-skill Part I input bundle is prepared under
-`skillrace_next/study/part1/`. Do not perform the package rename or legacy cutover yet.
+`skillrace_next/study/part1/`. The frozen ten-scenario, 100-test Part II bundle is under
+`skillrace_next/study/part2/`. Do not perform the package rename or legacy cutover yet.
 
 See [Current status and known issues](docs/CURRENT_STATUS.md) before running paid tests.
 
@@ -61,6 +62,13 @@ source hashes before launching campaigns:
 ```bash
 .venv/bin/python -c "from pathlib import Path; from skillrace_next.study_inputs import verify_part1_study; root=Path.cwd(); print(verify_part1_study(root, root/'skillrace_next/study/part1/selection.json'))"
 ```
+
+The prepared Part II selection is recorded in
+`skillrace_next/study/part2/selection.json`. It contains exact public scenario copies and
+ten frozen `skillrace-test-case/1` records per scenario. Each held-out directory preserves
+the source test contract, candidate prompt record, Dockerfile, oracle validation, and
+audited legacy scripts. Those scripts are provenance only: final verdict scripts are
+still authored by real Codex and executed through `docker exec`.
 
 Legacy scenario `test.json` files are not silently interpreted or migrated. If an
 existing held-out test uses a different schema, preserve its prompt/environment/check

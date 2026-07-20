@@ -1,0 +1,36 @@
+{
+  "schema": "skillrace-hidden-test/1",
+  "test_id": "log-parser/t1",
+  "candidate_sha256": "4c9a0a6acd87398425f4bd89d009152c71f4cd5e393fc4b15429b5eab63a5520",
+  "dockerfile_sha256": "9f3766fac6920edb3ae5908e261313759b2ebe5fba4443aab45fc0ae5b7b85ad",
+  "content_identity_sha256": "bc1b137bc981cb9ff9b0030f9c1a938d510b178d88fa3ac183bd1c2e938ee0db",
+  "duplicate_justification": null,
+  "entrypoint": "python3 logstat.py <file>",
+  "criteria": [
+    {
+      "id": "counts",
+      "script": "checks/counts.sh",
+      "script_sha256": "6273f83304b53f285bdb4fb3e4511d70cd21b0fab1117b4764f734e642190413",
+      "kind": "functional",
+      "expected": {
+        "status": "zero",
+        "output": "the check's executable assertions accept exactly the declared functional behavior"
+      },
+      "negative_ids": [
+        "crash"
+      ]
+    }
+  ],
+  "reference_overlay": "oracle/reference",
+  "negative_implementations": [
+    {
+      "id": "crash",
+      "overlay": "oracle/negative/crash",
+      "fault": "implementation crashes before producing the required behavior",
+      "overlay_sha256": "08d95bfffe35fe437b8ae514a9d34d53e5c77d860b84dee4228850b79d77734d"
+    }
+  ],
+  "validation_evidence": "oracle/evidence/validation.json",
+  "reference_sha256": "dd04a626aa375a15ee05b5fbc344c8fd0e99076b83a7f1a12876d385ae265b10",
+  "contract_identity_sha256": "4e8c75539d9c56aebee647371577d9b624e8c494ff5b2b4d794be7c28aa81753"
+}

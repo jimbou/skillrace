@@ -91,6 +91,18 @@ The fixed Part I study bundle has its own real contract:
 The inspected passing evidence is
 `out/live-contracts/part1-study-inputs/deepseek-v4-flash/20260720T081754Z-03ff7db6/`.
 
+The frozen Part II study bundle has a separate real generation/development/held-out
+contract:
+
+```bash
+.venv/bin/python -m pytest \
+  tests_next/live/test_cli_campaign_live.py::test_real_part2_prepared_scenario_and_heldout_contract \
+  --live -v -s
+```
+
+The inspected passing evidence is
+`out/live-contracts/part2-study-inputs/deepseek-v4-flash/20260720T084119Z-9a9369c2/`.
+
 ## What each live contract proves
 
 | Contract | Real boundary exercised |

@@ -1,0 +1,1 @@
+Create /workspace/tool.py: `echo --text T` prints T and exits 0 on success. Make `python3 tool.py echo --text hi` print hi and exit 0; an unknown flag exits non-zero.

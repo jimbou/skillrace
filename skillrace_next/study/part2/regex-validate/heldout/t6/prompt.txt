@@ -1,0 +1,1 @@
+Create /workspace/validate.py defining `is_valid(s)` that returns True iff s matches this spec and False otherwise. a hex color: # followed by exactly 3 or 6 hex digits. Anchor the pattern so a valid fragment inside a larger invalid string is rejected. Make it importable.

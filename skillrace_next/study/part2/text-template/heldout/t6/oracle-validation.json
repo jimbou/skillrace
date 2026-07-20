@@ -1,0 +1,69 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "text-template/t6",
+  "state": "validated",
+  "contract_identity_sha256": "b09395e335fdc505eeb564adcfa970857a15ea7ed0b5563463d5d2a240d4f6f3",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T17:36:42.370423+00:00",
+  "image_digest": "sha256:d5aa82a86e8c2d09f812fd1a9dee31a666085972614588de8e45a8c851daf657",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "2bcf4051358e0ba9b3150068d623534870f12fd7efafdc1c651ce6fbdbd64fe5",
+    "criteria": {
+      "single-braces": {
+        "command": [
+          "bash",
+          "/check/oracle/single-braces.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.119535,
+        "script_sha256": "102d757ffc871c625a127f58feca3594f39dbaad41e02334c659d643d6b65370",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "single-braces": {
+        "command": [
+          "bash",
+          "/check/oracle/single-braces.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL render.py missing",
+        "duration_seconds": 0.060464,
+        "script_sha256": "102d757ffc871c625a127f58feca3594f39dbaad41e02334c659d643d6b65370",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "no-output": {
+      "overlay_sha256": "d0bc0edd39b8dcb7deb1f748b1fbb80e3eb4f7ae405aa772d9429a4323590c67",
+      "criteria": {
+        "single-braces": {
+          "command": [
+            "bash",
+            "/check/oracle/single-braces.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "FAIL out.txt missing",
+          "duration_seconds": 0.089112,
+          "script_sha256": "102d757ffc871c625a127f58feca3594f39dbaad41e02334c659d643d6b65370",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "single-braces"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

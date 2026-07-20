@@ -1,0 +1,1 @@
+Create /workspace/tool.py: a `sum` subcommand taking one or more integer positionals and printing their total, e.g. `python3 tool.py sum 1 2 3` prints 6. No numbers exits non-zero.

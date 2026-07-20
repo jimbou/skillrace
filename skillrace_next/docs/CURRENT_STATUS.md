@@ -96,21 +96,40 @@ authoritative Docker pass JSON, unchanged artifact hash, and container removal.
 
 ### Part II preparation
 
-- [ ] Select the Part II scenarios from `scenarios/` and make each public scenario
+- [x] Select the Part II scenarios from `scenarios/` and make each public scenario
   description sufficiently specific to define the desired artifact and architecture.
   Pre-authored development NL checks are not required: Random, VeriGrey, and SkillRACE
   generate their own development prompt, Docker environment, and NL checks from this
-  public scenario.
-- [ ] Audit the existing final tests and executable checks for each selected scenario.
-  Decide which are strong enough to use as held-out tests and replace or strengthen weak
-  ones before the final run.
-- [ ] Package every selected held-out test as `skillrace-test-case/1`, preserving its
+  public scenario. The repository defines exactly ten D2 scenarios; all ten passed the
+  target-purpose/rubric sufficiency check and are frozen under
+  `skillrace_next/study/part2/`.
+- [x] Audit the existing final tests and executable checks for each selected scenario.
+  All 100 tests were accepted because their bound oracle evidence records a passing
+  reference, rejected starting state, killed assigned negative implementations, and no
+  survivors. The bundle preserves all 192 original scripts and their hashes as audit
+  provenance; none is supplied to the runtime agent or used instead of Codex.
+- [x] Package every selected held-out test as `skillrace-test-case/1`, preserving its
   prompt, Docker environment, fixed NL checks, hashes, and receipt. These are Part II
   tests. Under the current verifier contract, the NL checks state the required behavior
-  and real Codex authors the executable scripts from them at evaluation time.
-- [ ] Freeze the held-out definitions before the final experiment begins. They may be
+  and real Codex authors the executable scripts from them at evaluation time. Existing
+  artifact-readable campaign properties became the fixed NL checks; trace-only properties
+  are intentionally excluded from final artifact scoring.
+- [x] Freeze the held-out definitions before the final experiment begins. They may be
   loaded only after all methods produce their final skills, but creating or changing them
-  after seeing those skills would make them no longer scientifically held out.
+  after seeing those skills would make them no longer scientifically held out. The
+  self-contained manifest binds every record, receipt, public scenario, prompt,
+  environment, NL-check file, source contract, candidate, oracle validation, and source
+  checker. `verify_part2_study` rejects drift without depending on the mutable source
+  `scenarios/` tree.
+
+The prepared Part II contract passed at
+`out/live-contracts/part2-study-inputs/deepseek-v4-flash/20260720T084119Z-9a9369c2/`.
+Manual inspection confirmed semantic S0 generation, a concrete development proposal,
+authoritative Docker failure, a same-track unchanged patch correctly rejected as
+`patch_invalid`, deferred held-out loading, real Codex checkers, and conclusive hidden
+results. The independent S0 held-out run failed one brace-preservation check while the
+same retained S0 passed on the Random-labeled stochastic repetition; no revision was
+falsely admitted. Credentials were absent and all three owned containers were removed.
 
 ### Pilot and full execution
 

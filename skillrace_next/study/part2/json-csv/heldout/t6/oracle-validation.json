@@ -1,0 +1,69 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "json-csv/t6",
+  "state": "validated",
+  "contract_identity_sha256": "5459ab67b2e32544dafbce68ea29e37ba0e5c010442ed8d754bfff8c9485f4d9",
+  "reason": "Docker reference and negative oracle audit passed",
+  "validated_at": "2026-07-12T17:35:50.453144+00:00",
+  "image_digest": "sha256:04ee8f6e1e917dc56559f21b69a84b728fef332aad84da855820d0af56b686e2",
+  "docker_version": "29.6.1",
+  "reference": {
+    "passed": true,
+    "overlay_sha256": "62741d6f2d55b59a93f85be4641ea15337f9ead8897fc5a4c491a4c5d86fdf85",
+    "criteria": {
+      "union-sorted": {
+        "command": [
+          "bash",
+          "/check/oracle/union-sorted.sh"
+        ],
+        "exit_code": 0,
+        "final_output_line": "ok",
+        "duration_seconds": 0.100872,
+        "script_sha256": "621f3a705235122498a891219067519efef24c3bdc3cb05089cff0bf169bf605",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "starting": {
+    "rejected": true,
+    "criteria": {
+      "union-sorted": {
+        "command": [
+          "bash",
+          "/check/oracle/union-sorted.sh"
+        ],
+        "exit_code": 1,
+        "final_output_line": "FAIL convert.py missing",
+        "duration_seconds": 0.059142,
+        "script_sha256": "621f3a705235122498a891219067519efef24c3bdc3cb05089cff0bf169bf605",
+        "isolation": "fresh-container-per-criterion"
+      }
+    }
+  },
+  "negative_implementations": {
+    "crash": {
+      "overlay_sha256": "0e8313ca28089930f2bcf67fd0cbf80af1dab082cef9f72b3f618e8c2ee9b27e",
+      "criteria": {
+        "union-sorted": {
+          "command": [
+            "bash",
+            "/check/oracle/union-sorted.sh"
+          ],
+          "exit_code": 1,
+          "final_output_line": "RuntimeError: negative implementation",
+          "duration_seconds": 0.091736,
+          "script_sha256": "621f3a705235122498a891219067519efef24c3bdc3cb05089cff0bf169bf605",
+          "isolation": "fresh-container-per-criterion"
+        }
+      },
+      "assigned_criteria": [
+        "union-sorted"
+      ],
+      "killed_assigned": true
+    }
+  },
+  "reference_passed": true,
+  "starting_rejected": true,
+  "negative_oracles_passed": true,
+  "survivors": []
+}

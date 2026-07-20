@@ -1,0 +1,1 @@
+{"skill": "sqlite-query", "base_image": "skillrace/skillgen-base:0.73.1-construction", "prompt": "Create /workspace/answer.py that opens data.db (SQLite), answers the question, and prints JUST the answer. Question: number of DISTINCT regions in the sales table. Inspect the schema if unsure; use SQL to compute."}
