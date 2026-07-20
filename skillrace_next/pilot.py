@@ -70,7 +70,12 @@ def _config(
     )
 
 
-def prepare_pilot_schedule(repo_root: str | Path, output_root: str | Path) -> Path:
+def prepare_pilot_schedule(
+    repo_root: str | Path,
+    output_root: str | Path,
+    *,
+    run_id: str = "pilot",
+) -> Path:
     repo = Path(repo_root)
     output = Path(output_root)
     if output.exists():
@@ -87,12 +92,15 @@ def prepare_pilot_schedule(repo_root: str | Path, output_root: str | Path) -> Pa
                 raise ValueError(f"pilot Part I input is missing: {path}")
         config_path = Path("part1") / skill_id / "config.json"
         config = _config(
-            experiment_id=f"pilot-part1-{skill_id}-deepseek-v4-flash",
+            experiment_id=f"{run_id}-part1-{skill_id}-deepseek-v4-flash",
             part="part1",
             suite_path=Path("skillrace_next/study/part1"),
             scenario_path=properties,
             output_root=(
-                Path("out/live-contracts/pilot/deepseek-v4-flash/part1") / skill_id
+                Path("out/live-contracts")
+                / run_id
+                / "deepseek-v4-flash/part1"
+                / skill_id
             ),
         )
         atomic_write_json(output / config_path, config.to_dict())
@@ -121,12 +129,14 @@ def prepare_pilot_schedule(repo_root: str | Path, output_root: str | Path) -> Pa
                 raise ValueError(f"pilot Part II input is missing: {path}")
         config_path = Path("part2") / scenario_id / "config.json"
         config = _config(
-            experiment_id=f"pilot-part2-{scenario_id}-deepseek-v4-flash",
+            experiment_id=f"{run_id}-part2-{scenario_id}-deepseek-v4-flash",
             part="part2",
             suite_path=prepared,
             scenario_path=scenario,
             output_root=(
-                Path("out/live-contracts/pilot/deepseek-v4-flash/part2")
+                Path("out/live-contracts")
+                / run_id
+                / "deepseek-v4-flash/part2"
                 / scenario_id
             ),
         )
@@ -150,6 +160,7 @@ def prepare_pilot_schedule(repo_root: str | Path, output_root: str | Path) -> Pa
         manifest_path,
         {
             "schema": "skillrace-pilot-schedule/1",
+            "run_id": run_id,
             "model_track": "lab/deepseek-v4-flash",
             "iteration_budget": 2,
             "replicate_count": 1,

@@ -85,3 +85,21 @@ def test_verify_pilot_schedule_rejects_changed_config(tmp_path: Path) -> None:
         assert "config hash mismatch" in str(exc)
     else:
         raise AssertionError("changed pilot config was accepted")
+
+
+def test_prepare_pilot_schedule_uses_explicit_run_id_for_fresh_outputs(
+    tmp_path: Path,
+) -> None:
+    _write_inputs(tmp_path)
+    output = tmp_path / "skillrace_next" / "study" / "pilot-v2"
+
+    manifest_path = prepare_pilot_schedule(tmp_path, output, run_id="pilot-v2")
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["run_id"] == "pilot-v2"
+    for cell in manifest["cells"]:
+        config = load_config(output / cell["config_path"])
+        assert config.experiment_id.startswith("pilot-v2-")
+        assert str(config.output_root).startswith(
+            "out/live-contracts/pilot-v2/deepseek-v4-flash/"
+        )

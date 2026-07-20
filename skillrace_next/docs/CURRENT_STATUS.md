@@ -161,6 +161,10 @@ falsely admitted. Credentials were absent and all three owned containers were re
   hash, credential-free evidence, and container removal. The task image used by the
   checker execution is pinned in evidence as
   `sha256:657012cd9be070f55fcff63ff7a7abcc97dc73e08c09bc804de8880437a3feef`.
+- [x] Freeze the corrected pilot as `pilot-v2`. Its eight configs keep the approved
+  inputs and budgets but use new experiment IDs and roots under
+  `out/live-contracts/pilot-v2/`. The manifest and exact sequential commands are under
+  `skillrace_next/study/pilot-v2/`; the original pilot configs and evidence are unchanged.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
@@ -168,10 +172,9 @@ falsely admitted. Credentials were absent and all three owned containers were re
   separate input and output roots. The replicate loop creates numbered replicate
   directories inside that campaign output.
 - [ ] Start with a bounded pilot using about five Part I skills and two or three Part II
-  scenarios. Preserve the interrupted original pilot output. Freeze a new pilot run ID
-  and output root before restarting so cells produced under the corrected task contract
-  are not mixed with the invalid original cells. This is a new corrected pilot, not a
-  retry of an unfavorable scientific outcome.
+  scenarios. Run the frozen `pilot-v2` schedule and preserve the interrupted original
+  pilot output. This is a new corrected pilot, not a retry of an unfavorable scientific
+  outcome.
 - [ ] For the pilot, start with a 10-minute wall timeout for weak-agent execution and its
   post-patch replay, and a 5-minute timeout for Codex checker authoring. Keep turn budgets
   separate from wall-clock timeouts. Confirm or adjust the proposer, generator, patcher,
