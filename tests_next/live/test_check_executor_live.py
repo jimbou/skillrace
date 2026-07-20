@@ -17,6 +17,101 @@ from skillrace_next.verification.executor import execute_checks
 pytestmark = pytest.mark.live
 
 
+def latest_real_baseline_bundle() -> tuple[Path, Path]:
+    root = Path("out/live-contracts/codex-verifier-baseline")
+    for candidate in sorted(root.iterdir(), reverse=True) if root.is_dir() else []:
+        workspace = candidate / "verifier_workspace"
+        manifest = workspace / "output" / "check_manifest.json"
+        run_path = workspace / "input" / "run.json"
+        nl_checks = workspace / "input" / "nl_checks.json"
+        if not all(path.is_file() for path in (manifest, run_path, nl_checks)):
+            continue
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+        source_run = Path(run.get("source_task_run", ""))
+        receipt = source_run / "runtime" / "exec.json"
+        if not receipt.is_file() or not (source_run / "artifact").is_dir():
+            continue
+        task = json.loads(receipt.read_text(encoding="utf-8"))
+        if task.get("exit_code") == 0 and task.get("model") == "deepseek-v4-flash":
+            return candidate, source_run
+    pytest.fail("a real Terra baseline bundle over a seeded task artifact is required")
+
+
+def test_real_environment_baseline_bundle_executes_in_docker(
+    live_evidence_root: Path,
+) -> None:
+    secret = os.environ.get("LAB_KEY_UNLIMITED")
+    if not secret:
+        pytest.skip("LAB_KEY_UNLIMITED is required to bind the task prerequisite")
+    codex_run, source_task_run = latest_real_baseline_bundle()
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    evidence = live_evidence_root / "check-executor-baseline" / run_id
+    artifact = evidence / "artifact"
+    bundle_root = evidence / "check-bundle"
+    shutil.copytree(source_task_run / "artifact", artifact)
+    shutil.copytree(codex_run / "verifier_workspace" / "output", bundle_root)
+    nl_checks = json.loads(
+        (codex_run / "verifier_workspace" / "input" / "nl_checks.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    bundle = validate_check_manifest(
+        bundle_root / "check_manifest.json", nl_checks, tree_hash(artifact)
+    )
+    image = "skillrace-next/task-fixture:test"
+    fixture = Path("tests_next/fixtures/task").resolve()
+    subprocess.run(
+        ["docker", "build", "-q", "-t", image, str(fixture)],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    inspected = subprocess.run(
+        ["docker", "image", "inspect", image, "--format", "{{.Id}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    image_id = inspected.stdout.strip()
+    atomic_write_json(
+        evidence / "provenance.json",
+        {
+            "schema": "skillrace-live-check-provenance/1",
+            "source_task_run": str(source_task_run),
+            "source_codex_run": str(codex_run),
+            "task_model": "deepseek-v4-flash",
+            "codex_model": "gpt-5.6-terra",
+            "codex_reasoning": "medium",
+            "docker_image_id": image_id,
+        },
+    )
+    running = start_task_container(
+        ContainerSpec(
+            name="skillrace-next-live-check-" + uuid.uuid4().hex[:12],
+            image=image,
+            image_id=image_id,
+            mounts=((artifact, "/workspace", "rw"),),
+            network="none",
+            cpus="1",
+            memory="256m",
+            working_directory="/workspace",
+        )
+    )
+
+    results = execute_checks(running, artifact, bundle, evidence / "results")
+
+    assert results.artifact_unchanged
+    assert [item["status"] for item in results.results] == ["pass", "pass"]
+    cleanup = json.loads((evidence / "results" / "cleanup.json").read_text(encoding="utf-8"))
+    assert cleanup["success"] is True
+    assert cleanup["removed"] is True
+    for path in evidence.rglob("*"):
+        if path.is_file():
+            assert secret not in path.read_text(encoding="utf-8", errors="replace")
+
+
 def latest_real_codex_bundle() -> tuple[Path, Path]:
     root = Path("out/live-contracts/codex-verifier")
     for candidate in sorted(root.iterdir(), reverse=True) if root.is_dir() else []:

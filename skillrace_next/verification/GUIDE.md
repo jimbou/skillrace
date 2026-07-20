@@ -63,6 +63,12 @@ artifact failure. In either case, use exit status `2` and report the concrete mi
 or dependency. Never turn a missing command, import failure, or dependency setup failure
 into exit status `1`.
 
+The supplied `../input/environment/` is the authoritative initial-workspace baseline.
+When a property requires test or harness preservation, inspect its Dockerfile and build
+context and compare the defined files with the final artifact and trace. Do not mark the
+property uncovered merely because the same baseline content is not repeated in the
+prompt.
+
 The exact task prompt is the visible behavioral contract. A natural-language check must
 not enforce a condition that the prompt did not request. Put such a property in `uncovered`
 and explain the mismatch instead of creating a hidden requirement.

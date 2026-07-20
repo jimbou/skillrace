@@ -92,6 +92,8 @@ def test_guide_states_immutable_artifact_and_authoritative_execution_contract() 
     assert "mutually inconsistent requirements" in normalized_words
     assert "must not import or call an artifact function" in normalized_words
     assert "signature is explicitly required by the prompt" in normalized_words
+    assert "authoritative initial-workspace baseline" in normalized_words
+    assert "test or harness preservation" in normalized_words
     assert "exit status `2`" in normalized_words
 
 
