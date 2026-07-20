@@ -585,9 +585,9 @@ build an analysis framework or incomplete-run recovery system.
 ## Handoff
 
 The component, single-campaign implementation, direct replicate loop, CLI override
-behavior, and generic runtime image are complete. Experiment input preparation, pilot,
-full study, and simple final aggregation remain. The study will run `skillrace_next`
-directly; legacy cutover is not planned. More operational detail is in
+behavior, generic runtime image, experiment input preparation, and bounded pilot are
+complete. The full study and simple final aggregation remain. The study will run
+`skillrace_next` directly; legacy cutover is not planned. More operational detail is in
 [SkillRACE Next Handoff](HANDOFF.md).
 
 The repository still contains extensive unrelated dirty legacy work. Do not reset,
