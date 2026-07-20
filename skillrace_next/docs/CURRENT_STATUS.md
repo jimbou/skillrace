@@ -186,6 +186,16 @@ falsely admitted. Credentials were absent and all three owned containers were re
   patches. All six containers were removed, exact-key scans were clean, and none of the
   60 Codex exploratory commands invoked Docker. The terminal summary is under
   `out/live-contracts/pilot-v3/deepseek-v4-flash/part1/file-check/`.
+- [x] Complete and audit `pilot-v3` Part I cell 2, `js-feature`. Thirteen checker results
+  passed and three were inconclusive; there were no failures, candidates, invalid
+  proposals, or patches. The inconclusive results came from one generated prompt that
+  explicitly required `/usr/bin/node` although the task image provides Node at
+  `/usr/local/bin/node`. The agent discovered the available command and completed the
+  artifact, while Codex correctly treated the missing requested runtime path as an
+  environment problem rather than a skill failure. All artifacts were unchanged, all six
+  containers were removed, exact-key scans were clean, and none of 104 Codex exploratory
+  commands invoked Docker. Evidence is under
+  `out/live-contracts/pilot-v3/deepseek-v4-flash/part1/js-feature/`.
 - [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
   count for the full headline study after inspecting the pilot. Use the same cheap model
   for every non-verifier role within one track.
