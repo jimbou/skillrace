@@ -32,10 +32,22 @@ input in order to make it testable.
 
 ## Required output
 
-Write `check_manifest.json` and one or more scripts under `checks/`. The manifest schema
-is `skillrace-check-bundle/1` and contains `run_id`, `artifact_hash`, `checks`, and
-`uncovered`. Every supplied property must appear in at least one declared check or
-exactly once in `uncovered`.
+Write `check_manifest.json` and one or more scripts under `checks/`. The manifest has
+exactly these five top-level fields: `schema`, `run_id`, `artifact_hash`, `checks`, and
+`uncovered`. Start it with this exact structure, replacing the placeholder values:
+
+```json
+{
+  "schema": "skillrace-check-bundle/1",
+  "run_id": "RUN_ID",
+  "artifact_hash": "ARTIFACT_HASH",
+  "checks": [],
+  "uncovered": []
+}
+```
+
+Every supplied property must appear in at least one declared check or exactly once in
+`uncovered`.
 
 Each declared check contains:
 

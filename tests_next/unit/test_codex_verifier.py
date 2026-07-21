@@ -95,6 +95,11 @@ def test_guide_states_immutable_artifact_and_authoritative_execution_contract() 
     assert "authoritative initial-workspace baseline" in normalized_words
     assert "test or harness preservation" in normalized_words
     assert "exit status `2`" in normalized_words
+    assert '"schema": "skillrace-check-bundle/1"' in guide
+    assert (
+        'The manifest has exactly these five top-level fields: `schema`, `run_id`, '
+        '`artifact_hash`, `checks`, and `uncovered`.'
+    ) in normalized_words
 
 
 def test_docker_command_detection_distinguishes_dockerfile_from_cli_invocation() -> None:
