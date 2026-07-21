@@ -213,7 +213,7 @@ def test_create_episodes_accepts_one_json_code_fence(tmp_path: Path) -> None:
     def fenced_pi(request: PiRequest) -> PiResult:
         request.output_dir.mkdir(parents=True, exist_ok=True)
         trace = request.output_dir / "trace.jsonl"
-        response = f"```json\n{json.dumps(valid_episodes())}\n```"
+        response = f"```json\n{json.dumps(valid_episodes())}```"
         trace.write_text(
             json.dumps(
                 {

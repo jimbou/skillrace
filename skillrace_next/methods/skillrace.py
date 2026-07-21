@@ -159,10 +159,10 @@ def _assistant_json(trace_path: Path) -> Any:
     response = _assistant_text(trace_path)
     if (
         response.startswith("```json\n")
-        and response.endswith("\n```")
+        and response.endswith("```")
         and response.count("```") == 2
     ):
-        response = response[len("```json\n") : -len("\n```")]
+        response = response[len("```json\n") : -len("```")].strip()
     return json.loads(response)
 
 
