@@ -395,21 +395,26 @@ falsely admitted. Credentials were absent and all three owned containers were re
   successful cleanup under
   `out/live-contracts/check-executor-baseline/20260720T205633Z-590c27f6/`. Exact-key
   scans were clean and no owned container remained.
-- [x] Complete and audit `pilot-v8` Part II `fix-failing-test`. All six development
-  runs passed, so no confirmed failure warranted patching and every method retained the
-  generated S0. The held-out image's original two-function implementation and two-test
-  harness were present in every weak-agent workspace. The independent S0, Random,
-  VeriGrey, and SkillRACE runs each repaired only the implementation and passed both the
-  frozen suite-success and harness-preservation checks. Terra explicitly compared the
-  final public test with the environment baseline and rejected harness-control changes;
-  no held-out property was uncovered. One development checker bundle needed its allowed
-  deterministic structure correction before Docker. All ten artifacts were unchanged
-  during checking, all ten cleanup receipts succeeded, exact-key scans were clean, none
-  of 165 Codex commands invoked Docker, and no owned container remained. Evidence is
-  under `out/live-contracts/pilot-v8/deepseek-v4-flash/part2/fix-failing-test/`.
-- [ ] Choose the model tracks, iteration budgets, held-out repetitions, and replicate
-  count for the full headline study after inspecting the pilot. Use the same cheap model
-  for every non-verifier role within one track.
+- [x] Preserve `pilot-v8` DeepSeek Part II `fix-failing-test` as development and timing
+  evidence. Its six development slots completed without a confirmed failure and all
+  methods retained S0. Its original held-out results used regenerated Terra checkers, so
+  those scores are not authoritative benchmark results and are not reused in the full
+  study. Commit `d75a27a` corrected production held-out evaluation to execute the frozen
+  source checks directly. The corrected DeepSeek component contract is under
+  `out/live-contracts/part2-study-inputs/deepseek-v4-flash/20260721T155550Z-2d5b846e/`.
+- [x] Complete and audit the Qwen timing-pilot-v8 Part II cell after the held-out fix.
+  One VeriGrey development slot executed; five development slots were recorded as invalid
+  without retry. All four held-out labels used byte-verified frozen source checks through
+  Docker, passed, kept their artifacts unchanged, invoked no held-out Codex process, and
+  cleaned up successfully. Evidence is under
+  `out/live-contracts/timing-pilot-v8/qwen3.6-flash/part2/fix-failing-test/`.
+- [x] Freeze one 60-second weak task-execution and replay cutoff from 23 valid pilot runs
+  (median 16.548s, p95 31.620s, maximum 33.287s). Proposal, patch-authoring, Docker,
+  checker, and Terra limits remain separate. See
+  `study/timing-pilot-v8/TIMING_ANALYSIS.md`.
+- [x] Choose the full-study scale: DeepSeek v4 Flash and Qwen 3.6 Flash tracks, 30
+  development iterations, one held-out repetition, and one replicate per campaign. Every
+  non-verifier role in a track uses that track's same model.
 - [ ] Create one frozen campaign config per selected skill/scenario and model track, with
   separate input and output roots. The replicate loop creates numbered replicate
   directories inside that campaign output.

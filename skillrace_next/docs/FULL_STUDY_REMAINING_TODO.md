@@ -225,8 +225,13 @@ sanitized evidence, and commit only that item.
   Focused integration verification covers Random, VeriGrey, and SkillRACE: every Part I
   discovery execution receives the unchanged S0 hash, while Part II carries an accepted
   S0-to-S1 revision into the next iteration and retains S1 after a rejected candidate.
-- [ ] Extract valid pilot timing data, publish the distribution and exclusions, select the
-  fixed weak-execution cutoff, and bind it into the revised experiment configs.
+- [x] Extract valid pilot timing data, publish the distribution and exclusions, and select
+  the fixed weak-execution cutoff. The 23 valid runs have median 16.548 seconds, p95
+  31.620 seconds, and maximum 33.287 seconds. The frozen cutoff is 60 seconds; see
+  `study/timing-pilot-v8/TIMING_ANALYSIS.md`.
+- [ ] Bind the frozen 60-second `timeouts.pi` value into every full-study config. Exact
+  replay uses the same value; patch authoring, Docker, Terra, provider, and checker limits
+  remain separate.
 - [x] Run the full offline suite after the revised method implementation. The 2026-07-21
   verification completed 200 non-live tests with no failures.
 - [ ] Complete the separate live contracts listed below. Manually inspect semantic outputs,
