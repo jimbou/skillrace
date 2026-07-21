@@ -78,6 +78,38 @@ def _heldout_properties(path: Path) -> tuple[list[dict[str, str]], dict[str, Any
     }
 
 
+def _development_properties(
+    path: Path,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, list) or not raw:
+        raise ValueError(f"{path} must contain a nonempty property list")
+    checks: list[dict[str, str]] = []
+    mappings: list[dict[str, str]] = []
+    source_ids: list[str] = []
+    for index, item in enumerate(raw, start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"{path} contains a non-object property")
+        source_id = item.get("id")
+        reads = item.get("reads")
+        description = item.get("nl")
+        if not isinstance(source_id, str) or not source_id.strip():
+            raise ValueError(f"{path} contains a malformed property id")
+        if not isinstance(reads, str) or not reads.strip():
+            raise ValueError(f"{path} contains a malformed reads field")
+        if not isinstance(description, str) or not description.strip():
+            raise ValueError(f"{path} contains an empty property description")
+        source_ids.append(source_id)
+        property_id = f"P{index}"
+        checks.append({"property_id": property_id, "description": description})
+        mappings.append(
+            {"source_id": source_id, "reads": reads, "property_id": property_id}
+        )
+    if len(set(source_ids)) != len(source_ids):
+        raise ValueError(f"{path} contains duplicate property ids")
+    return checks, mappings
+
+
 def _audit_test(repo: Path, scenario_id: str, test_id: str) -> dict[str, Any]:
     source = repo / "scenarios" / scenario_id / "tests" / test_id
     candidate_path = source / "candidate.json"
@@ -186,6 +218,9 @@ def prepare_part2_study(repo_root: str | Path, output_root: str | Path) -> Path:
         ):
             raise ValueError(f"public scenario is underspecified: {scenario_id}")
         properties, property_source = _heldout_properties(properties_path)
+        development_properties, development_mappings = _development_properties(
+            properties_path
+        )
         property_source["path"] = properties_path.relative_to(repo).as_posix()
         tests = [
             _audit_test(repo, scenario_id, f"t{index}")
@@ -198,6 +233,10 @@ def prepare_part2_study(repo_root: str | Path, output_root: str | Path) -> Path:
                 "scenario_path": scenario_path,
                 "properties": properties,
                 "property_source": property_source,
+                "development_properties": development_properties,
+                "development_mappings": development_mappings,
+                "development_source_path": properties_path.relative_to(repo).as_posix(),
+                "development_source_hash": file_hash(properties_path),
                 "tests": tests,
             }
         )
@@ -210,6 +249,24 @@ def prepare_part2_study(repo_root: str | Path, output_root: str | Path) -> Path:
         copied_scenario = scenario_output / "scenario.md"
         copied_scenario.parent.mkdir(parents=True)
         shutil.copyfile(scenario_data["scenario_path"], copied_scenario)
+        development_path = scenario_output / "development-properties.json"
+        development_receipt_path = (
+            scenario_output / "development-properties-receipt.json"
+        )
+        atomic_write_json(development_path, scenario_data["development_properties"])
+        validate_nl_checks(development_path)
+        atomic_write_json(
+            development_receipt_path,
+            {
+                "schema": "skillrace-part2-development-properties-receipt/1",
+                "scenario_id": scenario_id,
+                "source_path": scenario_data["development_source_path"],
+                "source_hash": scenario_data["development_source_hash"],
+                "prepared_path": f"{scenario_id}/development-properties.json",
+                "prepared_hash": file_hash(development_path),
+                "mappings": scenario_data["development_mappings"],
+            },
+        )
         heldout_records: list[dict[str, str]] = []
         for index, audit in enumerate(scenario_data["tests"], start=1):
             test_id = f"t{index}"
@@ -316,6 +373,16 @@ def prepare_part2_study(repo_root: str | Path, output_root: str | Path) -> Path:
                 "source_scenario_hash": file_hash(scenario_data["scenario_path"]),
                 "scenario_path": copied_scenario.relative_to(output).as_posix(),
                 "scenario_hash": file_hash(copied_scenario),
+                "development_properties_path": development_path.relative_to(
+                    output
+                ).as_posix(),
+                "development_properties_hash": file_hash(development_path),
+                "development_properties_receipt_path": (
+                    development_receipt_path.relative_to(output).as_posix()
+                ),
+                "development_properties_receipt_hash": file_hash(
+                    development_receipt_path
+                ),
                 "heldout_tests": heldout_records,
             }
         )
@@ -357,6 +424,32 @@ def verify_part2_study(manifest_path: str | Path) -> int:
         scenario_path = output / scenario["scenario_path"]
         if file_hash(scenario_path) != scenario.get("scenario_hash"):
             raise ValueError(f"scenario hash mismatch for {scenario['scenario_id']}")
+        development_path = output / scenario["development_properties_path"]
+        if file_hash(development_path) != scenario.get("development_properties_hash"):
+            raise ValueError(
+                f"development property hash mismatch for {scenario['scenario_id']}"
+            )
+        validate_nl_checks(development_path)
+        development_receipt_path = output / scenario[
+            "development_properties_receipt_path"
+        ]
+        if file_hash(development_receipt_path) != scenario.get(
+            "development_properties_receipt_hash"
+        ):
+            raise ValueError(
+                f"development property receipt mismatch for {scenario['scenario_id']}"
+            )
+        development_receipt = _json(development_receipt_path)
+        if (
+            development_receipt.get("schema")
+            != "skillrace-part2-development-properties-receipt/1"
+            or development_receipt.get("scenario_id") != scenario["scenario_id"]
+            or development_receipt.get("prepared_hash")
+            != scenario["development_properties_hash"]
+        ):
+            raise ValueError(
+                f"development property receipt invalid for {scenario['scenario_id']}"
+            )
         heldout = scenario.get("heldout_tests")
         if not isinstance(heldout, list) or len(heldout) != 10:
             raise ValueError(f"held-out count mismatch for {scenario['scenario_id']}")

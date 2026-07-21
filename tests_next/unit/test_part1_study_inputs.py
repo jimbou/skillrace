@@ -84,6 +84,28 @@ def test_prepare_part1_study_preserves_sources_and_binds_receipts(tmp_path: Path
             assert receipt["property_source"]["path"] == (
                 f"skills/{name}/properties.json"
             )
+            assert receipt["property_source"]["mappings"] == [
+                {
+                    "source_id": "first-check",
+                    "reads": "state",
+                    "property_id": "P1",
+                },
+                {
+                    "source_id": "second-check",
+                    "reads": "state",
+                    "property_id": "P2",
+                },
+            ]
+        else:
+            assert len(receipt["property_source"]["mappings"]) == len(properties)
+            assert all(
+                mapping["property_id"] == f"P{index}"
+                and mapping["source_id"]
+                and mapping["reads"] in {"state", "trace", "state+trace"}
+                for index, mapping in enumerate(
+                    receipt["property_source"]["mappings"], start=1
+                )
+            )
         assert [value["property_id"] for value in properties] == [
             f"P{index}" for index in range(1, len(properties) + 1)
         ]

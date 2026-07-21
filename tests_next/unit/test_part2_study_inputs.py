@@ -117,6 +117,44 @@ def test_prepare_part2_study_freezes_all_ten_scenarios_and_100_tests(
         assert len(scenario_item["heldout_tests"]) == 10
         scenario_copy = output / scenario_item["scenario_path"]
         assert scenario_copy.read_text(encoding="utf-8").startswith("# Scenario:")
+        development_path = output / scenario_item["development_properties_path"]
+        development = validate_nl_checks(development_path)
+        assert development == [
+            {"property_id": "P1", "description": "Behavior works."},
+            {"property_id": "P2", "description": "Agent verified it."},
+            {"property_id": "P3", "description": "Supplied files remain intact."},
+        ]
+        assert file_hash(development_path) == scenario_item[
+            "development_properties_hash"
+        ]
+        development_receipt_path = output / scenario_item[
+            "development_properties_receipt_path"
+        ]
+        development_receipt = json.loads(
+            development_receipt_path.read_text(encoding="utf-8")
+        )
+        assert development_receipt == {
+            "schema": "skillrace-part2-development-properties-receipt/1",
+            "scenario_id": scenario_id,
+            "source_path": f"scenarios/{scenario_id}/campaign/properties.json",
+            "source_hash": file_hash(
+                tmp_path / "scenarios" / scenario_id / "campaign" / "properties.json"
+            ),
+            "prepared_path": f"{scenario_id}/development-properties.json",
+            "prepared_hash": file_hash(development_path),
+            "mappings": [
+                {"source_id": "behavior", "reads": "state", "property_id": "P1"},
+                {"source_id": "trace", "reads": "trace", "property_id": "P2"},
+                {
+                    "source_id": "integrity",
+                    "reads": "state+trace",
+                    "property_id": "P3",
+                },
+            ],
+        }
+        assert file_hash(development_receipt_path) == scenario_item[
+            "development_properties_receipt_hash"
+        ]
         for heldout_item in scenario_item["heldout_tests"]:
             record_path = output / heldout_item["record_path"]
             assert file_hash(record_path) == heldout_item["record_hash"]
@@ -152,6 +190,23 @@ def test_prepare_part2_study_freezes_all_ten_scenarios_and_100_tests(
                 receipt["source_checks"][0]["hash"]
             )
     assert verify_part2_study(manifest_path) == 100
+
+
+def test_verify_part2_study_rejects_changed_development_properties(
+    tmp_path: Path,
+) -> None:
+    _write_source_suite(tmp_path)
+    output = tmp_path / "skillrace_next" / "study" / "part2"
+    manifest_path = prepare_part2_study(tmp_path, output)
+    properties = output / PART2_SCENARIOS[0] / "development-properties.json"
+    properties.write_text("[]\n", encoding="utf-8")
+
+    try:
+        verify_part2_study(manifest_path)
+    except ValueError as exc:
+        assert "development property hash mismatch" in str(exc)
+    else:
+        raise AssertionError("changed development properties were accepted")
 
 
 def test_verify_part2_study_rejects_changed_frozen_prompt(tmp_path: Path) -> None:

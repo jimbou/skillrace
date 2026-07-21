@@ -73,6 +73,11 @@ _AUTHORED_PROPERTIES = {
     ),
 }
 
+_AUTHORED_PROPERTY_READS = {
+    "file-check": ("state", "trace", "state"),
+    "js-feature": ("state", "state+trace", "state+trace"),
+}
+
 
 def _normalize_properties(
     skill_id: str, source_path: Path
@@ -83,16 +88,21 @@ def _normalize_properties(
             raise ValueError(f"{source_path} must contain a nonempty list")
         descriptions: list[str] = []
         source_ids: list[str] = []
+        reads_values: list[str] = []
         for item in raw:
             if not isinstance(item, dict):
                 raise ValueError(f"{source_path} contains a non-object property")
             source_id = item.get("id")
+            reads = item.get("reads")
             description = item.get("nl")
             if not isinstance(source_id, str) or not source_id.strip():
                 raise ValueError(f"{source_path} contains a malformed property id")
             if not isinstance(description, str) or not description.strip():
                 raise ValueError(f"{source_path} contains an empty property description")
+            if not isinstance(reads, str) or not reads.strip():
+                raise ValueError(f"{source_path} contains a malformed reads field")
             source_ids.append(source_id)
+            reads_values.append(reads)
             descriptions.append(description)
         if len(set(source_ids)) != len(source_ids):
             raise ValueError(f"{source_path} contains duplicate property ids")
@@ -106,10 +116,22 @@ def _normalize_properties(
         descriptions = list(_AUTHORED_PROPERTIES.get(skill_id, ()))
         if not descriptions:
             raise ValueError(f"properties are missing for {skill_id}")
-        source = {"kind": "study-authored", "property_ids": []}
+        reads_values = list(_AUTHORED_PROPERTY_READS[skill_id])
+        source_ids = [f"{skill_id}-P{index}" for index in range(1, len(descriptions) + 1)]
+        source = {"kind": "study-authored", "property_ids": source_ids}
     normalized = [
         {"property_id": f"P{index}", "description": description}
         for index, description in enumerate(descriptions, start=1)
+    ]
+    source["mappings"] = [
+        {
+            "source_id": source_id,
+            "reads": reads,
+            "property_id": f"P{index}",
+        }
+        for index, (source_id, reads) in enumerate(
+            zip(source_ids, reads_values, strict=True), start=1
+        )
     ]
     return normalized, source
 
