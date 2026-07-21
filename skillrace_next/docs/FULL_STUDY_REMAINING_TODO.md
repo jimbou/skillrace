@@ -32,14 +32,21 @@ legacy cutover.
 
 ### Frozen NL checks are authoritative
 
-Before any full campaign starts, prepare and freeze:
+Before any full campaign starts, normalize and freeze the existing source catalogs:
 
-- one development NL-check catalog for each of the 30 Part I skills; and
-- one development NL-check catalog for each of the ten Part II public scenarios.
+- 28 of the 30 selected Part I skills already provide `skills/<skill>/properties.json`.
+  Reuse their ordered `id`/`reads`/`nl` definitions unchanged. `file-check` and
+  `js-feature` are the only selected skills without source property files; reuse the
+  focused catalogs already prepared for them under `skillrace_next/study/part1/`.
+- All ten Part II public scenarios already provide
+  `scenarios/<scenario>/campaign/properties.json`. Reuse each ordered three-property
+  catalog unchanged; do not author a replacement development catalog.
 
-Part II development catalogs must be written from the public scenario before generating
-S0. They must not be derived from, or reveal, the held-out tests. The held-out records
-remain separate and are loaded only after all methods finish development.
+The normalized clean-room records may rename ordered source IDs to `P1`, `P2`, and so on,
+but their descriptions and ordering must remain unchanged and the receipt must preserve
+the source ID, `reads` value, source hash, normalized hash, and mapping. Part II catalogs
+must be frozen before generating S0. They are not derived from the held-out tests. The
+held-out records remain separate and are loaded only after all methods finish development.
 
 Every generated development test receives the complete catalog for its skill/scenario.
 No method selects a subset, returns check IDs, authors a new check description, weakens a
@@ -149,8 +156,8 @@ usable test:
 The paper used one seed per injection objective: an average of 8.7 initial seeds within a
 100-execution campaign, or about 8.7%. The prepared Part I catalogs currently contain
 2–8 properties and average 3.3, so one seed per property averages 11% of this study's
-30-execution budget. The number of Part II development properties should be kept focused;
-three gives a comparable 10% initialization share.
+30-execution budget. Every existing Part II campaign catalog has exactly three properties,
+so Part II initialization uses three seeds, or exactly 10% of its budget.
 
 The paper does not specify the exact `ChooseSeed` tie-breaking algorithm. Before coding
 that detail, freeze one small deterministic rule consistent with its seed queue and
@@ -180,9 +187,11 @@ test, confirm the expected failure, implement the minimum direct behavior, run f
 offline tests, run its separate paid live contract when required, inspect and retain
 sanitized evidence, and commit only that item.
 
-- [ ] Audit and finalize every Part I development NL-check catalog. Author and freeze the
-  ten Part II development catalogs from public scenarios only. Add ordered hashes and
-  provenance receipts, then update affected Part I receipts/manifests.
+- [ ] Verify and freeze the existing property catalogs: 28 selected Part I source files,
+  the two already-prepared Part I exceptions, and all ten Part II campaign property files.
+  Preserve ordered source-to-`P` mappings, `reads` metadata, source and normalized hashes,
+  and provenance receipts; update affected Part I receipts/manifests. Do not rewrite
+  semantically valid source properties or author duplicate Part II catalogs.
 - [ ] Change the generated-test contract so proposers generate a prompt and bounded Docker
   environment while the pipeline attaches the complete frozen NL-check catalog. Reject
   generated check prose, selected check lists, unknown catalog hashes, infeasible builds,
