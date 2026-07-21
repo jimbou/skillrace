@@ -16,10 +16,11 @@ python -m skillrace_next ...
 No package rename is required to run experiments. The final legacy-package cutover was
 not authorized and was not performed.
 
-The study inputs and bounded pilot are prepared and complete. What remains is choosing
-the full-study scale, freezing its per-cell configs, running it, and aggregating its
-campaign summaries. The production CLI executes `replicate_count` independent campaigns
-sequentially in numbered directories.
+The original study inputs and bounded pilot are prepared and complete. The full-study
+scale is now fixed, but approved development-test revisions must be implemented and
+live-verified before freezing or running the full-study configs. Follow
+[Full-Study Remaining TODO](FULL_STUDY_REMAINING_TODO.md). The production CLI executes
+`replicate_count` independent campaigns sequentially in numbered directories.
 
 ## Ready now
 

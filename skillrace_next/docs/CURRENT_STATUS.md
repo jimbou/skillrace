@@ -31,8 +31,12 @@ credential scan was clean and no container remained.
 
 ## Open TODOs
 
-The component and single-campaign pipeline is ready. The following work remains for the
-actual multi-replicate study.
+The component and single-campaign pipeline is ready, but the full study is paused for the
+approved development-test revisions: frozen full NL-check catalogs on every test, root
+weak-agent task containers, explicit proposal sampling, paper-style VeriGrey seeding, and
+ten-seed SkillRACE initialization. The authoritative ordered checklist is
+[Full-Study Remaining TODO](FULL_STUDY_REMAINING_TODO.md). The following historical list
+records preparation completed before those revisions.
 
 ### Decisions now settled
 
