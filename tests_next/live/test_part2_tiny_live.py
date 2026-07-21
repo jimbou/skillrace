@@ -216,6 +216,7 @@ def test_tiny_real_part2_records_real_transitions_and_discards_rejected_patch(
         model_id=model,
         timeouts={
             **live_config(evidence, {}).timeouts,
+            "provider": 240,
             "pi": 240,
             "patch": 240,
         },

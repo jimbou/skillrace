@@ -230,10 +230,10 @@ sanitized evidence, and commit only that item.
   31.620 seconds, and maximum 33.287 seconds. The frozen cutoff is 60 seconds; see
   `study/timing-pilot-v8/TIMING_ANALYSIS.md`.
 - [ ] Bind the frozen 60-second `timeouts.pi` value into every full-study config. Exact
-  replay uses the same value; patch authoring, Docker, Terra, provider, and checker limits
-  remain separate.
-- [x] Run the full offline suite after the revised method implementation. The 2026-07-21
-  verification completed 200 non-live tests with no failures.
+  replay uses the same value. Non-task Pi calls now use `timeouts.provider`; patch
+  authoring, Docker, Terra, and checker limits also remain separate.
+- [x] Run the full offline suite after the revised method implementation. The latest
+  2026-07-21 verification completed 208 non-live tests with no failures.
 - [ ] Complete the separate live contracts listed below. Manually inspect semantic outputs,
   scan exact active credentials, and confirm container cleanup.
 - [ ] Freeze 80 full-study campaign configs: 30 Part I plus ten Part II campaigns for each

@@ -243,7 +243,7 @@ def create_diversity_plan(
                 image=config.docker_image,
                 allowed_tools=("read",),
                 max_turns=config.role_budgets["proposer"],
-                timeout_seconds=config.timeouts["pi"],
+                timeout_seconds=config.timeouts["provider"],
                 temperature=1.0,
             )
         )
@@ -393,7 +393,7 @@ def materialize_initial_test(
                 image=config.docker_image,
                 allowed_tools=("read",),
                 max_turns=config.role_budgets["proposer"],
-                timeout_seconds=config.timeouts["pi"],
+                timeout_seconds=config.timeouts["provider"],
                 temperature=1.0,
             )
         )
@@ -595,7 +595,7 @@ def create_episodes(
                 image=config.docker_image,
                 allowed_tools=("read",),
                 max_turns=config.role_budgets["segmenter"],
-                timeout_seconds=config.timeouts["pi"],
+                timeout_seconds=config.timeouts["provider"],
                 mounts=((run.trace_path, "/input/run-trace.jsonl", "ro"),),
             )
         )
@@ -739,7 +739,7 @@ def _alignment_parent(
                 image=config.docker_image,
                 allowed_tools=("read",),
                 max_turns=config.role_budgets["tree_alignment"],
-                timeout_seconds=config.timeouts["pi"],
+                timeout_seconds=config.timeouts["provider"],
             )
         )
         if result.status != "completed":
@@ -934,7 +934,7 @@ def propose_test(
             image=config.docker_image,
             allowed_tools=(),
             max_turns=min(2, config.role_budgets["proposer"]),
-            timeout_seconds=config.timeouts["pi"],
+            timeout_seconds=config.timeouts["provider"],
             temperature=1.0,
         )
     )
@@ -1015,7 +1015,7 @@ def propose_test(
             image=config.docker_image,
             allowed_tools=(),
             max_turns=config.role_budgets["proposer"],
-            timeout_seconds=config.timeouts["pi"],
+            timeout_seconds=config.timeouts["provider"],
             temperature=1.0,
         )
     )

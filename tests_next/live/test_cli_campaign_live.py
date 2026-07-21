@@ -59,7 +59,7 @@ def _write_config(
         scenario_path=scenario_path or evidence / "scenario.md",
         live=source_live,
         output_root=evidence / "run",
-        timeouts={**base.timeouts, "pi": 240, "patch": 240},
+        timeouts={**base.timeouts, "provider": 240, "pi": 240, "patch": 240},
     )
     path = evidence / "config.json"
     atomic_write_json(path, config.to_dict())

@@ -89,7 +89,7 @@ def test_real_verigrey_executes_full_seed_corpus_before_fifo_mutation(
         model_id=model_id,
         iteration_budget=3,
         output_root=evidence,
-        timeouts={**base.timeouts, "pi": 240, "docker": 600},
+        timeouts={**base.timeouts, "provider": 240, "pi": 240, "docker": 600},
     )
 
     state = initialize_corpus(

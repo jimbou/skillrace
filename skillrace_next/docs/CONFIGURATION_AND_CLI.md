@@ -25,7 +25,7 @@ The complete field set is:
 | `docker_image` | Pinned Pi/runtime base image |
 | `resource_limits` | Container CPU and memory values |
 | `network_policy` | Task-container Docker network mode |
-| `timeouts` | Exact provider, Pi, Docker, Codex, check, and patch limits |
+| `timeouts` | Exact provider-role, weak Pi task/replay, Docker, Codex, check, and patch limits |
 | `suite_path` | Development/test suite root |
 | `scenario_path` | Frozen Part II scenario provenance; must match explicit `--scenario` |
 | `iteration_budget` | Sequential discovery/improvement slots |
@@ -101,6 +101,12 @@ container through Docker `--rm`.
 The shared model-independent image tag is `skillrace/pi-runtime:0.73.1`. Its final OCI
 metadata records `org.skillrace.track.model=runtime-mounted`; the actual DeepSeek, Qwen,
 or Yunwu catalog is mounted by `run_pi` for each invocation.
+
+`timeouts.provider` bounds non-task calls made through Pi: proposals, base-skill
+generation, episode creation, tree alignment, and skill generation. `timeouts.pi`
+bounds only weak task execution and exact task replay. `timeouts.patch` separately
+bounds patch authoring. This separation keeps the frozen weak-agent cutoff from changing
+proposal or analysis behavior.
 
 Pi role calls use at most one SDK-level retry. Weak experimental task executions are not
 automatically retried.

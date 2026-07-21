@@ -448,7 +448,7 @@ def generate_base_skill(
             image=config.docker_image,
             allowed_tools=("read",),
             max_turns=config.role_budgets["skill_generator"],
-            timeout_seconds=config.timeouts["pi"],
+            timeout_seconds=config.timeouts["provider"],
         )
     )
     if result.status != "completed":

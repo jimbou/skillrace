@@ -345,6 +345,7 @@ def test_run_agent_uses_root_restores_ownership_and_returns_live_container_ident
     assert captured["spec"].image_id == "sha256:validated-image"
     assert captured["spec"].seed_working_directory is True
     assert captured["spec"].user == "0:0"
+    assert captured["timeout"] == config_for(tmp_path).timeouts["pi"]
     assert all("docker.sock" not in str(source) for source, _, _ in captured["spec"].mounts)
     assert any(
         destination == "/skill" and mode == "ro"

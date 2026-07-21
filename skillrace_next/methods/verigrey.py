@@ -254,7 +254,7 @@ def _materialize_initial_seed(
                 image=config.docker_image,
                 allowed_tools=("read",),
                 max_turns=config.role_budgets["proposer"],
-                timeout_seconds=config.timeouts["pi"],
+                timeout_seconds=config.timeouts["provider"],
                 temperature=1.0,
             )
         )
@@ -503,7 +503,7 @@ def _materialize_mutation(
                 image=config.docker_image,
                 allowed_tools=("read",),
                 max_turns=config.role_budgets["proposer"],
-                timeout_seconds=config.timeouts["pi"],
+                timeout_seconds=config.timeouts["provider"],
                 temperature=1.0,
             )
         )

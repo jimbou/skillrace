@@ -68,7 +68,7 @@ def test_real_model_plans_ten_seeds_and_materializes_the_first(
         output_root=evidence,
         timeouts={
             **live_config(evidence, {"proposer": 6}).timeouts,
-            "pi": 600,
+            "provider": 600,
             "docker": 600,
         },
     )

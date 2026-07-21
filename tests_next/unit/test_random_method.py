@@ -91,17 +91,23 @@ def fake_pi_responses(responses: list[str], calls: list[PiRequest]) -> Any:
 def test_random_proposal_materializes_one_independent_test(tmp_path: Path) -> None:
     calls: list[PiRequest] = []
     response = proposal("Create result.txt containing exactly alpha.")
+    base_config = config_for(tmp_path)
+    config = replace(
+        base_config,
+        timeouts={**base_config.timeouts, "provider": 222, "pi": 11},
+    )
 
     proposed = propose_test(
         skill_version(tmp_path),
         PROPERTIES,
-        config_for(tmp_path),
+        config,
         tmp_path / "proposal",
         fake_pi_responses([response], calls),
     )
 
     assert len(calls) == 1
     assert calls[0].temperature == 1.0
+    assert calls[0].timeout_seconds == 222
     proposal_prompt = calls[0].prompt_path.read_text(encoding="utf-8")
     assert "Dockerfile" in proposal_prompt
     assert "skillrace-next/task-fixture:test" in proposal_prompt

@@ -47,7 +47,8 @@ development run and all four held-out runs were valid timing samples.
 ## Separate role limits
 
 Only `timeouts.pi` is frozen to 60 seconds in the full-study configs; exact replay uses
-that same task-execution limit. Docker build, checker execution, Terra authoring,
-proposal/model calls, and patch authoring retain their separate role-specific limits.
+that same task-execution limit. Proposal, base-skill, episode, tree, and skill-generation
+calls use `timeouts.provider`. Docker build, checker execution, Terra authoring, and patch
+authoring retain their other separate role-specific limits.
 The cutoff must not be changed after inspecting a full-study success, failure, timeout,
 or patch decision.

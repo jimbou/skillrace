@@ -122,7 +122,7 @@ def test_real_pi_selects_and_mutates_one_edge_from_a_long_tree(
         output_root=evidence,
         timeouts={
             **live_config(evidence, {"proposer": 8}).timeouts,
-            "pi": 600,
+            "provider": 600,
             "docker": 600,
         },
     )

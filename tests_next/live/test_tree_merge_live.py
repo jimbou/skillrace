@@ -123,7 +123,7 @@ def test_real_deepseek_v4_aligns_real_episodes_in_one_batched_tree_call(
             model_id="deepseek-v4-flash",
             timeouts={
                 **live_config(evidence, {"tree_alignment": 4}).timeouts,
-                "pi": 600,
+                "provider": 600,
             },
         ),
         evidence / "merge",

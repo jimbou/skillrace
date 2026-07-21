@@ -43,6 +43,9 @@ live-verified before freezing or running the full-study configs. Follow
   and test harnesses while keeping the final artifact inspectable and immutable.
 - Weak-agent timeout is an experimental outcome. Its partial artifact is checked without
   retrying the weak agent for luck.
+- `timeouts.pi` applies only to weak task execution and exact replay. Non-task Pi calls
+  use `timeouts.provider`, while patching uses `timeouts.patch`; full-study configs can
+  therefore freeze the 60-second weak cutoff without truncating proposals or tree work.
 - Repairable environment conditions are task behavior. A checker-only missing dependency
   is inconclusive, but a prompt-required exact launcher that a root agent could repair is
   a failure and must still yield structured checker JSON. Qwen proved direct S0 repair;

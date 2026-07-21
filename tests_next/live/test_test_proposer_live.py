@@ -79,8 +79,8 @@ def test_real_random_proposal_passes_deterministic_validation(
         resource_limits={"cpus": "1", "memory_mb": 512},
         network_policy="host",
         timeouts={
-            "provider": 60,
-            "pi": 240,
+            "provider": 240,
+            "pi": 5,
             "docker": 180,
             "codex": 300,
             "check": 60,

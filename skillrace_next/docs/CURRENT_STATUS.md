@@ -412,6 +412,12 @@ falsely admitted. Credentials were absent and all three owned containers were re
   (median 16.548s, p95 31.620s, maximum 33.287s). Proposal, patch-authoring, Docker,
   checker, and Terra limits remain separate. See
   `study/timing-pilot-v8/TIMING_ANALYSIS.md`.
+- [x] Separate that cutoff in execution code. `timeouts.pi` now reaches only weak task
+  execution and exact replay; non-task Pi calls use `timeouts.provider`, and patching
+  continues to use `timeouts.patch`. A real DeepSeek proposal contract completed twice
+  with a recorded 240-second provider-role limit while `timeouts.pi` was deliberately set
+  to five seconds. Evidence is under
+  `out/live-contracts/test-proposer/deepseek-v4-flash/20260721T172608Z-c047ce16/`.
 - [x] Prove the root-agent environment-repair behavior. Qwen repaired a missing exact
   `/usr/bin/node` launcher by linking the installed `/usr/local/bin/node`, completed the
   requested command, and passed the authoritative checks. DeepSeek followed the deficient
