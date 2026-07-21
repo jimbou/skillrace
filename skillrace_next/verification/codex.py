@@ -7,7 +7,7 @@ import subprocess
 from typing import Any, Callable
 
 from ..records import CheckBundle
-from ..storage import atomic_write_json, canonical_json_hash, file_hash, tree_hash
+from ..storage import canonical_json_hash, file_hash, tree_hash
 
 
 _ROOT_CAUSE_CATEGORIES = {
@@ -233,10 +233,12 @@ def author_checks(
     stderr_path = output / "codex-stderr.txt"
     prompt = (
         "Read ../GUIDE.md in full, then inspect ../input/. Author executable checks for "
-        "every supplied natural-language property. Write only check_manifest.json and "
-        "declared scripts under checks/ in the current output directory. Do not modify "
-        "inputs, do not repair the artifact, do not use Docker, and do not claim local "
-        "exploration is an authoritative verdict."
+        "every applicable supplied natural-language property. Account for each supplied "
+        "property exactly once: declare one or more executable checks for it, or put it in "
+        "uncovered with a specific reason when it cannot be observed defensibly for this "
+        "task. Write only check_manifest.json and declared scripts under checks/ in the "
+        "current output directory. Do not modify inputs, do not repair the artifact, do not "
+        "use Docker, and do not claim local exploration is an authoritative verdict."
     )
     last_error: ValueError | None = None
     for attempt in (1, 2):
@@ -271,27 +273,6 @@ def author_checks(
                     "again and fix only the bundle structure; do not modify any input or "
                     "use Docker."
                 )
-    checks_dir = output / "checks"
-    if checks_dir.exists():
-        shutil.rmtree(checks_dir)
-    run_value = json.loads((input_dir / "run.json").read_text(encoding="utf-8"))
-    run_id = run_value.get("run_id", "unknown-run") if isinstance(run_value, dict) else "unknown-run"
-    atomic_write_json(
-        output / "check_manifest.json",
-        {
-            "schema": "skillrace-check-bundle/1",
-            "run_id": run_id,
-            "artifact_hash": artifact_hash,
-            "checks": [],
-            "uncovered": [
-                {
-                    "property_id": item["property_id"],
-                    "reason": f"Codex produced two invalid bundles: {last_error}",
-                }
-                for item in nl_checks
-            ],
-        },
-    )
-    return validate_check_manifest(
-        output / "check_manifest.json", nl_checks, artifact_hash
+    raise RuntimeError(
+        f"Codex produced two invalid check bundles: {last_error}"
     )

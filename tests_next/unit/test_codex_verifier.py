@@ -173,6 +173,35 @@ def test_author_checks_allows_one_structural_correction(
     assert len(bundle.script_paths) == 2
 
 
+def test_author_checks_does_not_relabel_two_invalid_bundles_as_uncovered(
+    tmp_path: Path,
+) -> None:
+    workspace = verifier_workspace(tmp_path)
+    calls = 0
+
+    def invalid_codex(
+        command: list[str], **kwargs: Any
+    ) -> subprocess.CompletedProcess[str]:
+        nonlocal calls
+        calls += 1
+        output = Path(kwargs["cwd"])
+        write_valid_bundle(output, tree_hash(workspace / "input" / "artifact"))
+        manifest = json.loads(
+            (output / "check_manifest.json").read_text(encoding="utf-8")
+        )
+        manifest["checks"] = manifest["checks"][:1]
+        (output / "checks" / "P2-C1.py").unlink()
+        (output / "check_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+        return subprocess.CompletedProcess(command, 0, "{}\n", "")
+
+    with pytest.raises(RuntimeError, match="two invalid check bundles"):
+        author_checks(workspace, config_for(tmp_path), invalid_codex)
+
+    assert calls == 2
+
+
 def test_author_checks_rejects_any_input_mutation(tmp_path: Path) -> None:
     workspace = verifier_workspace(tmp_path)
 

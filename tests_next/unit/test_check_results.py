@@ -1,8 +1,16 @@
+import json
 from pathlib import Path
 
 import pytest
 
-from skillrace_next.runtime.docker import ExecResult
+from skillrace_next.runtime.docker import (
+    CleanupResult,
+    ExecResult,
+    RunningContainer,
+)
+from skillrace_next.storage import tree_hash
+from skillrace_next.verification import executor
+from skillrace_next.verification.codex import validate_check_manifest
 from skillrace_next.verification.executor import interpret_checker_result
 
 
@@ -83,3 +91,50 @@ def test_invalid_checker_outcome_is_never_a_property_failure(
     )
 
     assert result["status"] == "inconclusive"
+
+
+def test_explicitly_uncovered_properties_create_no_checker_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    (artifact / "result.txt").write_text("ok\n", encoding="utf-8")
+    output = tmp_path / "bundle"
+    output.mkdir()
+    manifest = output / "check_manifest.json"
+    nl_checks = [
+        {"property_id": "P1", "description": "A trace-only observation."}
+    ]
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema": "skillrace-check-bundle/1",
+                "run_id": "run-uncovered",
+                "artifact_hash": tree_hash(artifact),
+                "checks": [],
+                "uncovered": [
+                    {
+                        "property_id": "P1",
+                        "reason": "The supplied trace has no observable event for P1.",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    bundle = validate_check_manifest(manifest, nl_checks, tree_hash(artifact))
+    monkeypatch.setattr(executor, "_docker_setup", lambda *args: None)
+    monkeypatch.setattr(
+        executor,
+        "remove_container",
+        lambda container: CleanupResult(True, True, ""),
+    )
+
+    results = executor.execute_checks(
+        RunningContainer("container-1", "run-uncovered", "sha256:image"),
+        artifact,
+        bundle,
+        tmp_path / "results",
+    )
+
+    assert not results.results
