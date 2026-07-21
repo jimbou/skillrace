@@ -346,6 +346,7 @@ def materialize_initial_test(
     output.mkdir(parents=True)
     diagnostic: str | None = None
     last: TestCase | None = None
+    last_result: PiResult | None = None
     for replacement in (1, 2):
         attempt = output / f"replacement-{replacement}"
         pi_output = attempt / "pi"
@@ -396,6 +397,7 @@ def materialize_initial_test(
                 temperature=1.0,
             )
         )
+        last_result = result
         if result.status != "completed":
             raise RuntimeError(f"Pi SkillRACE seed materialization failed: {result.status}")
         try:
@@ -472,7 +474,67 @@ def materialize_initial_test(
         diagnostic = last.validation_diagnostic
     if last is not None:
         return last
-    raise ValueError("two malformed SkillRACE seed materializations")
+    if last_result is None:
+        raise RuntimeError("SkillRACE seed materialization loop did not run")
+    failure_diagnostic = diagnostic or "SkillRACE seed response is invalid"
+    test_id = f"skillrace-{seed_id}-invalid-" + uuid.uuid4().hex
+    case_dir = output / test_id
+    environment = case_dir / "environment"
+    environment.mkdir(parents=True)
+    task_path = case_dir / "prompt.txt"
+    task_path.write_text(
+        "Invalid SkillRACE materialization; do not execute.\n",
+        encoding="utf-8",
+    )
+    checks_path = case_dir / "nl_checks.json"
+    atomic_write_json(checks_path, properties)
+    (environment / "Dockerfile").write_text(
+        f"FROM {config.docker_image}\nWORKDIR /workspace\n",
+        encoding="utf-8",
+    )
+    atomic_write_json(
+        environment / "sanity.json",
+        {"status": "fail", "diagnostic": failure_diagnostic},
+    )
+    prompt_hash = file_hash(task_path)
+    environment_hash = tree_hash(environment)
+    catalog_hash = file_hash(checks_path)
+    proposal_receipt = case_dir / "proposal.json"
+    atomic_write_json(
+        proposal_receipt,
+        {
+            "schema": "skillrace-generated-test-proposal/1",
+            "method": "skillrace",
+            "phase": "initial_seed",
+            "seed_id": seed_id,
+            "seed_index": description_index + 1,
+            "description": description,
+            "plan_hash": plan["plan_hash"],
+            "catalog_hash": catalog_hash,
+            "prompt_hash": prompt_hash,
+            "environment_hash": environment_hash,
+            "pi_receipt_path": str(last_result.receipt_path),
+            "pi_receipt_hash": file_hash(last_result.receipt_path),
+            "model": config.model_id,
+            "temperature": 1.0,
+            "status": "invalid_test",
+            "diagnostic": failure_diagnostic,
+        },
+    )
+    return TestCase(
+        test_id=test_id,
+        prompt_path=task_path,
+        prompt_hash=prompt_hash,
+        environment_directory=environment,
+        environment_hash=environment_hash,
+        nl_check_path=checks_path,
+        nl_check_hash=catalog_hash,
+        origin_method="skillrace",
+        proposal_receipt=proposal_receipt,
+        validation_status="invalid_test",
+        validation_diagnostic=failure_diagnostic,
+        container_image_id="",
+    )
 
 
 def _episode_prompt(

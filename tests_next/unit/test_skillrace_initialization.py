@@ -272,3 +272,80 @@ def test_materialize_initial_test_binds_plan_description_and_full_catalog(
     assert receipt["description"] == plan["descriptions"][0]
     assert receipt["catalog_hash"] == proposed.nl_check_hash
     assert receipt["temperature"] == 1.0
+
+
+def test_twice_malformed_initial_test_is_returned_as_invalid_slot(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+
+    def fake_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        request.output_dir.mkdir(parents=True, exist_ok=True)
+        response = (
+            json.dumps(plan_response())
+            if ".plan." in request.operation_id
+            else "not json"
+        )
+        trace = request.output_dir / "trace.jsonl"
+        trace.write_text(
+            json.dumps(
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": response}],
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        receipt = request.output_dir / "receipt.json"
+        receipt.write_text("{}\n", encoding="utf-8")
+        return PiResult(
+            operation_id=request.operation_id,
+            model=request.model,
+            status="completed",
+            trace_path=trace,
+            usage={},
+            stderr="",
+            receipt_path=receipt,
+            return_code=0,
+            wall_seconds=0.1,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+    skill = fixture_skill(tmp_path)
+    config = config_for(tmp_path)
+    plan = skillrace.create_diversity_plan(
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "plan",
+        pi_runner=fake_pi,
+    )
+
+    proposed = skillrace.materialize_initial_test(
+        plan,
+        0,
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "seed-01",
+        pi_runner=fake_pi,
+    )
+
+    assert len(requests) == 3
+    assert "previous materialization was invalid" in requests[2].prompt_path.read_text(
+        encoding="utf-8"
+    )
+    assert proposed.validation_status == "invalid_test"
+    assert proposed.validation_diagnostic
+    assert proposed.prompt_path.is_file()
+    assert (proposed.environment_directory / "Dockerfile").is_file()
+    assert json.loads(proposed.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
+    receipt = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
+    assert receipt["phase"] == "initial_seed"
+    assert receipt["seed_id"] == "seed-01"
+    assert receipt["status"] == "invalid_test"
+    assert receipt["diagnostic"] == proposed.validation_diagnostic
