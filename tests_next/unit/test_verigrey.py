@@ -230,6 +230,70 @@ def test_initialize_corpus_replaces_one_deterministically_invalid_seed(
     assert receipt["seed_replacements"] == {"seed-P1": 2, "seed-P2": 1}
 
 
+def test_twice_invalid_initial_seed_is_returned_once_then_next_seed_runs(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+
+    def invalid_p1(case: CaseRecord, config: object) -> CaseRecord:
+        if case.test_id == "verigrey-seed-P1":
+            return replace(
+                case,
+                validation_status="invalid_test",
+                validation_diagnostic="Docker build failed twice",
+                container_image_id="",
+            )
+        return valid_case(case, config)
+
+    skill = fixture_skill(tmp_path)
+    config = replace(
+        config_for(tmp_path),
+        iteration_budget=30,
+        role_budgets={"proposer": 4},
+    )
+    state = verigrey.initialize_corpus(
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "verigrey",
+        pi_runner=proposal_pi(requests),
+        validator=invalid_p1,
+    )
+
+    assert len(requests) == 3
+    invalid = verigrey.select_test(
+        state,
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "selection-1",
+        pi_runner=proposal_pi(requests),
+        validator=invalid_p1,
+    )
+    assert invalid.validation_status == "invalid_test"
+    assert state["corpus"][0]["status"] == "invalid"
+    assert state["current_selection"] is None
+
+    valid = verigrey.select_test(
+        state,
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "selection-2",
+        pi_runner=proposal_pi(requests),
+        validator=invalid_p1,
+    )
+    assert valid.test_id == "verigrey-seed-P2"
+    assert valid.validation_status == "valid"
+
+    state = verigrey.observe_execution(
+        state,
+        [{"tool": "write", "arguments": {"path": "/workspace/result.txt"}}],
+    )
+    assert state["phase"] == "mutation"
+    assert state["queue"] == ["seed-P2"]
+
+
 def test_initialize_corpus_materializes_every_ordered_property_seed_before_execution(
     tmp_path: Path,
 ) -> None:

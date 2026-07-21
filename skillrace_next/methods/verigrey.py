@@ -373,13 +373,11 @@ def initialize_corpus(
                 validator,
             )
             seed_replacements[seed["seed_id"]] = replacement
+            case = proposed
             if proposed.validation_status == "valid":
-                case = proposed
                 break
         if case is None:
-            raise ValueError(
-                f"two invalid VeriGrey materializations for {seed['seed_id']}"
-            )
+            raise ValueError(f"VeriGrey did not materialize {seed['seed_id']}")
         corpus.append(
             {
                 **seed,
@@ -601,6 +599,19 @@ def select_test(
             raise ValueError("VeriGrey has no pending initial seed")
         case = TestCase.from_dict(pending["test_case"])
         pending["selected_count"] += 1
+        if case.validation_status == "invalid_test":
+            pending["status"] = "invalid"
+            if all(
+                item["status"] in {"executed", "invalid"}
+                for item in state["corpus"]
+            ):
+                state["phase"] = "mutation"
+                state["queue"] = [
+                    item["seed_id"]
+                    for item in state["corpus"]
+                    if item["status"] == "executed"
+                ]
+            return case
         state["current_selection"] = {
             "phase": "initial_seed",
             "seed_id": pending["seed_id"],
@@ -745,8 +756,12 @@ def observe_execution(
         raise ValueError("VeriGrey selection phase is invalid")
     updated["current_selection"] = None
     if updated["phase"] == "seeding" and all(
-        item["status"] == "executed" for item in updated["corpus"]
+        item["status"] in {"executed", "invalid"} for item in updated["corpus"]
     ):
         updated["phase"] = "mutation"
-        updated["queue"] = [item["seed_id"] for item in updated["corpus"]]
+        updated["queue"] = [
+            item["seed_id"]
+            for item in updated["corpus"]
+            if item["status"] == "executed"
+        ]
     return updated
