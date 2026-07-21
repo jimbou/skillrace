@@ -262,6 +262,8 @@ def test_initialize_corpus_materializes_every_ordered_property_seed_before_execu
         )
         assert json.dumps(focus, sort_keys=True) in prompt
         assert json.dumps(PROPERTIES, sort_keys=True) in prompt
+        assert "internally consistent" in prompt
+        assert "Verify every stated exact count" in prompt
         case = CaseRecord.from_dict(seed["test_case"])
         assert json.loads(case.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
         proposal = json.loads(case.proposal_receipt.read_text(encoding="utf-8"))
@@ -413,6 +415,8 @@ def test_verigrey_fifo_energy_mutation_and_coverage_admission(
     assert parent_case.prompt_path.read_text(encoding="utf-8") in mutation_prompt
     assert json.dumps(parent["tool_sequence"], sort_keys=True) in mutation_prompt
     assert json.dumps(PROPERTIES, sort_keys=True) in mutation_prompt
+    assert "internally consistent" in mutation_prompt
+    assert "Verify every stated exact count" in mutation_prompt
     proposal = json.loads(first_mutation.proposal_receipt.read_text(encoding="utf-8"))
     assert proposal["phase"] == "mutation"
     assert proposal["parent_seed_id"] == "seed-P1"
