@@ -261,24 +261,39 @@ baseline.
 
 ### Random
 
-Random proposes one independent task from supplied property IDs. The response must be a
-JSON object containing exactly `prompt` and `property_ids`. One format-correction attempt
-is allowed. The generated environment inherits the pinned task image and is validated
-before execution. Random carries no adaptive patch evidence.
+Random independently proposes one prompt and Dockerfile per execution from the current
+skill and complete frozen property catalog. The pipeline, not the model, attaches that
+catalog unchanged. Test-generation calls use temperature `1.0`; generated environments
+are built and pinned before execution. Random rejects nonempty method state and records
+`independent: true` in every proposal receipt.
 
 ### VeriGrey
 
-VeriGrey extracts assistant tool calls from Pi traces and replaces argument values with
-stable type/shape descriptions. It counts tools, transitions, and full normalized
-sequences. The next proposal targets the least-covered transition and receives the most
-recent novelty delta and coverage counts.
+VeriGrey first creates one ordered initial seed per frozen property. Each property is only
+the generation focus: every materialized test carries the complete frozen catalog. The
+entire valid seed corpus is materialized and hash-bound before its first weak-agent
+execution. A deterministically invalid seed receives one fresh replacement; two invalid
+materializations stop initialization.
 
-Its state contains:
+After every execution, VeriGrey extracts assistant tool calls from the Pi trace and
+replaces argument values with stable type/shape descriptions. Empty tool sequences remain
+observable sequences. It counts new tools, transitions, and complete normalized sequences.
+Each novelty category contributes one unit of energy, with energy bounded to `1..3`.
 
-- `tool_counts`;
-- `transition_counts`;
-- `sequence_counts`; and
-- `last_observation` with novelty and coverage information.
+All initial seeds execute in catalog order. Mutation then uses a FIFO round-robin queue:
+the oldest seed spends all assigned energy before returning to the queue tail. A mutation
+receives the selected seed prompt, Dockerfile, tool sequence, novelty evidence, current
+skill, and complete catalog. Offspring enter the corpus only when their execution adds a
+new tool, transition, or complete sequence. Seed and mutation proposals use temperature
+`1.0`, and seed choice, energy, mutation ordinal, observation, and admission are preserved.
+
+Its campaign state contains:
+
+- the initial-seed count, current phase, and total execution count;
+- the seed corpus and FIFO queue;
+- any seed currently spending its assigned energy;
+- tool, transition, and sequence coverage counts; and
+- ordered execution observations with corpus-admission decisions.
 
 ### SkillRACE
 

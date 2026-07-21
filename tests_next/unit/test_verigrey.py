@@ -2,9 +2,11 @@ from dataclasses import replace
 import json
 from pathlib import Path
 
+import pytest
+
+from skillrace_next.methods import verigrey
 from skillrace_next.methods.verigrey import (
     normalize_tool_sequence,
-    propose_test,
     update_state,
 )
 from skillrace_next.records import SkillVersion, TestCase as CaseRecord
@@ -91,6 +93,416 @@ def normalized_sequence() -> list[dict[str, object]]:
     ]
 
 
+def fixture_skill(tmp_path: Path) -> SkillVersion:
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# Fixture skill\n", encoding="utf-8")
+    receipt = tmp_path / "skill-receipt.json"
+    receipt.write_text("{}\n", encoding="utf-8")
+    return SkillVersion(
+        skill_id="fixture",
+        version_id="S0",
+        parent_version_id=None,
+        directory_path=skill_dir,
+        tree_hash=tree_hash(skill_dir),
+        creation_role="fixture",
+        model_id="deepseek-v4-flash",
+        receipt_path=receipt,
+    )
+
+
+def proposal_pi(requests: list[PiRequest]):
+    def fake_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        request.output_dir.mkdir(parents=True, exist_ok=True)
+        trace = request.output_dir / "trace.jsonl"
+        trace.write_text(
+            json.dumps(
+                {
+                    "type": "message",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": proposal_response(
+                                    f"Create /workspace/result-{len(requests)}.txt."
+                                ),
+                            }
+                        ],
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        receipt = request.output_dir / "receipt.json"
+        receipt.write_text("{}\n", encoding="utf-8")
+        return PiResult(
+            operation_id=request.operation_id,
+            model=request.model,
+            status="completed",
+            trace_path=trace,
+            usage={},
+            stderr="",
+            receipt_path=receipt,
+            return_code=0,
+            wall_seconds=0.1,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+    return fake_pi
+
+
+def valid_case(case: CaseRecord, config: object) -> CaseRecord:
+    return replace(
+        case,
+        validation_status="valid",
+        validation_diagnostic="validated",
+        container_image_id="sha256:fixture",
+    )
+
+
+def test_verigrey_response_parser_accepts_one_exact_json_fence(tmp_path: Path) -> None:
+    trace = tmp_path / "trace.jsonl"
+    trace.write_text(
+        json.dumps(
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "```json\n"
+                                + proposal_response("Create /workspace/result.txt.")
+                                + "\n```"
+                            ),
+                        }
+                    ],
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    parsed = verigrey._assistant_json(trace)
+
+    assert parsed["prompt"] == "Create /workspace/result.txt."
+    assert parsed["dockerfile"].startswith("FROM skillrace-next/task-fixture:test")
+
+
+def test_initialize_corpus_replaces_one_deterministically_invalid_seed(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+    validation_calls: list[CaseRecord] = []
+
+    def invalid_once(case: CaseRecord, config: object) -> CaseRecord:
+        validation_calls.append(case)
+        if len(validation_calls) == 1:
+            return replace(
+                case,
+                validation_status="invalid_test",
+                validation_diagnostic="generated task path is outside /workspace: /tmp",
+                container_image_id="",
+            )
+        return valid_case(case, config)
+
+    state = verigrey.initialize_corpus(
+        fixture_skill(tmp_path),
+        PROPERTIES,
+        replace(config_for(tmp_path), role_budgets={"proposer": 4}),
+        tmp_path / "verigrey",
+        pi_runner=proposal_pi(requests),
+        validator=invalid_once,
+    )
+
+    assert len(requests) == 3
+    assert len(validation_calls) == 3
+    assert validation_calls[0].validation_status == "pending"
+    cases = [CaseRecord.from_dict(seed["test_case"]) for seed in state["corpus"]]
+    assert all(case.validation_status == "valid" for case in cases)
+    assert "replacement-2" in str(cases[0].proposal_receipt)
+    assert "replacement-1" in str(validation_calls[0].proposal_receipt)
+    receipt = json.loads(Path(state["initial_corpus_receipt"]).read_text(encoding="utf-8"))
+    assert receipt["seed_replacements"] == {"seed-P1": 2, "seed-P2": 1}
+
+
+def test_initialize_corpus_materializes_every_ordered_property_seed_before_execution(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+
+    state = verigrey.initialize_corpus(
+        fixture_skill(tmp_path),
+        PROPERTIES,
+        replace(config_for(tmp_path), role_budgets={"proposer": 4}),
+        tmp_path / "verigrey",
+        pi_runner=proposal_pi(requests),
+        validator=valid_case,
+    )
+
+    assert len(requests) == len(PROPERTIES)
+    assert all(request.temperature == 1.0 for request in requests)
+    assert state["schema"] == "skillrace-verigrey-campaign-state/1"
+    assert state["phase"] == "seeding"
+    assert state["execution_count"] == 0
+    assert state["initial_seed_count"] == len(PROPERTIES)
+    assert [seed["seed_id"] for seed in state["corpus"]] == ["seed-P1", "seed-P2"]
+    assert [seed["focus_property_id"] for seed in state["corpus"]] == ["P1", "P2"]
+    assert all(seed["status"] == "pending" for seed in state["corpus"])
+    assert state["queue"] == []
+    assert state["current_selection"] is None
+    for seed, request in zip(state["corpus"], requests, strict=True):
+        prompt = request.prompt_path.read_text(encoding="utf-8")
+        focus = next(
+            item for item in PROPERTIES if item["property_id"] == seed["focus_property_id"]
+        )
+        assert json.dumps(focus, sort_keys=True) in prompt
+        assert json.dumps(PROPERTIES, sort_keys=True) in prompt
+        case = CaseRecord.from_dict(seed["test_case"])
+        assert json.loads(case.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
+        proposal = json.loads(case.proposal_receipt.read_text(encoding="utf-8"))
+        assert proposal["phase"] == "initial_seed"
+        assert proposal["seed_id"] == seed["seed_id"]
+        assert proposal["focus_property_id"] == seed["focus_property_id"]
+        assert proposal["temperature"] == 1.0
+    corpus_receipt = Path(state["initial_corpus_receipt"])
+    assert corpus_receipt.is_file()
+    frozen = json.loads(corpus_receipt.read_text(encoding="utf-8"))
+    assert frozen["seed_ids"] == ["seed-P1", "seed-P2"]
+    assert frozen["catalog_hash"] == CaseRecord.from_dict(
+        state["corpus"][0]["test_case"]
+    ).nl_check_hash
+
+
+def test_verigrey_executes_all_initial_seeds_in_order_before_mutation(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+    skill = fixture_skill(tmp_path)
+    config = replace(
+        config_for(tmp_path), iteration_budget=30, role_budgets={"proposer": 4}
+    )
+    state = verigrey.initialize_corpus(
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "verigrey",
+        pi_runner=proposal_pi(requests),
+        validator=valid_case,
+    )
+
+    first = verigrey.select_test(
+        state,
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "selection-1",
+        pi_runner=proposal_pi(requests),
+        validator=valid_case,
+    )
+    assert first.test_id == "verigrey-seed-P1"
+    assert state["current_selection"] == {
+        "phase": "initial_seed",
+        "seed_id": "seed-P1",
+        "test_id": first.test_id,
+    }
+    after_first = verigrey.observe_execution(state, normalized_sequence())
+    assert after_first["phase"] == "seeding"
+    assert after_first["execution_count"] == 1
+    assert after_first["queue"] == []
+    assert after_first["corpus"][0]["status"] == "executed"
+    assert after_first["corpus"][0]["energy"] == 3
+
+    second = verigrey.select_test(
+        after_first,
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "selection-2",
+        pi_runner=proposal_pi(requests),
+        validator=valid_case,
+    )
+    assert second.test_id == "verigrey-seed-P2"
+    after_second = verigrey.observe_execution(after_first, normalized_sequence())
+    assert after_second["phase"] == "mutation"
+    assert after_second["execution_count"] == 2
+    assert after_second["corpus"][1]["energy"] == 1
+    assert after_second["queue"] == ["seed-P1", "seed-P2"]
+    assert after_second["current_selection"] is None
+    assert len(requests) == len(PROPERTIES)
+
+
+def test_empty_tool_sequence_is_recorded_with_minimum_energy() -> None:
+    coverage = update_state({}, [])
+
+    assert coverage["sequence_counts"] == [{"sequence": [], "count": 1}]
+    assert coverage["last_observation"]["novelty_delta"] == {
+        "tools": [],
+        "transitions": [],
+        "sequence": True,
+    }
+
+
+def test_verigrey_fifo_energy_mutation_and_coverage_admission(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+    skill = fixture_skill(tmp_path)
+    config = replace(
+        config_for(tmp_path), iteration_budget=30, role_budgets={"proposer": 4}
+    )
+    state = verigrey.initialize_corpus(
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "verigrey",
+        pi_runner=proposal_pi(requests),
+        validator=valid_case,
+    )
+    verigrey.select_test(
+        state,
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "initial-1",
+        pi_runner=proposal_pi(requests),
+        validator=valid_case,
+    )
+    state = verigrey.observe_execution(state, normalized_sequence())
+    verigrey.select_test(
+        state,
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "initial-2",
+        pi_runner=proposal_pi(requests),
+        validator=valid_case,
+    )
+    state = verigrey.observe_execution(state, normalized_sequence())
+    assert state["queue"] == ["seed-P1", "seed-P2"]
+    assert state["corpus"][0]["energy"] == 3
+
+    first_mutation = verigrey.select_test(
+        state,
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "mutation-1",
+        pi_runner=proposal_pi(requests),
+        validator=valid_case,
+    )
+
+    assert state["queue"] == ["seed-P2"]
+    assert state["active_seed"] == {
+        "seed_id": "seed-P1",
+        "energy_total": 3,
+        "energy_remaining": 3,
+    }
+    assert state["current_selection"]["phase"] == "mutation"
+    assert state["current_selection"]["parent_seed_id"] == "seed-P1"
+    assert state["current_selection"]["assigned_energy"] == 3
+    assert state["current_selection"]["mutation_ordinal"] == 1
+    mutation_request = requests[-1]
+    mutation_prompt = mutation_request.prompt_path.read_text(encoding="utf-8")
+    parent = state["corpus"][0]
+    parent_case = CaseRecord.from_dict(parent["test_case"])
+    assert parent_case.prompt_path.read_text(encoding="utf-8") in mutation_prompt
+    assert json.dumps(parent["tool_sequence"], sort_keys=True) in mutation_prompt
+    assert json.dumps(PROPERTIES, sort_keys=True) in mutation_prompt
+    proposal = json.loads(first_mutation.proposal_receipt.read_text(encoding="utf-8"))
+    assert proposal["phase"] == "mutation"
+    assert proposal["parent_seed_id"] == "seed-P1"
+    assert proposal["assigned_energy"] == 3
+    assert proposal["mutation_ordinal"] == 1
+    assert proposal["temperature"] == 1.0
+    assert json.loads(first_mutation.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
+
+    bash = {"tool": "bash", "arguments": {"command": "string"}}
+    state = verigrey.observe_execution(state, [bash])
+    admitted = state["corpus"][-1]
+    assert admitted["kind"] == "offspring"
+    assert admitted["parent_seed_id"] == "seed-P1"
+    assert admitted["status"] == "executed"
+    assert admitted["energy"] == 2
+    assert state["observations"][-1]["corpus_admitted"] is True
+    assert state["queue"] == ["seed-P2", admitted["seed_id"]]
+    assert state["active_seed"]["energy_remaining"] == 2
+
+    for ordinal in (2, 3):
+        verigrey.select_test(
+            state,
+            skill,
+            PROPERTIES,
+            config,
+            tmp_path / f"mutation-{ordinal}",
+            pi_runner=proposal_pi(requests),
+            validator=valid_case,
+        )
+        assert state["current_selection"]["parent_seed_id"] == "seed-P1"
+        assert state["current_selection"]["mutation_ordinal"] == ordinal
+        state = verigrey.observe_execution(state, [bash])
+
+    assert state["active_seed"] is None
+    assert state["queue"] == ["seed-P2", admitted["seed_id"], "seed-P1"]
+    assert state["observations"][-1]["corpus_admitted"] is False
+
+
+def test_verigrey_seed_and_mutation_executions_stop_at_total_budget(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+    skill = fixture_skill(tmp_path)
+    config = replace(
+        config_for(tmp_path),
+        iteration_budget=30,
+        role_budgets={"proposer": 4},
+    )
+    state = verigrey.initialize_corpus(
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "verigrey",
+        pi_runner=proposal_pi(requests),
+        validator=valid_case,
+    )
+
+    for execution in range(config.iteration_budget):
+        verigrey.select_test(
+            state,
+            skill,
+            PROPERTIES,
+            config,
+            tmp_path / "selections" / str(execution),
+            pi_runner=proposal_pi(requests),
+            validator=valid_case,
+        )
+        state = verigrey.observe_execution(state, normalized_sequence())
+
+    assert state["execution_count"] == 30
+    assert len(state["observations"]) == 30
+    assert [item["phase"] for item in state["observations"][:2]] == [
+        "initial_seed",
+        "initial_seed",
+    ]
+    assert all(
+        item["phase"] == "mutation" for item in state["observations"][2:]
+    )
+    with pytest.raises(ValueError, match="budget exhausted"):
+        verigrey.select_test(
+            state,
+            skill,
+            PROPERTIES,
+            config,
+            tmp_path / "selection-31",
+            pi_runner=proposal_pi(requests),
+            validator=valid_case,
+        )
+
+
 def test_normalize_tool_sequence_keeps_names_and_shapes_not_values(
     tmp_path: Path,
 ) -> None:
@@ -148,202 +560,10 @@ def test_update_state_copies_json_state_and_counts_novelty() -> None:
     assert first["tool_counts"][0]["count"] == 1
 
 
-def test_update_state_rejects_empty_tool_sequence() -> None:
+def test_update_state_rejects_non_list_tool_sequence() -> None:
     try:
-        update_state({}, [])
+        update_state({}, None)  # type: ignore[arg-type]
     except ValueError as error:
-        assert "nonempty" in str(error)
+        assert "list" in str(error)
     else:
-        raise AssertionError("empty sequences must be rejected")
-
-
-def test_proposal_targets_undercovered_transition_and_records_exact_evidence(
-    tmp_path: Path,
-) -> None:
-    read, write = normalized_sequence()
-    bash = {"tool": "bash", "arguments": {"command": "string"}}
-    state = update_state({}, [read, write])
-    state = update_state(state, [read, write])
-    state = update_state(state, [write, bash])
-    skill_dir = tmp_path / "skill"
-    skill_dir.mkdir()
-    (skill_dir / "SKILL.md").write_text("# Fixture skill\n", encoding="utf-8")
-    receipt = tmp_path / "skill-receipt.json"
-    receipt.write_text("{}\n", encoding="utf-8")
-    skill = SkillVersion(
-        skill_id="fixture",
-        version_id="S0",
-        parent_version_id=None,
-        directory_path=skill_dir,
-        tree_hash=tree_hash(skill_dir),
-        creation_role="fixture",
-        model_id="deepseek-v3.2",
-        receipt_path=receipt,
-    )
-    requests: list[PiRequest] = []
-
-    def fake_pi(request: PiRequest) -> PiResult:
-        requests.append(request)
-        request.output_dir.mkdir(parents=True, exist_ok=True)
-        trace = request.output_dir / "trace.jsonl"
-        trace.write_text(
-            json.dumps(
-                {
-                    "type": "message",
-                    "message": {
-                        "role": "assistant",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": proposal_response(
-                                    "Create /workspace/result.txt with one line."
-                                ),
-                            }
-                        ],
-                    },
-                }
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        pi_receipt = request.output_dir / "receipt.json"
-        pi_receipt.write_text("{}\n", encoding="utf-8")
-        return PiResult(
-            operation_id=request.operation_id,
-            model=request.model,
-            status="completed",
-            trace_path=trace,
-            usage={},
-            stderr="",
-            receipt_path=pi_receipt,
-            return_code=0,
-            wall_seconds=0.1,
-            timeout_seconds=request.timeout_seconds,
-        )
-
-    def fake_validator(case: CaseRecord, config: object) -> CaseRecord:
-        return replace(
-            case,
-            validation_status="valid",
-            validation_diagnostic="validated",
-            container_image_id="sha256:fixture",
-        )
-
-    proposed = propose_test(
-        state,
-        skill,
-        PROPERTIES,
-        replace(config_for(tmp_path), role_budgets={"proposer": 4}),
-        pi_runner=fake_pi,
-        validator=fake_validator,
-    )
-
-    target = {"source": write, "target": bash, "count": 1}
-    assert len(requests) == 1
-    assert requests[0].temperature == 1.0
-    pi_prompt = requests[0].prompt_path.read_text(encoding="utf-8")
-    assert "Dockerfile" in pi_prompt
-    assert json.dumps(PROPERTIES, sort_keys=True) in pi_prompt
-    assert "do not use /mnt/data or /tmp" in pi_prompt.lower()
-    assert "consistent with the visible prompt" in pi_prompt
-    assert "meaningfully exercise the supplied skill" in pi_prompt
-    assert "not a substitute for skill relevance" in pi_prompt
-    assert "internally consistent" in pi_prompt
-    assert "mutually inconsistent requirements" in pi_prompt
-    assert json.dumps(target, sort_keys=True) in pi_prompt
-    assert proposed.origin_method == "verigrey"
-    assert proposed.validation_status == "valid"
-    proposal = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
-    assert proposal["novelty_target"] == target
-    assert proposal["tool_sequence_evidence"] == state["last_observation"]
-    assert json.loads(proposed.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
-    assert proposal["catalog_hash"] == proposed.nl_check_hash
-    assert proposal["environment_hash"] == proposed.environment_hash
-    assert (proposed.environment_directory / "Dockerfile").read_text(
-        encoding="utf-8"
-    ).startswith("FROM skillrace-next/task-fixture:test\nRUN printf")
-
-
-def test_proposal_allows_one_format_correction(tmp_path: Path) -> None:
-    read, write = normalized_sequence()
-    state = update_state({}, [read, write])
-    skill_dir = tmp_path / "skill"
-    skill_dir.mkdir()
-    (skill_dir / "SKILL.md").write_text("# CSV analysis\n", encoding="utf-8")
-    receipt = tmp_path / "skill-receipt.json"
-    receipt.write_text("{}\n", encoding="utf-8")
-    skill = SkillVersion(
-        skill_id="csv-analysis",
-        version_id="S0",
-        parent_version_id=None,
-        directory_path=skill_dir,
-        tree_hash=tree_hash(skill_dir),
-        creation_role="fixture",
-        model_id="deepseek-v4-flash",
-        receipt_path=receipt,
-    )
-    requests: list[PiRequest] = []
-
-    def correcting_pi(request: PiRequest) -> PiResult:
-        requests.append(request)
-        request.output_dir.mkdir(parents=True, exist_ok=True)
-        response = (
-            "```json\n{\"prompt\": \"bad\", \"check_description\": \"bad\"}\n```"
-            if len(requests) == 1
-            else proposal_response("Create /workspace/data.csv and summarize its rows.")
-        )
-        trace = request.output_dir / "trace.jsonl"
-        trace.write_text(
-            json.dumps(
-                {
-                    "type": "message",
-                    "message": {
-                        "role": "assistant",
-                        "content": [{"type": "text", "text": response}],
-                    },
-                }
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        pi_receipt = request.output_dir / "receipt.json"
-        pi_receipt.write_text("{}\n", encoding="utf-8")
-        return PiResult(
-            operation_id=request.operation_id,
-            model=request.model,
-            status="completed",
-            trace_path=trace,
-            usage={},
-            stderr="",
-            receipt_path=pi_receipt,
-            return_code=0,
-            wall_seconds=0.1,
-            timeout_seconds=request.timeout_seconds,
-        )
-
-    def validator(case: CaseRecord, config: object) -> CaseRecord:
-        return replace(
-            case,
-            validation_status="valid",
-            validation_diagnostic="validated",
-            container_image_id="sha256:fixture",
-        )
-
-    proposed = propose_test(
-        state,
-        skill,
-        PROPERTIES,
-        replace(config_for(tmp_path), role_budgets={"proposer": 4}),
-        pi_runner=correcting_pi,
-        validator=validator,
-    )
-
-    assert len(requests) == 2
-    assert requests[0].output_dir.name == "proposal-attempt-1"
-    assert requests[1].output_dir.name == "proposal-attempt-2"
-    correction = requests[1].prompt_path.read_text(encoding="utf-8")
-    assert "previous response was invalid" in correction
-    assert "raw JSON only" in correction
-    assert proposed.prompt_path.read_text(encoding="utf-8").startswith(
-        "Create /workspace/data.csv"
-    )
+        raise AssertionError("non-list sequences must be rejected")

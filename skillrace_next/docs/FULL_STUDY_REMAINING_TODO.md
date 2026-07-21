@@ -159,10 +159,13 @@ The paper used one seed per injection objective: an average of 8.7 initial seeds
 30-execution budget. Every existing Part II campaign catalog has exactly three properties,
 so Part II initialization uses three seeds, or exactly 10% of its budget.
 
-The paper does not specify the exact `ChooseSeed` tie-breaking algorithm. Before coding
-that detail, freeze one small deterministic rule consistent with its seed queue and
-novelty/energy definitions. Do not silently retain the current least-transition proposer,
-which does not maintain or mutate the paper's seed corpus.
+The paper does not specify the exact `ChooseSeed` tie-breaking algorithm. The frozen study
+rule is FIFO round-robin: select the oldest queued seed, spend all of its assigned energy,
+then append that parent to the queue tail. Append coverage-increasing offspring to the tail
+when they are admitted. Energy is `max(1, novelty score)`, capped at three, where the score
+awards one point each for new tools, new tool transitions, and a new complete tool sequence.
+This keeps the paper's three feedback metrics and ensures a seed with duplicate initial
+behavior still receives one mutation. Do not use the former least-transition proposer.
 
 ### One fixed task-execution timeout
 
@@ -187,25 +190,25 @@ test, confirm the expected failure, implement the minimum direct behavior, run f
 offline tests, run its separate paid live contract when required, inspect and retain
 sanitized evidence, and commit only that item.
 
-- [ ] Verify and freeze the existing property catalogs: 28 selected Part I source files,
+- [x] Verify and freeze the existing property catalogs: 28 selected Part I source files,
   the two already-prepared Part I exceptions, and all ten Part II campaign property files.
   Preserve ordered source-to-`P` mappings, `reads` metadata, source and normalized hashes,
   and provenance receipts; update affected Part I receipts/manifests. Do not rewrite
   semantically valid source properties or author duplicate Part II catalogs.
-- [ ] Change the generated-test contract so proposers generate a prompt and bounded Docker
+- [x] Change the generated-test contract so proposers generate a prompt and bounded Docker
   environment while the pipeline attaches the complete frozen NL-check catalog. Reject
   generated check prose, selected check lists, unknown catalog hashes, infeasible builds,
   and hidden prompt/check contradictions.
-- [ ] Make Terra account for every supplied property as executable or explicitly
+- [x] Make Terra account for every supplied property as executable or explicitly
   `uncovered`. Confirm that uncovered properties neither pass nor fail and cannot trigger
   patching.
-- [ ] Run weak task agents as container root, preserve all existing isolation boundaries,
+- [x] Run weak task agents as container root, preserve all existing isolation boundaries,
   and restore host ownership on every terminal path.
-- [ ] Add one explicit `temperature=1.0` Pi input for test-generation calls and record it in
+- [x] Add one explicit `temperature=1.0` Pi input for test-generation calls and record it in
   receipts. Leave every non-generation call unchanged.
-- [ ] Update Random to produce 30 independent prompt/environment proposals carrying the
+- [x] Update Random to produce 30 independent prompt/environment proposals carrying the
   full frozen catalog and no accumulated state.
-- [ ] Replace VeriGrey's one-seed shortcut with the frozen initial corpus, full seed
+- [x] Replace VeriGrey's one-seed shortcut with the frozen initial corpus, full seed
   execution, corpus state, novelty feedback, bounded energy, mutation, and total-execution
   accounting described above. Freeze the paper's under-specified seed-selection tie-break
   before implementation.
@@ -236,17 +239,17 @@ Require `--live` and store sanitized evidence under
 `out/live-contracts/<component>/<run-id>/`. A later end-to-end run does not replace an
 individual component contract.
 
-- [ ] Real DeepSeek and Qwen test-generation calls prove explicit temperature provenance,
+- [x] Real DeepSeek and Qwen test-generation calls prove explicit temperature provenance,
   prompt/environment generation, and exact full-catalog attachment.
 - [ ] A real root weak-agent task repairs an achievable system-environment condition,
   preserves its artifact/trace, restores host ownership, and receives authoritative
   Docker results.
-- [ ] Real Terra receives the full catalog, authors checks for applicable properties,
+- [x] Real Terra receives the full catalog, authors checks for applicable properties,
   explicitly records inapplicable ones as uncovered, never invokes Docker, and is followed
   by real authoritative `docker exec` results.
 - [ ] Real Random runs independently twice per model without receiving prior state. Do not
   require the stochastic outputs to differ as a pass condition.
-- [ ] Real VeriGrey executes its full seed corpus before its first feedback-guided mutation,
+- [x] Real VeriGrey executes its full seed corpus before its first feedback-guided mutation,
   then preserves seed choice, energy, mutation, tool-sequence, and corpus-admission evidence
   for both models.
 - [ ] Real SkillRACE produces and freezes ten semantically diverse descriptions, executes

@@ -132,11 +132,6 @@ def test_random_thirty_call_budget_reuses_only_the_complete_catalog(
     ("method", "state", "module"),
     [
         (
-            "verigrey",
-            {"transition_counts": [{"count": 1}]},
-            campaigns.verigrey_method,
-        ),
-        (
             "skillrace",
             {
                 "tree": {
@@ -201,6 +196,107 @@ def test_adaptive_proposals_are_stored_under_the_iteration_selection(
     assert observed["config"].output_root == destination
     assert observed["properties"] == [{"property_id": "P1"}]
     assert selected["case"] is proposed
+
+
+def test_campaign_wires_verigrey_initial_corpus_selection_and_observation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    skill = skill_version(tmp_path)
+    config = config_for(tmp_path)
+    properties = [
+        {"property_id": "P1", "description": "The output is correct."},
+        {"property_id": "P2", "description": "The output is verified."},
+    ]
+    state: dict = {}
+    proposed = SimpleNamespace(
+        test_id="verigrey-seed-P1",
+        validation_status="valid",
+        validation_diagnostic="",
+    )
+    observed = {}
+
+    def fake_initialize(received_skill, received_properties, received_config, output):
+        observed["initialize"] = (
+            received_skill,
+            received_properties,
+            received_config,
+            output,
+        )
+        return {
+            "schema": "skillrace-verigrey-campaign-state/1",
+            "phase": "seeding",
+        }
+
+    def fake_select(
+        received_state,
+        received_skill,
+        received_properties,
+        received_config,
+        output,
+    ):
+        observed["select"] = (
+            received_state,
+            received_skill,
+            received_properties,
+            received_config,
+            output,
+        )
+        return proposed
+
+    monkeypatch.setattr(campaigns.verigrey_method, "initialize_corpus", fake_initialize)
+    monkeypatch.setattr(campaigns.verigrey_method, "select_test", fake_select)
+    monkeypatch.setattr(
+        campaigns,
+        "_seed_test",
+        lambda *args: (_ for _ in ()).throw(
+            AssertionError("VeriGrey must not use the Random seed shortcut")
+        ),
+    )
+
+    selected = campaigns._select_test(
+        "verigrey",
+        state,
+        skill,
+        properties,
+        config,
+        tmp_path / "selection",
+    )
+
+    assert state == {
+        "schema": "skillrace-verigrey-campaign-state/1",
+        "phase": "seeding",
+    }
+    assert observed["initialize"][0] is skill
+    assert observed["initialize"][1] == properties
+    assert observed["initialize"][3] == tmp_path / "selection" / "initial-corpus"
+    assert observed["select"][0] is state
+    assert observed["select"][1] is skill
+    assert observed["select"][2] == properties
+    assert observed["select"][4] == tmp_path / "selection" / "proposal"
+    assert selected["case"] is proposed
+
+    trace = tmp_path / "trace.jsonl"
+    trace.write_text(
+        '{"message":{"role":"assistant","content":'
+        '[{"type":"toolCall","name":"read","arguments":{"path":"/workspace/a"}}]}}\n',
+        encoding="utf-8",
+    )
+    record = SimpleNamespace(trace_path=trace)
+
+    def fake_observe(received_state, sequence):
+        observed["observation"] = (received_state, sequence)
+        return {"schema": "skillrace-verigrey-campaign-state/1", "phase": "mutation"}
+
+    monkeypatch.setattr(campaigns.verigrey_method, "observe_execution", fake_observe)
+    updated = campaigns._updated_state(
+        "verigrey", state, record, [], config, tmp_path / "state"
+    )
+
+    assert observed["observation"][0] is state
+    assert observed["observation"][1] == [
+        {"tool": "read", "arguments": {"path": "string"}}
+    ]
+    assert updated["phase"] == "mutation"
 
 
 def test_part2_campaign_opens_hidden_records_only_when_loop_requests_heldout(

@@ -79,12 +79,22 @@ def _select_test(
             raise ValueError("Random cannot receive accumulated state")
         return _seed_test(method, skill, properties, config, output)
     if method == "verigrey":
-        if not state.get("transition_counts"):
-            return _seed_test(method, skill, properties, config, output)
-        proposal_config = replace(config, output_root=output)
+        if not state:
+            state.update(
+                verigrey_method.initialize_corpus(
+                    skill,
+                    properties,
+                    config,
+                    output / "initial-corpus",
+                )
+            )
         return _case(
-            verigrey_method.propose_test(
-                state, skill, properties, proposal_config
+            verigrey_method.select_test(
+                state,
+                skill,
+                properties,
+                config,
+                output / "proposal",
             )
         )
     if method == "skillrace":
@@ -195,7 +205,7 @@ def _updated_state(
         return {}
     if method == "verigrey":
         sequence = verigrey_method.normalize_tool_sequence(record.trace_path)
-        return verigrey_method.update_state(state, sequence) if sequence else state
+        return verigrey_method.observe_execution(state, sequence)
     episodes, _ = skillrace_method.create_episodes(
         record, config, output / "episodes"
     )
