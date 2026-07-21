@@ -100,6 +100,7 @@ def test_create_diversity_plan_freezes_exactly_ten_ordered_descriptions(
     assert "recovery path" in prompt.lower()
     assert "no docker access" in prompt.lower()
     assert "no runtime network" in prompt.lower()
+    assert "must not contain the requested solution" in prompt.lower()
     assert result["schema"] == "skillrace-diversity-plan/1"
     assert [item["seed_id"] for item in result["descriptions"]] == [
         f"seed-{index:02d}" for index in range(1, 11)
@@ -256,6 +257,10 @@ def test_materialize_initial_test_binds_plan_description_and_full_catalog(
     assert json.dumps(PROPERTIES, sort_keys=True) in materialization_prompt
     assert "must not contradict" in materialization_prompt.lower()
     assert "runtime network" in materialization_prompt.lower()
+    assert (
+        "must not create or test the requested solution"
+        in materialization_prompt.lower()
+    )
     assert proposed.validation_status == "valid"
     assert proposed.origin_method == "skillrace"
     assert json.loads(proposed.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
