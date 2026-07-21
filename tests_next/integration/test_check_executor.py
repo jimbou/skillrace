@@ -4,17 +4,19 @@ from pathlib import Path
 import subprocess
 import threading
 import time
+from types import SimpleNamespace
 import uuid
 
 import pytest
 
 from skillrace_next.records import CheckBundle
+from skillrace_next.pipeline import campaigns
 from skillrace_next.runtime.docker import (
     ContainerSpec,
     remove_container,
     start_task_container,
 )
-from skillrace_next.storage import atomic_write_json, tree_hash
+from skillrace_next.storage import atomic_write_json, file_hash, tree_hash
 from skillrace_next.verification.executor import execute_checks
 
 
@@ -118,6 +120,57 @@ def assert_container_removed(container_id: str) -> None:
         timeout=30,
     )
     assert inspected.returncode != 0
+
+
+def test_frozen_heldout_check_uses_disposable_writable_workspace(
+    tmp_path: Path, task_image: tuple[str, str]
+) -> None:
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    (artifact / "value.txt").write_text("ok\n", encoding="utf-8")
+    source = tmp_path / "source-check.sh"
+    source.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -eu\n"
+        "cd /workspace\n"
+        "echo generated > /workspace/generated.txt\n"
+        "[ \"$(cat /workspace/value.txt)\" = ok ]\n",
+        encoding="utf-8",
+    )
+    record = SimpleNamespace(
+        run_id="heldout-writable-copy",
+        artifact_hash=tree_hash(artifact),
+    )
+    test = {
+        "case": SimpleNamespace(nl_check_path=tmp_path / "nl-checks.json"),
+        "property_ids": ["P1"],
+        "predefined_checks": [
+            {
+                "criterion_id": "writes-output",
+                "script_path": source,
+                "script_hash": file_hash(source),
+            }
+        ],
+        "source_receipt_hash": "a" * 64,
+    }
+    test["case"].nl_check_path.write_text(
+        '[{"property_id":"P1","description":"The check passes."}]\n',
+        encoding="utf-8",
+    )
+    bundle = campaigns._bind_heldout_bundle(
+        test,
+        record,
+        SimpleNamespace(timeouts={"check": 5}),
+        tmp_path / "bundle",
+    )
+    container = start_container(task_image, artifact)
+
+    results = execute_checks(container, artifact, bundle, tmp_path / "results")
+
+    assert [item["status"] for item in results.results] == ["pass"]
+    assert results.artifact_unchanged is True
+    assert not (artifact / "generated.txt").exists()
+    assert_container_removed(container.container_id)
 
 
 def test_execute_checks_maps_results_and_removes_container(

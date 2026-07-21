@@ -31,6 +31,7 @@ def _write_config(
     replicate_count: int = 1,
     source_live: bool = True,
     suite_path: Path | None = None,
+    scenario_path: Path | None = None,
 ) -> Path:
     base = live_config(
         evidence,
@@ -55,7 +56,7 @@ def _write_config(
         heldout_repetitions=1,
         network_policy="host",
         suite_path=suite_path or evidence,
-        scenario_path=evidence / "scenario.md",
+        scenario_path=scenario_path or evidence / "scenario.md",
         live=source_live,
         output_root=evidence / "run",
         timeouts={**base.timeouts, "pi": 240, "patch": 240},
@@ -333,8 +334,29 @@ def test_real_part2_cli_generates_tests_then_opens_hidden_test(
             }
         ],
     )
-    receipt = hidden_root / "proposal.json"
-    atomic_write_json(receipt, {"source": "hidden CLI contract"})
+    source_checks = hidden_root / "source-checks"
+    source_checks.mkdir()
+    source_check = source_checks / "exact-marker.sh"
+    source_check.write_text(
+        "#!/usr/bin/env bash\n"
+        "[ \"$(cat /workspace/result.txt 2>/dev/null)\" = HIDDEN_CLI_OK ]\n",
+        encoding="utf-8",
+    )
+    receipt = hidden_root / "source-receipt.json"
+    atomic_write_json(
+        receipt,
+        {
+            "schema": "skillrace-part2-heldout-receipt/1",
+            "property_source": {"included_property_ids": ["P1"]},
+            "source_checks": [
+                {
+                    "criterion_id": "exact-marker",
+                    "prepared_path": "source-checks/exact-marker.sh",
+                    "prepared_hash": file_hash(source_check),
+                }
+            ],
+        },
+    )
     record = CaseRecord(
         test_id="hidden-exact-marker",
         prompt_path=Path("prompt.txt"),
@@ -344,7 +366,7 @@ def test_real_part2_cli_generates_tests_then_opens_hidden_test(
         nl_check_path=Path("nl_checks.json"),
         nl_check_hash=file_hash(nl_checks),
         origin_method="heldout",
-        proposal_receipt=Path("proposal.json"),
+        proposal_receipt=Path("source-receipt.json"),
         validation_status="pending",
         validation_diagnostic="",
         container_image_id="",
@@ -407,14 +429,16 @@ def test_real_part2_prepared_scenario_and_heldout_contract(
         / _run_id()
     )
     evidence.mkdir(parents=True)
+    scenario = study / "text-template" / "scenario.md"
+    properties = study / "text-template" / "development-properties.json"
     config = _write_config(
         evidence,
         "part2",
         1,
         methods=("random",),
         suite_path=study,
+        scenario_path=scenario,
     )
-    scenario = study / "text-template" / "scenario.md"
     heldout = study / "text-template" / "heldout" / "t1" / "test-case.json"
 
     assert cli.main(
@@ -424,6 +448,8 @@ def test_real_part2_prepared_scenario_and_heldout_contract(
             str(config),
             "--scenario",
             str(scenario),
+            "--properties",
+            str(properties),
             "--heldout-test",
             str(heldout),
             "--live",
@@ -457,6 +483,21 @@ def test_real_part2_prepared_scenario_and_heldout_contract(
         assert all(
             item["status"] in {"pass", "fail"} for item in results["results"]
         )
+        checks_root = results_path.parents[1]
+        receipt = json.loads(
+            (checks_root / "bundle" / "predefined-check-receipt.jsonl").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert receipt["codex_used"] is False
+        assert receipt["workspace_mode"] == (
+            "disposable-copy-with-workspace-path-rebinding"
+        )
+        assert results["artifact_unchanged"] is True
+        diagnostics = "\n".join(item["diagnostic"] for item in results["results"])
+        assert "PermissionError" not in diagnostics
+        assert "permission denied" not in diagnostics.lower()
+        assert not (checks_root / "verifier").exists()
     assert json.loads((evidence / "run" / "command.json").read_text())["status"] == (
         "completed"
     )

@@ -1,10 +1,12 @@
 from dataclasses import replace
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from skillrace_next.pipeline import campaigns
+from skillrace_next.storage import file_hash, tree_hash
 from tests_next.unit.test_random_method import skill_version
 from tests_next.unit.test_test_cases import config_for
 
@@ -599,6 +601,170 @@ def test_part2_campaign_opens_hidden_records_only_when_loop_requests_heldout(
     )
 
     assert result["schema"] == "skillrace-part2/1"
+
+
+def test_part2_heldout_executes_frozen_source_checks_without_codex(
+    tmp_path: Path, monkeypatch
+) -> None:
+    suite = tmp_path / "suite"
+    heldout = suite / "heldout" / "t1"
+    environment = heldout / "environment"
+    source_checks = heldout / "source-checks"
+    environment.mkdir(parents=True)
+    source_checks.mkdir()
+    prompt = heldout / "prompt.txt"
+    prompt.write_text("Fix /workspace/value.txt.\n", encoding="utf-8")
+    (environment / "Dockerfile").write_text(
+        "FROM skillrace-next/task-fixture:test\nWORKDIR /workspace\n",
+        encoding="utf-8",
+    )
+    (environment / "sanity.json").write_text(
+        '{"status":"pass"}\n', encoding="utf-8"
+    )
+    nl_checks = heldout / "nl-checks.json"
+    nl_checks.write_text(
+        '[{"property_id":"P1","description":"The value is repaired."},'
+        '{"property_id":"P2","description":"The value remains readable."}]\n',
+        encoding="utf-8",
+    )
+    frozen_script = source_checks / "value-repaired.sh"
+    frozen_script.write_text(
+        "#!/usr/bin/env bash\n[ -f /workspace/value.txt ]\n",
+        encoding="utf-8",
+    )
+    receipt = heldout / "source-receipt.json"
+    receipt.write_text(
+        json.dumps(
+            {
+                "schema": "skillrace-part2-heldout-receipt/1",
+                "property_source": {
+                    "included_property_ids": ["value-repaired", "value-readable"]
+                },
+                "source_checks": [
+                    {
+                        "criterion_id": "value-repaired",
+                        "prepared_path": "source-checks/value-repaired.sh",
+                        "prepared_hash": file_hash(frozen_script),
+                    }
+                ],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    hidden = heldout / "test-case.json"
+    hidden.write_text(
+        json.dumps(
+            {
+                "schema": "skillrace-test-case/1",
+                "test_id": "heldout/t1",
+                "prompt_path": "prompt.txt",
+                "prompt_hash": file_hash(prompt),
+                "environment_directory": "environment",
+                "environment_hash": tree_hash(environment),
+                "nl_check_path": "nl-checks.json",
+                "nl_check_hash": file_hash(nl_checks),
+                "origin_method": "heldout",
+                "proposal_receipt": "source-receipt.json",
+                "validation_status": "pending",
+                "validation_diagnostic": "",
+                "container_image_id": "",
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    scenario = tmp_path / "scenario.md"
+    scenario.write_text("Repair values.\n", encoding="utf-8")
+    properties = tmp_path / "development-properties.json"
+    properties.write_text(
+        '[{"property_id":"P1","description":"The value is repaired."}]\n',
+        encoding="utf-8",
+    )
+    generated = tmp_path / "generated"
+    generated.mkdir()
+    s0 = skill_version(generated)
+    config = replace(
+        config_for(tmp_path),
+        part="part2",
+        suite_path=suite,
+        scenario_path=scenario,
+        iteration_budget=1,
+    )
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    (artifact / "value.txt").write_text("fixed\n", encoding="utf-8")
+    record = SimpleNamespace(
+        run_id="heldout-run",
+        artifact_hash=tree_hash(artifact),
+        artifact_path=artifact,
+        container_id="container-id",
+        image_id="image-id",
+        model_id=config.model_id,
+        cost_totals={"total_tokens": 7},
+    )
+    observed: dict[str, object] = {}
+
+    monkeypatch.setattr(campaigns, "generate_base_skill", lambda *args: s0)
+    monkeypatch.setattr(
+        campaigns,
+        "validate_test",
+        lambda case, received_config: replace(
+            case,
+            validation_status="valid",
+            validation_diagnostic="validated",
+            container_image_id="sha256:fixture",
+        ),
+    )
+    monkeypatch.setattr(campaigns, "_run", lambda *args: record)
+    monkeypatch.setattr(
+        campaigns,
+        "_verify",
+        lambda *args: pytest.fail("held-out evaluation must not invoke Codex"),
+    )
+
+    def fake_execute(container, received_artifact, bundle, output):
+        observed["bundle"] = bundle
+        observed["artifact"] = received_artifact
+        return SimpleNamespace(
+            results_id="heldout-results",
+            results=({"status": "pass"},),
+        )
+
+    monkeypatch.setattr(campaigns, "execute_checks", fake_execute)
+
+    def fake_loop(received_s0, received_config, output, **callbacks):
+        test = callbacks["load_heldout"]()[0]
+        evaluation = callbacks["evaluate"](
+            "s0", received_s0, test, 0, tmp_path / "evaluation"
+        )
+        assert evaluation["passed"] is True
+        return {"schema": "skillrace-part2/1"}
+
+    monkeypatch.setattr(campaigns, "run_part2", fake_loop)
+
+    campaigns.run_part2_campaign(
+        config,
+        scenario,
+        properties,
+        [hidden],
+        tmp_path / "campaign",
+    )
+
+    bundle = observed["bundle"]
+    manifest = json.loads(bundle.manifest_path.read_text(encoding="utf-8"))
+    assert [item["property_id"] for item in manifest["checks"]] == ["P1", "P2"]
+    copied_source = next(path for path in bundle.script_paths if path.suffix == ".sh")
+    assert file_hash(copied_source) == file_hash(frozen_script)
+    predefined_receipt = json.loads(
+        bundle.codex_receipt_path.read_text(encoding="utf-8")
+    )
+    assert predefined_receipt["codex_used"] is False
+    assert predefined_receipt["workspace_mode"] == (
+        "disposable-copy-with-workspace-path-rebinding"
+    )
 
 
 def test_part2_selection_uses_explicit_complete_development_properties(

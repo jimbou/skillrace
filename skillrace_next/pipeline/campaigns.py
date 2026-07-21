@@ -9,7 +9,7 @@ from ..methods import skillrace as skillrace_method
 from ..methods import verigrey as verigrey_method
 from ..records import CheckBundle, CheckResults, ExperimentConfig, RunRecord, SkillVersion, TestCase
 from ..runtime.docker import RunningContainer, remove_container
-from ..storage import atomic_write_json, tree_hash
+from ..storage import atomic_write_json, canonical_json_hash, file_hash, tree_hash
 from ..verification.codex import author_checks
 from ..verification.executor import execute_checks
 from .part1 import run_part1
@@ -531,7 +531,180 @@ def _load_heldout_case(path: Path, config: ExperimentConfig) -> dict[str, Any]:
             f"held-out test {validated.test_id} is invalid: "
             f"{validated.validation_diagnostic}"
         )
-    return _case(validated)
+    receipt = json.loads(validated.proposal_receipt.read_text(encoding="utf-8"))
+    if receipt.get("schema") != "skillrace-part2-heldout-receipt/1":
+        raise ValueError("held-out receipt schema is invalid")
+    nl_checks = validate_nl_checks(validated.nl_check_path)
+    property_ids = [item["property_id"] for item in nl_checks]
+    property_source = receipt.get("property_source")
+    source_checks = receipt.get("source_checks")
+    included_property_ids = (
+        property_source.get("included_property_ids")
+        if isinstance(property_source, dict)
+        else None
+    )
+    if (
+        not isinstance(included_property_ids, list)
+        or len(included_property_ids) != len(property_ids)
+        or not all(isinstance(value, str) and value for value in included_property_ids)
+        or not isinstance(source_checks, list)
+        or not source_checks
+    ):
+        raise ValueError("held-out source checks do not match NL properties")
+    frozen_checks: list[dict[str, Any]] = []
+    receipt_root = validated.proposal_receipt.parent.resolve()
+    for source in source_checks:
+        if not isinstance(source, dict):
+            raise ValueError("held-out source check record is invalid")
+        criterion_id = source.get("criterion_id")
+        prepared_path = source.get("prepared_path")
+        prepared_hash = source.get("prepared_hash")
+        if not all(
+            isinstance(value, str) and value
+            for value in (criterion_id, prepared_path, prepared_hash)
+        ):
+            raise ValueError("held-out source check provenance is incomplete")
+        script = (receipt_root / prepared_path).resolve()
+        if not script.is_relative_to(receipt_root) or not script.is_file():
+            raise ValueError("held-out source check path is invalid")
+        if file_hash(script) != prepared_hash:
+            raise ValueError("held-out source check hash differs")
+        frozen_checks.append(
+            {
+                "criterion_id": criterion_id,
+                "script_path": script,
+                "script_hash": prepared_hash,
+            }
+        )
+    loaded = _case(validated)
+    loaded["property_ids"] = property_ids
+    loaded["predefined_checks"] = frozen_checks
+    loaded["source_receipt_hash"] = file_hash(validated.proposal_receipt)
+    return loaded
+
+
+def _bind_heldout_bundle(
+    test: dict[str, Any],
+    record: RunRecord,
+    config: ExperimentConfig,
+    output: Path,
+) -> CheckBundle:
+    predefined = test.get("predefined_checks")
+    if not isinstance(predefined, list) or not predefined:
+        raise ValueError("held-out test has no predefined checks")
+    scripts_dir = output / "checks"
+    scripts_dir.mkdir(parents=True)
+    manifest_checks: list[dict[str, Any]] = []
+    script_paths: list[Path] = []
+    source_hashes: dict[str, str] = {}
+    copied_source_names: list[str] = []
+    for index, source in enumerate(predefined, 1):
+        copied_source = scripts_dir / f"source-check-{index}.sh"
+        shutil.copyfile(source["script_path"], copied_source)
+        if file_hash(copied_source) != source["script_hash"]:
+            raise ValueError("copied held-out source check hash differs")
+        script_paths.append(copied_source)
+        copied_source_names.append(copied_source.name)
+        source_hashes[f"source_check_{index}"] = source["script_hash"]
+    property_ids = test.get("property_ids")
+    if not isinstance(property_ids, list) or not property_ids:
+        raise ValueError("held-out test has no declared properties")
+    for property_id in property_ids:
+        check_id = f"{property_id}-C1"
+        wrapper = scripts_dir / f"{check_id}.py"
+        wrapper.write_text(
+            "import json\n"
+            "import os\n"
+            "from pathlib import Path\n"
+            "import shutil\n"
+            "import subprocess\n"
+            "import tempfile\n"
+            f"source_names = {copied_source_names!r}\n"
+            "details = []\n"
+            "failed = False\n"
+            "for source_name in source_names:\n"
+            "    source = Path(__file__).with_name(source_name)\n"
+            "    check_root = Path(tempfile.mkdtemp(\n"
+            f"        prefix={check_id + '-'!r}, dir=os.environ['TMPDIR']\n"
+            "    ))\n"
+            "    workspace = check_root / 'workspace'\n"
+            "    shutil.copytree('/workspace', workspace)\n"
+            "    workspace.chmod(workspace.stat().st_mode | 0o700)\n"
+            "    for path in workspace.rglob('*'):\n"
+            "        path.chmod(path.stat().st_mode | "
+            "(0o700 if path.is_dir() else 0o200))\n"
+            "    adapted = check_root / source_name\n"
+            "    adapted.write_text(\n"
+            "        source.read_text(encoding='utf-8').replace(\n"
+            "            '/workspace', str(workspace)\n"
+            "        ),\n"
+            "        encoding='utf-8',\n"
+            "    )\n"
+            "    completed = subprocess.run(\n"
+            "        ['bash', str(adapted)], cwd=workspace, "
+            "capture_output=True, text=True\n"
+            "    )\n"
+            "    detail = (completed.stdout + completed.stderr).strip()\n"
+            "    details.append(f'{source_name}: exit {completed.returncode}' + "
+            "(f'\\n{detail}' if detail else ''))\n"
+            "    failed = failed or completed.returncode != 0\n"
+            "diagnostic = '\\n'.join(details)[-4000:]\n"
+            "print(json.dumps({'diagnostic': diagnostic, 'evidence_paths': []}, "
+            "sort_keys=True))\n"
+            "raise SystemExit(1 if failed else 0)\n",
+            encoding="utf-8",
+        )
+        script_paths.append(wrapper)
+        manifest_checks.append(
+            {
+                "check_id": check_id,
+                "property_id": property_id,
+                "script": f"checks/{wrapper.name}",
+                "argv": ["python3", f"checks/{wrapper.name}", "/workspace"],
+                "timeout_seconds": config.timeouts["check"],
+                "purpose": (
+                    "Apply the complete frozen held-out checker set to "
+                    f"property {property_id}."
+                ),
+                "pass_condition": "The frozen source check exits zero.",
+                "failure_condition": "The frozen source check exits nonzero.",
+                "root_cause_category": "validation_missing",
+            }
+        )
+    manifest = {
+        "schema": "skillrace-check-bundle/1",
+        "run_id": record.run_id,
+        "artifact_hash": record.artifact_hash,
+        "checks": manifest_checks,
+        "uncovered": [],
+    }
+    manifest_path = output / "check_manifest.json"
+    atomic_write_json(manifest_path, manifest)
+    receipt_path = output / "predefined-check-receipt.jsonl"
+    atomic_write_json(
+        receipt_path,
+        {
+            "source": "frozen Part II held-out receipt",
+            "source_receipt_hash": test["source_receipt_hash"],
+            "source_check_hashes": source_hashes,
+            "workspace_mode": "disposable-copy-with-workspace-path-rebinding",
+            "codex_used": False,
+        },
+    )
+    return CheckBundle(
+        bundle_id="bundle-" + canonical_json_hash(manifest),
+        run_id=record.run_id,
+        artifact_hash=record.artifact_hash,
+        input_hashes={
+            "artifact": record.artifact_hash,
+            "nl_checks": file_hash(test["case"].nl_check_path),
+            "source_receipt": test["source_receipt_hash"],
+            **source_hashes,
+        },
+        manifest_path=manifest_path,
+        script_paths=tuple(script_paths),
+        codex_receipt_path=receipt_path,
+    )
 
 
 def run_part2_campaign(
@@ -634,13 +807,36 @@ def run_part2_campaign(
         return [_load_heldout_case(path, config) for path in heldout_paths]
 
     def evaluate(label, skill, test, repetition, destination):
-        record = _run(label, skill, test, config, Path(destination) / "run")
-        _, results, _ = _verify(
-            skill,
-            test["case"],
-            record,
-            config,
-            Path(destination) / "checks",
+        destination = Path(destination)
+        record = _run(label, skill, test, config, destination / "run")
+        running = RunningContainer(
+            record.container_id,
+            f"skillrace-run-{record.run_id}",
+            record.image_id,
+        )
+        try:
+            bundle = _bind_heldout_bundle(
+                test, record, config, destination / "checks" / "bundle"
+            )
+        except BaseException:
+            cleanup = remove_container(running)
+            atomic_write_json(
+                destination / "checks" / "cleanup.json",
+                {
+                    "success": cleanup.success,
+                    "removed": cleanup.removed,
+                    "stderr": cleanup.stderr,
+                },
+            )
+            raise
+        atomic_write_json(
+            destination / "checks" / "check-bundle.json", bundle.to_dict()
+        )
+        results = execute_checks(
+            running,
+            record.artifact_path,
+            bundle,
+            destination / "checks" / "results",
         )
         return {
             "run_id": record.run_id,
