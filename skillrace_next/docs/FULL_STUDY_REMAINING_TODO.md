@@ -256,12 +256,13 @@ individual component contract.
 
 - [x] Real DeepSeek and Qwen test-generation calls prove explicit temperature provenance,
   prompt/environment generation, and exact full-catalog attachment.
-- [ ] A real root weak-agent task repairs an achievable system-environment condition,
+- [x] A real root weak-agent task repairs an achievable system-environment condition,
   preserves its artifact/trace, restores host ownership, and receives authoritative
   Docker results.
-  Root execution, read-only skill mounting, ownership restoration, and cleanup already
-  passed live; the remaining contract must exercise an actual repairable environment
-  condition.
+  Qwen located `/usr/local/bin/node`, created the required `/usr/bin/node` symlink as
+  container root, ran the exact requested command, and passed both authoritative checks.
+  The artifact, trace, ownership receipt, and successful cleanup are under
+  `out/live-contracts/patcher/qwen3.6-flash/20260721T170024Z-c5a92c29/`.
 - [x] Real Terra receives the full catalog, authors checks for applicable properties,
   explicitly records inapplicable ones as uncovered, never invokes Docker, and is followed
   by real authoritative `docker exec` results.
@@ -288,8 +289,16 @@ individual component contract.
 - [ ] Real same-track DeepSeek and Qwen patch/replay contracts prove that an achievable
   environment failure can produce guidance, exact replay uses the frozen Terra bundle,
   and admission still requires improvement without regression.
-  Both models have already passed arithmetic-failure patch and exact-replay contracts;
-  this item remains open specifically for the repairable environment-failure case.
+  DeepSeek is complete: Terra turned the missing exact launcher into well-formed failure
+  JSON, Docker produced P1 fail/P2 pass, the same DeepSeek model patched the skill with a
+  general symbolic-link repair, and fresh exact replay produced P1 pass/P2 pass and was
+  admitted. Evidence is under
+  `out/live-contracts/patcher/deepseek-v4-flash/20260721T171301Z-1fae1267/` and
+  `out/live-contracts/exact-replay/deepseek-v4-flash/20260721T171703Z-51a2cfd1/`.
+  Qwen repaired this environment at S0, so no failure or patch was scientifically
+  warranted. Its earlier arithmetic patch/replay contract remains valid, but the literal
+  Qwen environment-failure patch/replay subcase is not complete and must not be forced by
+  relabeling the successful S0 run.
 - [ ] A real bounded timeout contract preserves and checks a partial artifact without
   retrying the weak agent.
 - [ ] After all individual contracts pass, run one fresh bounded revised pipeline gate for

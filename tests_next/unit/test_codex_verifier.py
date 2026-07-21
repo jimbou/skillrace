@@ -102,6 +102,19 @@ def test_guide_states_immutable_artifact_and_authoritative_execution_contract() 
     ) in normalized_words
 
 
+def test_guide_treats_a_missing_required_launcher_as_a_task_failure() -> None:
+    guide = Path("skillrace_next/verification/GUIDE.md").read_text(encoding="utf-8")
+    normalized = " ".join(guide.lower().split())
+
+    assert "exact executable path" in normalized
+    assert "equivalent executable is installed elsewhere" in normalized
+    assert "artifact or task failure" in normalized
+    assert "must still print exactly one json object" in normalized
+    assert "capture the command's exit status" in normalized
+    assert "raw exit status `126` or `127`" in normalized
+    assert "dependency needed only by the checker itself" in normalized
+
+
 def test_docker_command_detection_distinguishes_dockerfile_from_cli_invocation() -> None:
     assert not codex.command_invokes_docker(
         "sed -n '1,120p' ../input/environment/Dockerfile"

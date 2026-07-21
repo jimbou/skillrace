@@ -115,9 +115,12 @@ def test_patcher_reads_inputs_then_changes_only_skill_md(tmp_path: Path) -> None
     prompt = request.prompt_path.read_text(encoding="utf-8")
     assert "/evidence/common/results/check_results.json" in prompt
     assert "/evidence/common/test/prompt.txt" in prompt
-    assert "After those two reads, edit" in prompt
     assert "authoritative executable check defines the required behavior" in prompt
     assert "Do not reread evidence already included in evidence.json" in prompt
+    assert "Identify the root cause, not merely restate the failing check" in prompt
+    assert "environment or command-launch failure" in prompt
+    assert "/evidence/common/test/environment" in prompt
+    assert "/evidence/common/run/trace.jsonl" in prompt
     assert {destination: mode for _, destination, mode in request.mounts} == {
         "/skill": "rw",
         "/evidence": "ro",

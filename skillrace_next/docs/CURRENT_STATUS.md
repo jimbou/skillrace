@@ -1,6 +1,6 @@
 # Current Status and Known Issues
 
-Date: 2026-07-20
+Date: 2026-07-21
 
 ## Executive status
 
@@ -412,6 +412,22 @@ falsely admitted. Credentials were absent and all three owned containers were re
   (median 16.548s, p95 31.620s, maximum 33.287s). Proposal, patch-authoring, Docker,
   checker, and Terra limits remain separate. See
   `study/timing-pilot-v8/TIMING_ANALYSIS.md`.
+- [x] Prove the root-agent environment-repair behavior. Qwen repaired a missing exact
+  `/usr/bin/node` launcher by linking the installed `/usr/local/bin/node`, completed the
+  requested command, and passed the authoritative checks. DeepSeek followed the deficient
+  S0 guidance and used the alternate executable directly, producing the intended failure.
+- [x] Correct the verifier distinction exposed by that DeepSeek run. A missing dependency
+  needed only by a checker remains inconclusive, but a repairable exact launcher required
+  by the task is a failure. Checker scripts must capture child exit 126/127 and emit one
+  JSON object rather than leaking a raw shell exit.
+- [x] Complete the DeepSeek environment-failure patch and exact replay contract. After a
+  first preserved patch attempt merely restated the failure, the patcher prompt was
+  narrowed to inspect the environment and trace for command-launch failures. The fresh
+  patch instructed a general symbolic-link repair; exact replay changed P1 from fail to
+  pass, retained P2 as pass, and was accepted. Evidence is under
+  `out/live-contracts/patcher/deepseek-v4-flash/20260721T171301Z-1fae1267/` and
+  `out/live-contracts/exact-replay/deepseek-v4-flash/20260721T171703Z-51a2cfd1/`.
+  Qwen's S0 success is preserved as success, not converted into a patch opportunity.
 - [x] Complete the two-call Random independence contract for both model tracks. Each model
   received byte-identical proposer inputs on its two independent calls, with no prior
   proposal state, and produced two valid tests under distinct receipts/output roots.

@@ -50,9 +50,12 @@ def test_real_patched_skill_runs_in_fresh_lab_container_with_exact_checks(
     attempt = json.loads(
         (source / "patch" / "patch-attempt.json").read_text(encoding="utf-8")
     )
+    source_run = json.loads(
+        (source / "weak-run" / "run.json").read_text(encoding="utf-8")
+    )
     candidate_dir = source / "patch" / "candidate"
     skill = SkillVersion(
-        skill_id="live-median-calculation",
+        skill_id=source_run["skill_id"],
         version_id="S1",
         parent_version_id="S0",
         directory_path=candidate_dir,

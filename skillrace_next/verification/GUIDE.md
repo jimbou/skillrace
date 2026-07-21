@@ -71,9 +71,18 @@ and a specific `reason` in `uncovered`; do not guess.
 
 Missing promised input files are a task-definition problem, not evidence that the skill
 failed. Missing checker runtime dependencies are a checker-environment problem, not an
-artifact failure. In either case, use exit status `2` and report the concrete missing input
-or dependency. Never turn a missing command, import failure, or dependency setup failure
-into exit status `1`.
+artifact failure. A dependency needed only by the checker itself falls in this category.
+In either case, use exit status `2` and report the concrete missing input or dependency.
+
+There is one important distinction. If the prompt requires an exact executable path, an
+equivalent executable is installed elsewhere in the task environment, the task agent can
+repair the path, and the required launcher still does not work in the final workspace,
+that is an artifact or task failure. Declare a check that runs the exact prompt-required
+launcher and exits `1` when it fails. The check must capture the command's exit status and
+must still print exactly one JSON object before exiting. Never allow a raw exit status
+`126` or `127`, an import error, or another child-process failure to bypass the JSON
+result. This rule does not turn a dependency needed only by the checker itself into a
+task failure.
 
 The supplied `../input/environment/` is the authoritative initial-workspace baseline.
 When a property requires test or harness preservation, inspect its Dockerfile and build

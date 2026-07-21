@@ -300,8 +300,11 @@ def patch_skill(
         "/evidence/common/test/prompt.txt and /evidence/common/results/check_results.json. "
         "The authoritative executable check defines the required behavior even when the "
         "current skill contradicts it. Do not reread evidence already included in evidence.json. "
-        "After those two reads, edit immediately when the diagnostic identifies the failure; "
-        "otherwise read at most one essential NL-check or executable-check file, then edit. "
+        "Identify the root cause, not merely restate the failing check. For an environment or "
+        "command-launch failure, read /evidence/common/test/environment/Dockerfile and "
+        "/evidence/common/run/trace.jsonl before editing so the repair addresses the actual "
+        "available tools and failed workflow. For other failures, read at most one essential "
+        "NL-check or executable-check file when the diagnostic is insufficient, then edit. "
         "Briefly explain the failure in your saved reasoning before editing. "
         "Edit only /skill/SKILL.md, make a small general correction, do not copy or memorize "
         "test-specific values, do not execute the benchmark, and stop after the edit.\n",

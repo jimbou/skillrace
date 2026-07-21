@@ -1,6 +1,6 @@
 # SkillRACE Next Handoff
 
-Date: 2026-07-20
+Date: 2026-07-21
 
 ## Bottom line
 
@@ -43,6 +43,10 @@ live-verified before freezing or running the full-study configs. Follow
   and test harnesses while keeping the final artifact inspectable and immutable.
 - Weak-agent timeout is an experimental outcome. Its partial artifact is checked without
   retrying the weak agent for luck.
+- Repairable environment conditions are task behavior. A checker-only missing dependency
+  is inconclusive, but a prompt-required exact launcher that a root agent could repair is
+  a failure and must still yield structured checker JSON. Qwen proved direct S0 repair;
+  DeepSeek proved same-track failure, patching, exact replay, and no-regression admission.
 
 ## Required next work for full experiments
 
