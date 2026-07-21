@@ -217,15 +217,20 @@ sanitized evidence, and commit only that item.
   execution, corpus state, novelty feedback, bounded energy, mutation, and total-execution
   accounting described above. Freeze the paper's under-specified seed-selection tie-break
   before implementation.
-- [ ] Add SkillRACE's one-call ten-description diversity plan, freeze it, materialize and
+- [x] Add SkillRACE's one-call ten-description diversity plan, freeze it, materialize and
   execute those descriptions in order, update the tree after each, and switch to normal
   branch-directed selection only for executions 11–30.
-- [ ] Recheck Part I immutable-S0 behavior and Part II accepted-skill carry-forward under
+- [x] Recheck Part I immutable-S0 behavior and Part II accepted-skill carry-forward under
   all three revised method loops. Patching remains same-track Pi work; Terra only checks.
+  Focused integration verification covers Random, VeriGrey, and SkillRACE: every Part I
+  discovery execution receives the unchanged S0 hash, while Part II carries an accepted
+  S0-to-S1 revision into the next iteration and retains S1 after a rejected candidate.
 - [ ] Extract valid pilot timing data, publish the distribution and exclusions, select the
   fixed weak-execution cutoff, and bind it into the revised experiment configs.
-- [ ] Run the full offline suite and the separate live contracts listed below. Manually
-  inspect semantic outputs, scan exact active credentials, and confirm container cleanup.
+- [x] Run the full offline suite after the revised method implementation. The 2026-07-21
+  verification completed 200 non-live tests with no failures.
+- [ ] Complete the separate live contracts listed below. Manually inspect semantic outputs,
+  scan exact active credentials, and confirm container cleanup.
 - [ ] Freeze 80 full-study campaign configs: 30 Part I plus ten Part II campaigns for each
   of two model tracks. Use unique experiment IDs and output roots, 30 iterations, one
   replicate, and one held-out repetition.
@@ -249,11 +254,16 @@ individual component contract.
 - [ ] A real root weak-agent task repairs an achievable system-environment condition,
   preserves its artifact/trace, restores host ownership, and receives authoritative
   Docker results.
+  Root execution, read-only skill mounting, ownership restoration, and cleanup already
+  passed live; the remaining contract must exercise an actual repairable environment
+  condition.
 - [x] Real Terra receives the full catalog, authors checks for applicable properties,
   explicitly records inapplicable ones as uncovered, never invokes Docker, and is followed
   by real authoritative `docker exec` results.
 - [ ] Real Random runs independently twice per model without receiving prior state. Do not
   require the stochastic outputs to differ as a pass condition.
+  One independent Docker-valid proposal has passed for each model; one additional proposal
+  per model and the two-call no-state comparison remain.
 - [x] Real VeriGrey executes its full seed corpus before its first feedback-guided mutation,
   then preserves seed choice, energy, mutation, tool-sequence, and corpus-admission evidence
   for both models.
@@ -261,7 +271,9 @@ individual component contract.
   them in order while building the tree, and uses a tree-selected branch only afterward.
   Inspect the plan, first materialized seed, tenth tree update, and first branch-directed
   proposal for both models.
-  The isolated post-seed proposal component is complete: DeepSeek v4 Flash and Qwen 3.6
+  DeepSeek has produced a frozen ten-description plan and first materialized seed. The
+  equivalent Qwen initializer and the complete ten executions/tree updates remain. The
+  isolated post-seed proposal component is complete: DeepSeek v4 Flash and Qwen 3.6
   Flash each selected the unique promising edge from a 120-edge observed tree, the host
   isolated it, and a fresh mutator produced a semantically inspected, Docker-valid local
   recovery task without Pi tools. The combined ten-seed-through-first-mutation campaign
@@ -269,6 +281,8 @@ individual component contract.
 - [ ] Real same-track DeepSeek and Qwen patch/replay contracts prove that an achievable
   environment failure can produce guidance, exact replay uses the frozen Terra bundle,
   and admission still requires improvement without regression.
+  Both models have already passed arithmetic-failure patch and exact-replay contracts;
+  this item remains open specifically for the repairable environment-failure case.
 - [ ] A real bounded timeout contract preserves and checks a partial artifact without
   retrying the weak agent.
 - [ ] After all individual contracts pass, run one fresh bounded revised pipeline gate for
