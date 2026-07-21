@@ -4,6 +4,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
+import tempfile
 from typing import Any, Callable
 
 from ..records import CheckBundle
@@ -194,15 +195,17 @@ def _invoke_codex(
     environment.pop("LAB_KEY_UNLIMITED", None)
     environment.pop("DOCKER_CONTEXT", None)
     environment["DOCKER_HOST"] = "unix:///nonexistent.sock"
-    return runner(
-        command,
-        cwd=output,
-        env=environment,
-        capture_output=True,
-        text=True,
-        timeout=config.timeouts["codex"],
-        check=False,
-    )
+    with tempfile.TemporaryDirectory(prefix="skillrace-codex-pycache-") as pycache:
+        environment["PYTHONPYCACHEPREFIX"] = pycache
+        return runner(
+            command,
+            cwd=output,
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=config.timeouts["codex"],
+            check=False,
+        )
 
 
 def author_checks(

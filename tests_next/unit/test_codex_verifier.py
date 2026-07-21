@@ -123,6 +123,12 @@ def test_author_checks_invokes_isolated_codex_and_changes_only_output(
     def fake_codex(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
         captured["command"] = command
         captured["kwargs"] = kwargs
+        pycache_prefix = kwargs["env"].get("PYTHONPYCACHEPREFIX")
+        captured["pycache_prefix"] = pycache_prefix
+        if pycache_prefix:
+            cache_file = Path(pycache_prefix) / "generated.pyc"
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            cache_file.write_bytes(b"bytecode")
         output = Path(kwargs["cwd"])
         write_valid_bundle(output, tree_hash(workspace / "input" / "artifact"))
         return subprocess.CompletedProcess(
@@ -143,6 +149,8 @@ def test_author_checks_invokes_isolated_codex_and_changes_only_output(
     assert captured["kwargs"]["env"]["DOCKER_HOST"].endswith("nonexistent.sock")
     assert "yunwu_key" not in captured["kwargs"]["env"]
     assert "LAB_KEY_UNLIMITED" not in captured["kwargs"]["env"]
+    assert captured["pycache_prefix"]
+    assert not Path(captured["pycache_prefix"]).exists()
     assert tree_hash(workspace / "input") == input_hash
     assert bundle.manifest_path.is_file()
     assert bundle.codex_receipt_path.is_file()
