@@ -265,10 +265,12 @@ individual component contract.
 - [x] Real Terra receives the full catalog, authors checks for applicable properties,
   explicitly records inapplicable ones as uncovered, never invokes Docker, and is followed
   by real authoritative `docker exec` results.
-- [ ] Real Random runs independently twice per model without receiving prior state. Do not
-  require the stochastic outputs to differ as a pass condition.
-  One independent Docker-valid proposal has passed for each model; one additional proposal
-  per model and the two-call no-state comparison remain.
+- [x] Real Random runs independently twice per model without receiving prior state. The
+  two proposer prompts were byte-identical within each track, while receipts and output
+  roots were distinct; output diversity was not a pass condition. Both calls produced
+  Docker-valid tests with temperature 1.0. Evidence is under
+  `out/live-contracts/test-proposer/deepseek-v4-flash/20260721T164558Z-a519cb54/`
+  and `out/live-contracts/test-proposer/qwen3.6-flash/20260721T164700Z-f4c1a73a/`.
 - [x] Real VeriGrey executes its full seed corpus before its first feedback-guided mutation,
   then preserves seed choice, energy, mutation, tool-sequence, and corpus-admission evidence
   for both models.

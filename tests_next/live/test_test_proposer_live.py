@@ -80,7 +80,7 @@ def test_real_random_proposal_passes_deterministic_validation(
         network_policy="host",
         timeouts={
             "provider": 60,
-            "pi": 180,
+            "pi": 240,
             "docker": 180,
             "codex": 300,
             "check": 60,
@@ -104,40 +104,53 @@ def test_real_random_proposal_passes_deterministic_validation(
         },
     ]
 
-    validated = propose_valid_test(skill, properties, config, evidence / "proposal")
-    atomic_write_json(evidence / "validated-test.json", validated.to_dict())
+    validated_cases = []
+    proposer_prompts = []
+    for ordinal in (1, 2):
+        proposal_root = evidence / f"proposal-{ordinal}"
+        validated = propose_valid_test(skill, properties, config, proposal_root)
+        validated_cases.append(validated)
+        atomic_write_json(
+            evidence / f"validated-test-{ordinal}.json", validated.to_dict()
+        )
 
-    assert validated.validation_status == "valid", validated.validation_diagnostic
-    assert validated.container_image_id.startswith("sha256:")
-    assert validated.origin_method == "random"
-    prompt = validated.prompt_path.read_text(encoding="utf-8")
-    assert prompt.strip()
-    assert "/workspace/" in prompt
-    assert "/mnt/data" not in prompt
-    assert "/tmp" not in prompt
-    checks = json.loads(validated.nl_check_path.read_text(encoding="utf-8"))
-    assert checks == properties
-    dockerfile = (validated.environment_directory / "Dockerfile").read_text(
-        encoding="utf-8"
-    )
-    assert dockerfile.startswith(f"FROM {image}\n")
-    assert "WORKDIR /workspace" in dockerfile
-    proposal_receipt = json.loads(
-        validated.proposal_receipt.read_text(encoding="utf-8")
-    )
-    assert proposal_receipt["independent"] is True
-    assert proposal_receipt["catalog_hash"] == validated.nl_check_hash
-    assert proposal_receipt["environment_hash"] == validated.environment_hash
-    pi_receipt = json.loads(
-        Path(proposal_receipt["pi_receipt_path"]).read_text(encoding="utf-8")
-    )
-    assert pi_receipt["status"] == "completed"
-    assert pi_receipt["provider"] == "lab"
-    assert pi_receipt["model"] == model_id
-    assert pi_receipt["qualified_model"] == f"lab/{model_id}"
-    assert pi_receipt["temperature"] == 1.0
-    assert pi_receipt["usage"]["input_tokens"] > 0
-    assert Path(pi_receipt["trace_path"]).is_file()
+        assert validated.validation_status == "valid", validated.validation_diagnostic
+        assert validated.container_image_id.startswith("sha256:")
+        assert validated.origin_method == "random"
+        prompt = validated.prompt_path.read_text(encoding="utf-8")
+        assert prompt.strip()
+        assert "/workspace/" in prompt
+        assert "/mnt/data" not in prompt
+        assert "/tmp" not in prompt
+        checks = json.loads(validated.nl_check_path.read_text(encoding="utf-8"))
+        assert checks == properties
+        dockerfile = (validated.environment_directory / "Dockerfile").read_text(
+            encoding="utf-8"
+        )
+        assert dockerfile.startswith(f"FROM {image}\n")
+        assert "WORKDIR /workspace" in dockerfile
+        proposal_receipt = json.loads(
+            validated.proposal_receipt.read_text(encoding="utf-8")
+        )
+        assert proposal_receipt["independent"] is True
+        assert proposal_receipt["catalog_hash"] == validated.nl_check_hash
+        assert proposal_receipt["environment_hash"] == validated.environment_hash
+        pi_receipt = json.loads(
+            Path(proposal_receipt["pi_receipt_path"]).read_text(encoding="utf-8")
+        )
+        assert pi_receipt["status"] == "completed"
+        assert pi_receipt["provider"] == "lab"
+        assert pi_receipt["model"] == model_id
+        assert pi_receipt["qualified_model"] == f"lab/{model_id}"
+        assert pi_receipt["temperature"] == 1.0
+        assert pi_receipt["usage"]["input_tokens"] > 0
+        assert Path(pi_receipt["trace_path"]).is_file()
+        proposer_prompts.append(
+            (proposal_root / "replacement-1" / "proposal-attempt-1" / "prompt.txt")
+            .read_text(encoding="utf-8")
+        )
+    assert proposer_prompts[0] == proposer_prompts[1]
+    assert validated_cases[0].proposal_receipt != validated_cases[1].proposal_receipt
     for path in evidence.rglob("*"):
         if path.is_file():
             assert secret not in path.read_text(encoding="utf-8", errors="replace")

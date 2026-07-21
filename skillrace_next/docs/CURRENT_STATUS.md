@@ -412,6 +412,10 @@ falsely admitted. Credentials were absent and all three owned containers were re
   (median 16.548s, p95 31.620s, maximum 33.287s). Proposal, patch-authoring, Docker,
   checker, and Terra limits remain separate. See
   `study/timing-pilot-v8/TIMING_ANALYSIS.md`.
+- [x] Complete the two-call Random independence contract for both model tracks. Each model
+  received byte-identical proposer inputs on its two independent calls, with no prior
+  proposal state, and produced two valid tests under distinct receipts/output roots.
+  Temperature and model provenance were correct and exact-key scans were clean.
 - [x] Choose the full-study scale: DeepSeek v4 Flash and Qwen 3.6 Flash tracks, 30
   development iterations, one held-out repetition, and one replicate per campaign. Every
   non-verifier role in a track uses that track's same model.
