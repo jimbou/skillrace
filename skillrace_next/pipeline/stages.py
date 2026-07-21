@@ -24,6 +24,7 @@ from ..runtime.docker import (
     ContainerSpec,
     exec_task,
     remove_container,
+    restore_mount_ownership,
     start_task_container,
 )
 from ..runtime.pi import PiRequest, PiResult, _load_usage, run_pi
@@ -657,19 +658,22 @@ def run_agent(
                 (artifact, "/workspace", "rw"),
                 (runtime_evidence, "/evidence", "rw"),
                 (skill.directory_path, "/skill", "ro"),
-                (models_path, "/home/node/.pi/agent/models.json", "ro"),
+                (models_path, "/root/.pi/agent/models.json", "ro"),
             ),
             network=config.network_policy,
             cpus=str(cpus),
             memory=f"{memory_mb}m",
             working_directory="/workspace",
-            user=f"{os.getuid()}:{os.getgid()}",
+            user="0:0",
             environment=(selected_model.key_environment,),
             seed_working_directory=True,
         )
     )
     prompt = test.prompt_path.read_text(encoding="utf-8")
     started_at = datetime.now(UTC).isoformat()
+    ownership_attempted = False
+    ownership_restored = False
+    ownership_error = ""
     try:
         result = exec_task(
             running,
@@ -695,7 +699,132 @@ def run_agent(
             ],
             timeout_seconds=config.timeouts["pi"],
         )
-    except BaseException:
+        ownership_attempted = True
+        restore_mount_ownership(
+            running,
+            ("/workspace", "/evidence"),
+            os.getuid(),
+            os.getgid(),
+        )
+        ownership_restored = True
+        atomic_write_json(
+            runtime_evidence / "ownership.json",
+            {
+                "schema": "skillrace-mount-ownership/1",
+                "container_id": running.container_id,
+                "uid": os.getuid(),
+                "gid": os.getgid(),
+                "destinations": ["/workspace", "/evidence"],
+                "success": True,
+                "error": "",
+            },
+        )
+        ended_at = datetime.now(UTC).isoformat()
+        secret = os.environ.get(selected_model.key_environment, "")
+        stdout = result.stdout.replace(secret, "[REDACTED]") if secret else result.stdout
+        stderr = result.stderr.replace(secret, "[REDACTED]") if secret else result.stderr
+        stdout_path = runtime_evidence / "stdout.txt"
+        stderr_path = runtime_evidence / "stderr.txt"
+        stdout_path.write_text(stdout, encoding="utf-8")
+        stderr_path.write_text(stderr, encoding="utf-8")
+        trace_path = runtime_evidence / "trace.jsonl"
+        tool_log_path = runtime_evidence / "tool_outputs.jsonl"
+        tool_records: list[dict[str, Any]] = []
+        if trace_path.is_file():
+            for line in trace_path.read_text(encoding="utf-8").splitlines():
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if (
+                    record.get("type") == "message"
+                    and record.get("message", {}).get("role") == "toolResult"
+                ):
+                    tool_records.append(record)
+        tool_log_path.write_text(
+            "".join(json.dumps(record, sort_keys=True) + "\n" for record in tool_records),
+            encoding="utf-8",
+        )
+        usage = _load_usage(runtime_evidence, trace_path)
+        estimated_cost = estimate_cost(selected_model, usage)
+        provider_receipt = runtime_evidence / "provider.json"
+        atomic_write_json(
+            provider_receipt,
+            {
+                "schema": "skillrace-provider-usage/1",
+                "provider": selected_model.provider,
+                "model": selected_model.friendly_model,
+                "qualified_model": qualified_model(selected_model),
+                "upstream_model": selected_model.upstream_model,
+                "usage": usage,
+                "estimated_cost_usd": (
+                    str(estimated_cost) if estimated_cost is not None else "unpriced"
+                ),
+            },
+        )
+        frozen = freeze_artifact(artifact, checker_uid=65534)
+        if result.timed_out:
+            termination_status = "agent_timeout"
+        elif result.exit_code == 0:
+            termination_status = "completed"
+        elif "provider" in stderr.lower():
+            termination_status = "provider_error"
+        else:
+            termination_status = "container_error"
+        run = RunRecord(
+            run_id="run-" + uuid.uuid4().hex,
+            test_id=test.test_id,
+            skill_id=skill.skill_id,
+            skill_version_id=skill.version_id,
+            method=test.origin_method,
+            model_id=config.model_id,
+            budget=config.role_budgets["weak_agent"],
+            container_id=running.container_id,
+            image_id=running.image_id,
+            started_at=started_at,
+            ended_at=ended_at,
+            termination_status=termination_status,
+            artifact_path=artifact,
+            artifact_hash=frozen.tree_hash,
+            trace_path=trace_path,
+            tool_log_path=tool_log_path,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            provider_receipt_paths=(provider_receipt,),
+            cost_totals=usage,
+        )
+        atomic_write_json(output / "run.json", run.to_dict())
+        return run
+    except BaseException as error:
+        if not ownership_attempted:
+            ownership_attempted = True
+            try:
+                restore_mount_ownership(
+                    running,
+                    ("/workspace", "/evidence"),
+                    os.getuid(),
+                    os.getgid(),
+                )
+                ownership_restored = True
+            except BaseException as restore_error:
+                ownership_error = str(restore_error)
+        elif not ownership_restored:
+            ownership_error = str(error)
+        try:
+            atomic_write_json(
+                runtime_evidence / "ownership.json",
+                {
+                    "schema": "skillrace-mount-ownership/1",
+                    "container_id": running.container_id,
+                    "uid": os.getuid(),
+                    "gid": os.getgid(),
+                    "destinations": ["/workspace", "/evidence"],
+                    "success": ownership_restored,
+                    "error": ownership_error,
+                },
+            )
+        except OSError as receipt_error:
+            error.add_note(f"ownership receipt failed: {receipt_error}")
         cleanup = remove_container(running)
         atomic_write_json(
             runtime_evidence / "cleanup.json",
@@ -705,83 +834,9 @@ def run_agent(
                 "stderr": cleanup.stderr,
             },
         )
+        if ownership_error:
+            error.add_note(ownership_error)
         raise
-    ended_at = datetime.now(UTC).isoformat()
-    secret = os.environ.get(selected_model.key_environment, "")
-    stdout = result.stdout.replace(secret, "[REDACTED]") if secret else result.stdout
-    stderr = result.stderr.replace(secret, "[REDACTED]") if secret else result.stderr
-    stdout_path = runtime_evidence / "stdout.txt"
-    stderr_path = runtime_evidence / "stderr.txt"
-    stdout_path.write_text(stdout, encoding="utf-8")
-    stderr_path.write_text(stderr, encoding="utf-8")
-    trace_path = runtime_evidence / "trace.jsonl"
-    tool_log_path = runtime_evidence / "tool_outputs.jsonl"
-    tool_records: list[dict[str, Any]] = []
-    if trace_path.is_file():
-        for line in trace_path.read_text(encoding="utf-8").splitlines():
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if (
-                record.get("type") == "message"
-                and record.get("message", {}).get("role") == "toolResult"
-            ):
-                tool_records.append(record)
-    tool_log_path.write_text(
-        "".join(json.dumps(record, sort_keys=True) + "\n" for record in tool_records),
-        encoding="utf-8",
-    )
-    usage = _load_usage(runtime_evidence, trace_path)
-    estimated_cost = estimate_cost(selected_model, usage)
-    provider_receipt = runtime_evidence / "provider.json"
-    atomic_write_json(
-        provider_receipt,
-        {
-            "schema": "skillrace-provider-usage/1",
-            "provider": selected_model.provider,
-            "model": selected_model.friendly_model,
-            "qualified_model": qualified_model(selected_model),
-            "upstream_model": selected_model.upstream_model,
-            "usage": usage,
-            "estimated_cost_usd": (
-                str(estimated_cost) if estimated_cost is not None else "unpriced"
-            ),
-        },
-    )
-    frozen = freeze_artifact(artifact, checker_uid=65534)
-    if result.timed_out:
-        termination_status = "agent_timeout"
-    elif result.exit_code == 0:
-        termination_status = "completed"
-    elif "provider" in stderr.lower():
-        termination_status = "provider_error"
-    else:
-        termination_status = "container_error"
-    run = RunRecord(
-        run_id="run-" + uuid.uuid4().hex,
-        test_id=test.test_id,
-        skill_id=skill.skill_id,
-        skill_version_id=skill.version_id,
-        method=test.origin_method,
-        model_id=config.model_id,
-        budget=config.role_budgets["weak_agent"],
-        container_id=running.container_id,
-        image_id=running.image_id,
-        started_at=started_at,
-        ended_at=ended_at,
-        termination_status=termination_status,
-        artifact_path=artifact,
-        artifact_hash=frozen.tree_hash,
-        trace_path=trace_path,
-        tool_log_path=tool_log_path,
-        stdout_path=stdout_path,
-        stderr_path=stderr_path,
-        provider_receipt_paths=(provider_receipt,),
-        cost_totals=usage,
-    )
-    atomic_write_json(output / "run.json", run.to_dict())
-    return run
 
 
 def replay(

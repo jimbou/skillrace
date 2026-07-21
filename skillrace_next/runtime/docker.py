@@ -203,6 +203,38 @@ def copy_into_container(
     )
 
 
+def restore_mount_ownership(
+    container: RunningContainer,
+    destinations: tuple[str, ...],
+    uid: int,
+    gid: int,
+) -> None:
+    if uid < 0 or gid < 0:
+        raise ValueError("host UID and GID must be nonnegative")
+    if not destinations or any(not path.startswith("/") for path in destinations):
+        raise ValueError("ownership destinations must be absolute container paths")
+    completed = subprocess.run(
+        [
+            "docker",
+            "exec",
+            "--user",
+            "0",
+            container.container_id,
+            "chown",
+            "-R",
+            f"{uid}:{gid}",
+            *destinations,
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if completed.returncode != 0:
+        diagnostic = str(completed.stderr or completed.stdout or "")[-500:]
+        raise RuntimeError(f"failed to restore task mount ownership: {diagnostic}")
+
+
 def remove_container(container: RunningContainer) -> CleanupResult:
     completed = subprocess.run(
         ["docker", "rm", "-f", container.container_id],

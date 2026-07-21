@@ -1,5 +1,6 @@
 from dataclasses import replace
 import json
+import os
 from pathlib import Path
 import subprocess
 from typing import Any
@@ -263,8 +264,15 @@ def test_validate_test_returns_invalid_test_when_docker_build_fails(tmp_path: Pa
     assert "Docker build failed" in result.validation_diagnostic
 
 
-def test_run_agent_reuses_validated_image_and_returns_live_container_identity(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("timed_out", "expected_status"),
+    [(False, "completed"), (True, "agent_timeout")],
+)
+def test_run_agent_uses_root_restores_ownership_and_returns_live_container_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    timed_out: bool,
+    expected_status: str,
 ) -> None:
     test = replace(
         pending_test(tmp_path),
@@ -315,23 +323,52 @@ def test_run_agent_reuses_validated_image_and_returns_live_container_identity(
             + "\n",
             encoding="utf-8",
         )
-        return ExecResult(tuple(argv), 0, "done\n", "", 0.1, False)
+        return ExecResult(
+            tuple(argv), 124 if timed_out else 0, "done\n", "", 0.1, timed_out
+        )
+
+    def fake_restore(
+        container: RunningContainer,
+        destinations: tuple[str, ...],
+        uid: int,
+        gid: int,
+    ) -> None:
+        captured["ownership"] = (container, destinations, uid, gid)
 
     monkeypatch.setattr(stages, "start_task_container", fake_start)
     monkeypatch.setattr(stages, "exec_task", fake_exec)
+    monkeypatch.setattr(stages, "restore_mount_ownership", fake_restore)
 
     record = run_agent(skill, test, config_for(tmp_path), output)
 
     assert captured["spec"].image == "sha256:validated-image"
     assert captured["spec"].image_id == "sha256:validated-image"
     assert captured["spec"].seed_working_directory is True
+    assert captured["spec"].user == "0:0"
+    assert all("docker.sock" not in str(source) for source, _, _ in captured["spec"].mounts)
+    assert any(
+        destination == "/skill" and mode == "ro"
+        for _, destination, mode in captured["spec"].mounts
+    )
+    assert any(
+        destination == "/root/.pi/agent/models.json" and mode == "ro"
+        for _, destination, mode in captured["spec"].mounts
+    )
+    assert captured["ownership"] == (
+        RunningContainer(
+            "container-1", captured["spec"].name, "sha256:validated-image"
+        ),
+        ("/workspace", "/evidence"),
+        os.getuid(),
+        os.getgid(),
+    )
     model_index = captured["argv"].index("--model")
     assert captured["argv"][model_index + 1] == "deepseek-v3.2"
     skill_index = captured["argv"].index("--skill")
     assert captured["argv"][skill_index + 1] == "/skill/SKILL.md"
     assert record.container_id == "container-1"
     assert record.image_id == "sha256:validated-image"
-    assert record.termination_status == "completed"
+    assert record.termination_status == expected_status
     assert record.artifact_path.joinpath("result.txt").is_file()
     assert record.cost_totals["input_tokens"] == 10
 
@@ -380,13 +417,14 @@ def test_run_agent_routes_lab_provider_and_upstream_model(
 
     monkeypatch.setattr(stages, "start_task_container", fake_start)
     monkeypatch.setattr(stages, "exec_task", fake_exec)
+    monkeypatch.setattr(stages, "restore_mount_ownership", lambda *args: None)
 
     record = run_agent(skill, test, config, output)
 
     spec = captured["spec"]
     assert spec.environment == ("LAB_KEY_UNLIMITED",)
     assert any(
-        destination == "/home/node/.pi/agent/models.json" and mode == "ro"
+        destination == "/root/.pi/agent/models.json" and mode == "ro"
         for _, destination, mode in spec.mounts
     )
     assert captured["argv"][captured["argv"].index("--provider") + 1] == "lab"
@@ -432,6 +470,7 @@ def test_run_agent_removes_started_container_when_evidence_capture_raises(
         test.container_image_id,
     )
     removed: list[RunningContainer] = []
+    events: list[str] = []
 
     monkeypatch.setattr(stages, "start_task_container", lambda spec: running)
 
@@ -439,13 +478,19 @@ def test_run_agent_removes_started_container_when_evidence_capture_raises(
         raise RuntimeError("evidence capture failed")
 
     def fake_remove(container: RunningContainer) -> CleanupResult:
+        events.append("remove")
         removed.append(container)
         return CleanupResult(success=True, removed=True, stderr="")
 
+    def fake_restore(*args: object, **kwargs: object) -> None:
+        events.append("restore")
+
     monkeypatch.setattr(stages, "exec_task", broken_exec)
+    monkeypatch.setattr(stages, "restore_mount_ownership", fake_restore)
     monkeypatch.setattr(stages, "remove_container", fake_remove, raising=False)
 
     with pytest.raises(RuntimeError, match="evidence capture failed"):
         run_agent(skill, test, config_for(tmp_path), tmp_path / "run")
 
     assert removed == [running]
+    assert events == ["restore", "remove"]

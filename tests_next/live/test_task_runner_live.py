@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 import json
 import os
@@ -10,15 +11,155 @@ import pytest
 from skillrace_next.runtime.artifacts import freeze_artifact, verify_artifact_unchanged
 from skillrace_next.runtime.docker import (
     ContainerSpec,
+    RunningContainer,
     exec_task,
     remove_container,
     start_task_container,
 )
+from skillrace_next.pipeline.stages import run_agent
+from skillrace_next.records import SkillVersion, TestCase as CaseRecord
 from skillrace_next.runtime.providers import resolve_model, write_pi_models
-from skillrace_next.storage import atomic_write_json
+from skillrace_next.storage import atomic_write_json, file_hash, tree_hash
+from tests_next.live.test_tree_merge_live import live_config
 
 
 pytestmark = pytest.mark.live
+
+
+def test_real_weak_agent_runs_as_root_and_restores_host_ownership(
+    live_evidence_root: Path,
+) -> None:
+    secret = os.environ.get("LAB_KEY_UNLIMITED")
+    if not secret:
+        pytest.fail("LAB_KEY_UNLIMITED is required for the root task-agent contract")
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    evidence = live_evidence_root / "task-runner-root" / run_id
+    evidence.mkdir(parents=True)
+    image = "skillrace-next/task-fixture:test"
+    subprocess.run(
+        [
+            "docker",
+            "build",
+            "-q",
+            "-t",
+            image,
+            str(Path("tests_next/fixtures/task").resolve()),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    image_id = subprocess.run(
+        ["docker", "image", "inspect", image, "--format", "{{.Id}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    ).stdout.strip()
+    skill_dir = evidence / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        "# Verify effective user\nRun `id -u`, save its exact output, then read it back.\n",
+        encoding="utf-8",
+    )
+    skill_receipt = evidence / "skill-receipt.json"
+    atomic_write_json(skill_receipt, {"source": "root live contract"})
+    skill = SkillVersion(
+        skill_id="root-inspection",
+        version_id="S0",
+        parent_version_id=None,
+        directory_path=skill_dir,
+        tree_hash=tree_hash(skill_dir),
+        creation_role="fixture",
+        model_id="deepseek-v4-flash",
+        receipt_path=skill_receipt,
+    )
+    case = evidence / "case"
+    environment = case / "environment"
+    environment.mkdir(parents=True)
+    prompt_path = case / "prompt.txt"
+    prompt_path.write_text(
+        "Run `id -u` in the task container and write only its numeric output followed by "
+        "one newline to /workspace/uid.txt. Then read /workspace/uid.txt back.\n",
+        encoding="utf-8",
+    )
+    checks_path = case / "nl_checks.json"
+    atomic_write_json(
+        checks_path,
+        [
+            {
+                "property_id": "P1",
+                "description": "uid.txt contains the effective numeric user ID.",
+            }
+        ],
+    )
+    (environment / "Dockerfile").write_text(
+        f"FROM {image}\nWORKDIR /workspace\n", encoding="utf-8"
+    )
+    atomic_write_json(environment / "sanity.json", {"status": "pass"})
+    proposal_receipt = case / "proposal.json"
+    atomic_write_json(proposal_receipt, {"source": "root live contract"})
+    test = CaseRecord(
+        test_id="root-live-test",
+        prompt_path=prompt_path,
+        prompt_hash=file_hash(prompt_path),
+        environment_directory=environment,
+        environment_hash=tree_hash(environment),
+        nl_check_path=checks_path,
+        nl_check_hash=file_hash(checks_path),
+        origin_method="random",
+        proposal_receipt=proposal_receipt,
+        validation_status="valid",
+        validation_diagnostic="validated by pinned image ID",
+        container_image_id=image_id,
+    )
+    base_config = live_config(evidence, {"weak_agent": 4})
+    config = replace(
+        base_config,
+        experiment_id="live-root-task-agent",
+        provider="lab",
+        model_id="deepseek-v4-flash",
+        network_policy="host",
+        output_root=evidence,
+        timeouts={**base_config.timeouts, "pi": 240, "docker": 600},
+    )
+
+    record = run_agent(skill, test, config, evidence / "run")
+    try:
+        inspection = subprocess.run(
+            ["docker", "inspect", record.container_id],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        container = json.loads(inspection.stdout)[0]
+        mounts = container["Mounts"]
+        assert container["Config"]["User"] == "0:0"
+        assert next(item for item in mounts if item["Destination"] == "/skill")["RW"] is False
+        assert all("docker.sock" not in item["Source"] for item in mounts)
+    finally:
+        cleanup = remove_container(
+            RunningContainer(record.container_id, "root-task-agent", record.image_id)
+        )
+        atomic_write_json(
+            evidence / "cleanup.json",
+            {"success": cleanup.success, "removed": cleanup.removed, "stderr": cleanup.stderr},
+        )
+
+    assert record.termination_status == "completed"
+    assert (record.artifact_path / "uid.txt").read_text(encoding="utf-8") == "0\n"
+    ownership = json.loads(
+        (evidence / "run" / "runtime" / "ownership.json").read_text(encoding="utf-8")
+    )
+    assert ownership["success"] is True
+    assert (record.artifact_path / "uid.txt").stat().st_uid == os.getuid()
+    assert record.trace_path.stat().st_uid == os.getuid()
+    assert cleanup.success and cleanup.removed
+    for path in evidence.rglob("*"):
+        if path.is_file():
+            assert secret not in path.read_text(encoding="utf-8", errors="replace")
 
 
 def test_real_lab_task_container_preserves_baked_workspace(
