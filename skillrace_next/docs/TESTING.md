@@ -114,7 +114,7 @@ The inspected passing evidence is
 | Check executor | Real Codex-authored scripts executed through `docker exec` |
 | Episode creator | Same-track Pi segmentation grounded in a real trace |
 | Tree merge | Deterministic merge plus same-track Pi alignment when ambiguous |
-| SkillRACE proposal | Real proposal targeting a saved unreached branch |
+| SkillRACE proposal | Tool-free selector over a long observed-edge index, host branch isolation, fresh tool-free mutator, and deterministic Docker validation |
 | VeriGrey | Real proposal from saved tool-transition coverage state |
 | Skill generation | Same-track Pi creates and isolates one S0 |
 | Patcher | Same-track Pi edits only `SKILL.md` from real failure evidence |

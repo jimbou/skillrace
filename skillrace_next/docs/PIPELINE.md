@@ -307,11 +307,18 @@ failure IDs. Exact purpose/outcome matches merge deterministically. If placement
 ambiguous, one batched same-track Pi call selects an existing parent for the complete
 episode chain. Edges store the reason for moving to the next episode.
 
-Proposal selection chooses the first sorted node marked `unreached` or
-`reasoning_unexplored`, then asks the same track model for a concrete task targeting that
-branch.
+After the ten frozen seed executions, proposal selection works only from observed
+episode-to-episode reasoning edges. The host writes a compact edge index with a stable ID,
+source purpose, reasoning, target purpose/outcome, observation count, and failure count for
+each edge. A fresh tool-free same-track Pi call sees that compact index, the current skill,
+and the complete fixed property catalog and returns one exact edge ID plus its selection
+rationale.
 
-Current limitation: `merge_episodes` records reached behavior but does not itself invent
-unreached branches. A real campaign must obtain those branches from its initialized or
-updated method state; current live proposal tests use saved trees containing such a
-branch.
+The host validates the ID and deterministically isolates the root-to-edge branch from the
+saved tree. A second fresh tool-free Pi call sees only that isolated branch, selection
+rationale, current skill, and fixed properties. It mutates the selected assumption and
+returns one prompt and Dockerfile. The mutation must make the assumption fail while keeping
+a local recovery route, must not reveal that route in the visible prompt, and must remain
+solvable within the unchanged budget. Generated environments use only the pinned base-image
+software and local files or symlinks. Exact edge reach is diagnostic; any genuine fixed-
+property failure remains useful.

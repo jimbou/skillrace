@@ -235,7 +235,7 @@ class PiRequest:
         resolve_model(self.provider, self.model)
         if not self.prompt_path.is_file():
             raise ValueError("prompt_path must name a file")
-        if not self.allowed_tools or not set(self.allowed_tools) <= _AVAILABLE_TOOLS:
+        if not set(self.allowed_tools) <= _AVAILABLE_TOOLS:
             raise ValueError("allowed_tools must be an explicit supported set")
         if not 1 <= self.max_turns <= 12:
             raise ValueError("max_turns must be in 1..12")

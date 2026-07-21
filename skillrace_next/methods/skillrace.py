@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Callable
 import uuid
 
+from .branch_view import build_edge_index, isolate_branch
 from ..pipeline.stages import validate_generated_dockerfile, validate_test
 from ..records import ExperimentConfig, RunRecord, SkillVersion, TestCase
 from ..runtime.pi import PiRequest, PiResult, run_pi
@@ -129,7 +130,7 @@ def validate_episodes(
     return validated
 
 
-def _assistant_json(trace_path: Path) -> Any:
+def _assistant_text(trace_path: Path) -> str:
     responses: list[str] = []
     for line in trace_path.read_text(encoding="utf-8").splitlines():
         try:
@@ -151,7 +152,11 @@ def _assistant_json(trace_path: Path) -> Any:
             responses.append(text)
     if not responses:
         raise ValueError("episode response contains no assistant JSON")
-    response = responses[-1].strip()
+    return responses[-1].strip()
+
+
+def _assistant_json(trace_path: Path) -> Any:
+    response = _assistant_text(trace_path)
     if (
         response.startswith("```json\n")
         and response.endswith("\n```")
@@ -159,6 +164,307 @@ def _assistant_json(trace_path: Path) -> Any:
     ):
         response = response[len("```json\n") : -len("\n```")]
     return json.loads(response)
+
+
+def _selector_json(trace_path: Path) -> Any:
+    response = _assistant_text(trace_path)
+    try:
+        return json.loads(response)
+    except json.JSONDecodeError:
+        if response.count("```json") != 1 or response.count("```") != 2:
+            raise
+        start = response.index("```json") + len("```json")
+        end = response.index("```", start)
+        return json.loads(response[start:end].strip())
+
+
+def create_diversity_plan(
+    skill: SkillVersion,
+    properties: list[dict[str, Any]],
+    config: ExperimentConfig,
+    output_dir: str | Path,
+    *,
+    pi_runner: PiRunner = run_pi,
+) -> dict[str, Any]:
+    property_ids = [item.get("property_id") for item in properties]
+    if (
+        not properties
+        or not all(isinstance(item, str) and item for item in property_ids)
+        or len(set(property_ids)) != len(properties)
+    ):
+        raise ValueError("properties must contain unique property IDs")
+    output = Path(output_dir)
+    output.mkdir(parents=True)
+    catalog_path = output / "properties.json"
+    atomic_write_json(catalog_path, properties)
+    diagnostic: str | None = None
+    descriptions: list[dict[str, str]] | None = None
+    result: PiResult | None = None
+    for ordinal in (1, 2):
+        attempt = output / f"plan-attempt-{ordinal}"
+        attempt.mkdir()
+        correction = (
+            f" Your previous response was invalid: {diagnostic}. Return corrected raw "
+            "JSON only."
+            if diagnostic
+            else ""
+        )
+        prompt_path = attempt / "prompt.txt"
+        prompt_path.write_text(
+            "Design exactly ten semantically diverse high-level development-test "
+            "descriptions for the supplied skill. Consider the complete fixed property "
+            "catalog while maximizing diversity across tasks and Docker-environment "
+            "conditions. Every description must be feasible: the requested task must be "
+            "finishable in its stated environment within the fixed agent budget. Do not "
+            "make a required dependency unavailable without a concrete local recovery path, "
+            "require unavailable credentials or services, or use sheer task size as the "
+            "challenge. Return only one JSON array of exactly ten objects. Every object "
+            "must contain exactly task and environment_conditions, both nonempty strings. "
+            "Descriptions are planning inputs, not executable tests. Do not emit property "
+            "or check IDs, prompts, Dockerfiles, prose outside the array, or use tools."
+            f"{correction}\n\n"
+            f"FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
+            f"SKILL.md:\n{(skill.directory_path / 'SKILL.md').read_text(encoding='utf-8')}\n",
+            encoding="utf-8",
+        )
+        result = pi_runner(
+            PiRequest(
+                operation_id=f"proposal.skillrace.plan.{uuid.uuid4().hex}",
+                provider=config.provider,
+                model=config.model_id,
+                prompt_path=prompt_path,
+                output_dir=attempt,
+                image=config.docker_image,
+                allowed_tools=("read",),
+                max_turns=config.role_budgets["proposer"],
+                timeout_seconds=config.timeouts["pi"],
+                temperature=1.0,
+            )
+        )
+        if result.status != "completed":
+            raise RuntimeError(f"Pi SkillRACE diversity plan failed: {result.status}")
+        try:
+            parsed = _assistant_json(result.trace_path)
+            if (
+                not isinstance(parsed, list)
+                or len(parsed) != 10
+                or any(
+                    not isinstance(item, dict)
+                    or set(item) != {"task", "environment_conditions"}
+                    or not all(
+                        isinstance(item[name], str) and item[name].strip()
+                        for name in ("task", "environment_conditions")
+                    )
+                    for item in parsed
+                )
+            ):
+                raise ValueError("SkillRACE diversity plan is invalid")
+            normalized = [
+                {
+                    "task": item["task"].strip(),
+                    "environment_conditions": item[
+                        "environment_conditions"
+                    ].strip(),
+                }
+                for item in parsed
+            ]
+            if len({json.dumps(item, sort_keys=True) for item in normalized}) != 10:
+                raise ValueError("SkillRACE diversity plan contains duplicates")
+            descriptions = normalized
+            break
+        except (json.JSONDecodeError, ValueError) as error:
+            diagnostic = str(error)
+    if descriptions is None or result is None:
+        raise ValueError("two invalid SkillRACE diversity plans")
+    frozen = [
+        {"seed_id": f"seed-{index:02d}", **item}
+        for index, item in enumerate(descriptions, 1)
+    ]
+    plan_path = output / "diversity-plan.json"
+    atomic_write_json(plan_path, frozen)
+    plan_hash = file_hash(plan_path)
+    catalog_hash = file_hash(catalog_path)
+    receipt_path = output / "diversity-plan-receipt.json"
+    atomic_write_json(
+        receipt_path,
+        {
+            "schema": "skillrace-diversity-plan-receipt/1",
+            "plan_path": str(plan_path),
+            "plan_hash": plan_hash,
+            "catalog_path": str(catalog_path),
+            "catalog_hash": catalog_hash,
+            "description_count": 10,
+            "pi_receipt_path": str(result.receipt_path),
+            "pi_receipt_hash": file_hash(result.receipt_path),
+            "model": config.model_id,
+            "temperature": 1.0,
+        },
+    )
+    return {
+        "schema": "skillrace-diversity-plan/1",
+        "descriptions": frozen,
+        "plan_path": str(plan_path),
+        "plan_hash": plan_hash,
+        "catalog_hash": catalog_hash,
+        "receipt_path": str(receipt_path),
+    }
+
+
+def materialize_initial_test(
+    plan: dict[str, Any],
+    description_index: int,
+    skill: SkillVersion,
+    properties: list[dict[str, Any]],
+    config: ExperimentConfig,
+    output_dir: str | Path,
+    *,
+    pi_runner: PiRunner = run_pi,
+    validator: TestValidator = validate_test,
+) -> TestCase:
+    if plan.get("schema") != "skillrace-diversity-plan/1":
+        raise ValueError("SkillRACE diversity plan is invalid")
+    plan_path = Path(plan["plan_path"])
+    if file_hash(plan_path) != plan.get("plan_hash"):
+        raise ValueError("SkillRACE diversity plan hash differs")
+    descriptions = plan.get("descriptions")
+    if (
+        not isinstance(description_index, int)
+        or not isinstance(descriptions, list)
+        or description_index < 0
+        or description_index >= len(descriptions)
+    ):
+        raise ValueError("SkillRACE description index is invalid")
+    description = descriptions[description_index]
+    seed_id = description["seed_id"]
+    output = Path(output_dir)
+    output.mkdir(parents=True)
+    diagnostic: str | None = None
+    last: TestCase | None = None
+    for replacement in (1, 2):
+        attempt = output / f"replacement-{replacement}"
+        pi_output = attempt / "pi"
+        pi_output.mkdir(parents=True)
+        correction = (
+            f" Your previous materialization was invalid: {diagnostic}. Generate a fresh "
+            "corrected test."
+            if diagnostic
+            else ""
+        )
+        prompt_path = pi_output / "prompt.txt"
+        prompt_path.write_text(
+            "Materialize the selected frozen SkillRACE description into one feasible "
+            "development test. Generate its visible task prompt and complete Dockerfile. "
+            "The description guides task and environment diversity but does not replace the "
+            "complete fixed property catalog. The prompt and Dockerfile must not contradict "
+            "the frozen environment conditions. Any required dependency must already exist "
+            "in the resulting image or have a concrete local recovery path; the task must "
+            "not depend on runtime network access. The task must meaningfully exercise the skill "
+            "and remain compatible with every property. Put all task and artifact paths under "
+            "/workspace; do not use /mnt/data or /tmp in the task prompt. The Dockerfile must "
+            "be no larger than 32 KiB, start with exactly "
+            f"'FROM {config.docker_image}', contain exactly one FROM, use no ADD or COPY, "
+            "and contain exactly 'WORKDIR /workspace'. Preserve the installed Pi runtime. "
+            "Return only one JSON object with exactly prompt and dockerfile, both nonempty "
+            f"strings. Do not return checks, IDs, Markdown, or use tools.{correction}\n\n"
+            f"FROZEN DESCRIPTION:\n{json.dumps(description, sort_keys=True)}\n\n"
+            f"COMPLETE FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
+            f"SKILL.md:\n{(skill.directory_path / 'SKILL.md').read_text(encoding='utf-8')}\n",
+            encoding="utf-8",
+        )
+        result = pi_runner(
+            PiRequest(
+                operation_id=(
+                    f"proposal.skillrace.seed.{seed_id}.{replacement}."
+                    f"{uuid.uuid4().hex}"
+                ),
+                provider=config.provider,
+                model=config.model_id,
+                prompt_path=prompt_path,
+                output_dir=pi_output,
+                image=config.docker_image,
+                allowed_tools=("read",),
+                max_turns=config.role_budgets["proposer"],
+                timeout_seconds=config.timeouts["pi"],
+                temperature=1.0,
+            )
+        )
+        if result.status != "completed":
+            raise RuntimeError(f"Pi SkillRACE seed materialization failed: {result.status}")
+        try:
+            response = _assistant_json(result.trace_path)
+            if not isinstance(response, dict) or set(response) != {
+                "prompt",
+                "dockerfile",
+            }:
+                raise ValueError("SkillRACE seed response is invalid")
+            prompt = response["prompt"]
+            if (
+                not isinstance(prompt, str)
+                or not prompt.strip()
+                or not isinstance(response["dockerfile"], str)
+                or not response["dockerfile"].strip()
+            ):
+                raise ValueError("SkillRACE seed fields must be nonempty")
+            dockerfile = validate_generated_dockerfile(
+                response["dockerfile"], config.docker_image
+            )
+        except (json.JSONDecodeError, OSError, ValueError) as error:
+            diagnostic = str(error)
+            continue
+        test_id = f"skillrace-{seed_id}-" + uuid.uuid4().hex
+        case_dir = attempt / test_id
+        environment = case_dir / "environment"
+        environment.mkdir(parents=True)
+        task_path = case_dir / "prompt.txt"
+        task_path.write_text(prompt.strip() + "\n", encoding="utf-8")
+        checks_path = case_dir / "nl_checks.json"
+        atomic_write_json(checks_path, properties)
+        (environment / "Dockerfile").write_text(dockerfile, encoding="utf-8")
+        atomic_write_json(environment / "sanity.json", {"status": "pass"})
+        prompt_hash = file_hash(task_path)
+        environment_hash = tree_hash(environment)
+        catalog_hash = file_hash(checks_path)
+        proposal_receipt = case_dir / "proposal.json"
+        atomic_write_json(
+            proposal_receipt,
+            {
+                "schema": "skillrace-generated-test-proposal/1",
+                "method": "skillrace",
+                "phase": "initial_seed",
+                "seed_id": seed_id,
+                "seed_index": description_index + 1,
+                "description": description,
+                "plan_hash": plan["plan_hash"],
+                "catalog_hash": catalog_hash,
+                "prompt_hash": prompt_hash,
+                "environment_hash": environment_hash,
+                "pi_receipt_path": str(result.receipt_path),
+                "pi_receipt_hash": file_hash(result.receipt_path),
+                "model": config.model_id,
+                "temperature": 1.0,
+            },
+        )
+        pending = TestCase(
+            test_id=test_id,
+            prompt_path=task_path,
+            prompt_hash=prompt_hash,
+            environment_directory=environment,
+            environment_hash=environment_hash,
+            nl_check_path=checks_path,
+            nl_check_hash=catalog_hash,
+            origin_method="skillrace",
+            proposal_receipt=proposal_receipt,
+            validation_status="pending",
+            validation_diagnostic="",
+            container_image_id="",
+        )
+        last = validator(pending, config)
+        if last.validation_status == "valid":
+            return last
+        diagnostic = last.validation_diagnostic
+    if last is not None:
+        return last
+    raise ValueError("two malformed SkillRACE seed materializations")
 
 
 def _episode_prompt(
@@ -502,30 +808,6 @@ def merge_episodes(
     return validated
 
 
-def select_unreached_branch(tree: dict[str, Any]) -> dict[str, Any] | None:
-    validated = validate_tree(tree)
-    unexplored = sorted(
-        (
-            node
-            for node in validated["nodes"]
-            if node["node_id"] != "root"
-            and node["reach_status"] in {"unreached", "reasoning_unexplored"}
-        ),
-        key=lambda node: node["node_id"],
-    )
-    if unexplored:
-        return unexplored[0]
-    failed = sorted(
-        (
-            node
-            for node in validated["nodes"]
-            if node["node_id"] != "root" and node["failure_ids"]
-        ),
-        key=lambda node: node["node_id"],
-    )
-    return failed[0] if failed else None
-
-
 def propose_test(
     tree: dict[str, Any],
     skill: SkillVersion,
@@ -542,21 +824,99 @@ def propose_test(
         or len(set(property_ids)) != len(properties)
     ):
         raise ValueError("properties must contain unique property IDs")
-    target = select_unreached_branch(tree)
-    if target is None:
-        raise ValueError("reasoning tree has no unreached branch")
+    validated_tree = validate_tree(tree)
+    edge_index = build_edge_index(validated_tree)
+    known_edge_ids = {item["edge_id"] for item in edge_index}
+    if not known_edge_ids:
+        raise ValueError("SkillRACE tree contains no observed reasoning edges")
     output = config.output_root / "skillrace-proposals" / uuid.uuid4().hex
-    attempt = output / "pi"
-    attempt.mkdir(parents=True)
+    output.mkdir(parents=True)
+    selector_input = output / "selector-input"
+    selector_input.mkdir()
+    atomic_write_json(selector_input / "tree.json", validated_tree)
+    atomic_write_json(selector_input / "edge-index.json", edge_index)
     skill_text = (skill.directory_path / "SKILL.md").read_text(encoding="utf-8")
-    prompt_path = attempt / "prompt.txt"
-    prompt_path.write_text(
-        "Propose one concrete development task that exercises the selected unreached "
-        "reasoning branch and must meaningfully exercise the supplied skill. A generic "
-        "task that merely resembles the branch is invalid; the branch is not a substitute "
-        "for skill relevance. Make all inline data, expected values, examples, and prose "
-        "internally consistent; do not emit mutually inconsistent requirements. The task "
-        "must be self-contained. Generate its visible prompt and complete Dockerfile. The "
+    selector_output = output / "selector-pi"
+    selector_output.mkdir()
+    selector_prompt = selector_output / "prompt.txt"
+    selector_prompt.write_text(
+        "Act as the SkillRACE edge selector. Choose exactly one real observed reasoning "
+        "edge from the COMPACT EDGE INDEX below. Prefer the edge whose assumption has the "
+        "best chance of exposing a genuine, patchable skill failure under the fixed checks. "
+        "The resulting task must remain achievable within the unchanged agent budget when "
+        "the skill gives the right guidance; do not select sheer difficulty, impossible "
+        "requirements, unavailable credentials, or an environment condition without a "
+        "concrete local recovery route. Return only one JSON object with exactly "
+        "target_edge_id and selection_reason, both nonempty strings. The edge ID must be "
+        "copied exactly from the index. Do not use tools.\n\n"
+        f"FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
+        f"SKILL.md:\n{skill_text}\n\n"
+        f"COMPACT EDGE INDEX:\n{json.dumps(edge_index, sort_keys=True)}\n",
+        encoding="utf-8",
+    )
+    selector_result = pi_runner(
+        PiRequest(
+            operation_id=f"proposal.skillrace.select.{uuid.uuid4().hex}",
+            provider=config.provider,
+            model=config.model_id,
+            prompt_path=selector_prompt,
+            output_dir=selector_output,
+            image=config.docker_image,
+            allowed_tools=(),
+            max_turns=min(2, config.role_budgets["proposer"]),
+            timeout_seconds=config.timeouts["pi"],
+            temperature=1.0,
+        )
+    )
+    if selector_result.status != "completed":
+        raise RuntimeError(
+            f"Pi SkillRACE edge selection failed: {selector_result.status}"
+        )
+    selection = _selector_json(selector_result.trace_path)
+    if not isinstance(selection, dict) or set(selection) != {
+        "target_edge_id",
+        "selection_reason",
+    }:
+        raise ValueError("SkillRACE edge selection response is invalid")
+    if not all(
+        isinstance(selection[name], str) and selection[name].strip()
+        for name in ("target_edge_id", "selection_reason")
+    ):
+        raise ValueError("SkillRACE edge selection fields must be nonempty")
+    target_edge_id = selection["target_edge_id"].strip()
+    selection_reason = selection["selection_reason"].strip()
+    if target_edge_id not in known_edge_ids:
+        raise ValueError("SkillRACE edge selector selected an unknown edge")
+
+    selected_branch = isolate_branch(validated_tree, target_edge_id)
+    atomic_write_json(selector_input / "selected-branch.json", selected_branch)
+    selector_input_hash = tree_hash(selector_input)
+
+    mutator_output = output / "mutator-pi"
+    mutator_output.mkdir()
+    mutator_prompt = mutator_output / "prompt.txt"
+    mutator_prompt.write_text(
+        "Act as the SkillRACE test mutator. Use the ISOLATED OBSERVED BRANCH below to "
+        "mutate the assumption at the exact target edge into one concrete development "
+        "test likely to expose a genuine skill bug. The mutation must make the selected "
+        "edge assumption fail rather than changing the environment to make that assumption "
+        "correct, and the visible task must not reveal the recovery path. Reaching the exact target edge is "
+        "diagnostic rather than mandatory, but the test must meaningfully exercise the "
+        "supplied skill. The mutation must remain achievable within the unchanged agent "
+        "budget when the skill gives the right guidance. Do not merely enlarge the workload, "
+        "remove an essential capability, require unavailable credentials or services, or "
+        "create contradictory requirements. A relocated or missing tool is valid only when "
+        "a concrete local recovery path exists. Explain the bug hypothesis, mutation, and "
+        "why a SKILL.md patch could enable success within budget. Make all inline data, "
+        "expected values, examples, and prose internally consistent. Generate a self-contained "
+        "visible prompt and complete Dockerfile. The Dockerfile must not download or install "
+        "packages or contact external services; use only software already present in the base "
+        "image and create environment variations with local files or symlinks. Every "
+        "capability required by the prompt must exist when the task container starts. The "
+        "Dockerfile must not remove, move, or disable software from the base image. If the "
+        "mutation depends on a special path or local recovery route, create it explicitly in "
+        "the Dockerfile. Use a quoted here-document rather than printf when creating a "
+        "multiline helper script so percent signs and shell expressions remain literal. The "
         "Dockerfile may create task inputs, and the prompt must accurately describe them. "
         "Put task and artifact paths under /workspace and do not use /mnt/data or /tmp in "
         "the task prompt. The Dockerfile must be no larger than 32 KiB, start with exactly "
@@ -564,42 +924,46 @@ def propose_test(
         "contain exactly 'WORKDIR /workspace'. Preserve the installed Pi runtime. The task "
         "must be compatible with every fixed property, and all property requirements must "
         "be consistent with the visible prompt. Return only one JSON object with exactly "
-        "prompt and dockerfile; both values must be nonempty strings. Do not return check "
-        "prose, check IDs, or any other keys. The entire response must start with { and end "
-        "with }. "
-        "Do not use Markdown fences or tools.\n\n"
-        f"SELECTED BRANCH:\n{json.dumps(target, sort_keys=True)}\n\n"
+        "bug_hypothesis, mutation, why_patchable, prompt, and dockerfile; all values must "
+        "be nonempty strings. "
+        "Do not return check prose, check IDs, or any other keys. The entire response must "
+        "start with { and end with }. Do not use Markdown fences or tools.\n\n"
+        f"TARGET EDGE ID:\n{target_edge_id}\n\n"
+        f"SELECTION REASON:\n{selection_reason}\n\n"
+        f"ISOLATED OBSERVED BRANCH:\n{json.dumps(selected_branch, sort_keys=True)}\n\n"
         f"FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
         f"SKILL.md:\n{skill_text}\n",
         encoding="utf-8",
     )
-    result = pi_runner(
+    mutator_result = pi_runner(
         PiRequest(
-            operation_id=f"proposal.skillrace.{target['node_id']}.{uuid.uuid4().hex}",
+            operation_id=f"proposal.skillrace.mutate.{uuid.uuid4().hex}",
             provider=config.provider,
             model=config.model_id,
-            prompt_path=prompt_path,
-            output_dir=attempt,
+            prompt_path=mutator_prompt,
+            output_dir=mutator_output,
             image=config.docker_image,
-            allowed_tools=("read",),
+            allowed_tools=(),
             max_turns=config.role_budgets["proposer"],
             timeout_seconds=config.timeouts["pi"],
             temperature=1.0,
         )
     )
-    if result.status != "completed":
-        raise RuntimeError(f"Pi SkillRACE proposal failed: {result.status}")
-    response = _assistant_json(result.trace_path)
-    if not isinstance(response, dict) or set(response) != {"prompt", "dockerfile"}:
+    if mutator_result.status != "completed":
+        raise RuntimeError(f"Pi SkillRACE proposal failed: {mutator_result.status}")
+    response = _selector_json(mutator_result.trace_path)
+    response_fields = {
+        "bug_hypothesis",
+        "mutation",
+        "why_patchable",
+        "prompt",
+        "dockerfile",
+    }
+    if not isinstance(response, dict) or set(response) != response_fields:
         raise ValueError("SkillRACE proposal response is invalid")
-    prompt = response["prompt"]
-    if (
-        not isinstance(prompt, str)
-        or not prompt.strip()
-        or not isinstance(response["dockerfile"], str)
-        or not response["dockerfile"].strip()
-    ):
+    if not all(isinstance(response[name], str) and response[name].strip() for name in response_fields):
         raise ValueError("SkillRACE proposal fields must be nonempty")
+    prompt = response["prompt"]
     dockerfile = validate_generated_dockerfile(
         response["dockerfile"], config.docker_image
     )
@@ -627,10 +991,17 @@ def propose_test(
             "catalog_hash": catalog_hash,
             "prompt_hash": prompt_hash,
             "environment_hash": environment_hash,
-            "target_node_id": target["node_id"],
-            "target_reach_status": target["reach_status"],
-            "pi_receipt_path": str(result.receipt_path),
-            "pi_receipt_hash": file_hash(result.receipt_path),
+            "target_edge_id": target_edge_id,
+            "selection_reason": selection_reason,
+            "bug_hypothesis": response["bug_hypothesis"].strip(),
+            "mutation": response["mutation"].strip(),
+            "why_patchable": response["why_patchable"].strip(),
+            "selector_input_path": str(selector_input),
+            "selector_input_hash": selector_input_hash,
+            "selector_pi_receipt_path": str(selector_result.receipt_path),
+            "selector_pi_receipt_hash": file_hash(selector_result.receipt_path),
+            "pi_receipt_path": str(mutator_result.receipt_path),
+            "pi_receipt_hash": file_hash(mutator_result.receipt_path),
             "model": config.model_id,
             "temperature": 1.0,
         },

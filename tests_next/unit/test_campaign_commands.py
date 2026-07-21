@@ -134,6 +134,10 @@ def test_random_thirty_call_budget_reuses_only_the_complete_catalog(
         (
             "skillrace",
             {
+                "schema": "skillrace-campaign-state/1",
+                "phase": "branch",
+                "execution_count": 10,
+                "plan": {},
                 "tree": {
                     "schema": "skillrace-reasoning-tree/1",
                     "nodes": [
@@ -147,23 +151,39 @@ def test_random_thirty_call_budget_reuses_only_the_complete_catalog(
                             "failure_ids": [],
                         },
                         {
+                            "node_id": "source",
+                            "purpose": "inspect the artifact",
+                            "outcome": "artifact found",
+                            "member_run_ids": ["run-1"],
+                            "member_episode_ids": ["episode-1"],
+                            "reach_status": "reached",
+                            "failure_ids": [],
+                        },
+                        {
                             "node_id": "target",
                             "purpose": "exercise write validation",
-                            "outcome": "not reached",
-                            "member_run_ids": [],
-                            "member_episode_ids": [],
-                            "reach_status": "unreached",
+                            "outcome": "validation completed",
+                            "member_run_ids": ["run-1"],
+                            "member_episode_ids": ["episode-2"],
+                            "reach_status": "reached",
                             "failure_ids": [],
                         },
                     ],
                     "edges": [
                         {
                             "source_node_id": "root",
+                            "target_node_id": "source",
+                            "reason": "inspect the artifact",
+                        },
+                        {
+                            "source_node_id": "source",
                             "target_node_id": "target",
                             "reason": "target validation",
                         }
                     ],
-                }
+                },
+                "current_selection": None,
+                "observations": [],
             },
             campaigns.skillrace_method,
         ),
@@ -173,13 +193,17 @@ def test_adaptive_proposals_are_stored_under_the_iteration_selection(
     tmp_path: Path, monkeypatch, method: str, state: dict, module
 ) -> None:
     skill = skill_version(tmp_path)
-    config = config_for(tmp_path)
+    config = replace(config_for(tmp_path), iteration_budget=30)
     destination = tmp_path / "method" / "iterations" / "1" / "selection"
     observed = {}
     proposed = SimpleNamespace(
         test_id=f"{method}-test",
         validation_status="valid",
         validation_diagnostic="",
+        proposal_receipt=tmp_path / "adaptive-proposal.json",
+    )
+    proposed.proposal_receipt.write_text(
+        '{"target_edge_id":"edge-selected"}\n', encoding="utf-8"
     )
 
     def fake_propose(*args, **kwargs):
@@ -196,6 +220,7 @@ def test_adaptive_proposals_are_stored_under_the_iteration_selection(
     assert observed["config"].output_root == destination
     assert observed["properties"] == [{"property_id": "P1"}]
     assert selected["case"] is proposed
+    assert state["current_selection"]["target_edge_id"] == "edge-selected"
 
 
 def test_campaign_wires_verigrey_initial_corpus_selection_and_observation(
@@ -297,6 +322,237 @@ def test_campaign_wires_verigrey_initial_corpus_selection_and_observation(
         {"tool": "read", "arguments": {"path": "string"}}
     ]
     assert updated["phase"] == "mutation"
+
+
+def test_campaign_uses_ten_frozen_skillrace_descriptions_before_tree_selection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    skill = skill_version(tmp_path)
+    config = replace(config_for(tmp_path), iteration_budget=30)
+    properties = [{"property_id": "P1", "description": "Exact output."}]
+    plan_path = tmp_path / "diversity-plan.json"
+    plan_path.write_text("[]\n", encoding="utf-8")
+    plan = {
+        "schema": "skillrace-diversity-plan/1",
+        "descriptions": [
+            {
+                "seed_id": f"seed-{index:02d}",
+                "task": f"Task {index}",
+                "environment_conditions": f"Environment {index}",
+            }
+            for index in range(1, 11)
+        ],
+        "plan_path": str(plan_path),
+        "plan_hash": "plan-hash",
+        "catalog_hash": "catalog-hash",
+        "receipt_path": str(tmp_path / "plan-receipt.json"),
+    }
+    observed: dict[str, object] = {"indices": []}
+
+    def fake_plan(received_skill, received_properties, received_config, output):
+        observed["plan"] = (
+            received_skill,
+            received_properties,
+            received_config,
+            output,
+        )
+        return plan
+
+    def fake_materialize(
+        received_plan,
+        index,
+        received_skill,
+        received_properties,
+        received_config,
+        output,
+    ):
+        observed["indices"].append(index)
+        return SimpleNamespace(
+            test_id=f"skillrace-seed-{index + 1}",
+            validation_status="valid",
+            validation_diagnostic="",
+        )
+
+    branch = SimpleNamespace(
+        test_id="skillrace-branch",
+        validation_status="valid",
+        validation_diagnostic="",
+        proposal_receipt=tmp_path / "branch-proposal.json",
+    )
+    branch.proposal_receipt.write_text(
+        '{"target_edge_id":"edge-observed"}\n', encoding="utf-8"
+    )
+
+    def fake_branch(tree, received_skill, received_properties, received_config):
+        observed["branch"] = (
+            tree,
+            received_skill,
+            received_properties,
+            received_config,
+        )
+        return branch
+
+    monkeypatch.setattr(campaigns.skillrace_method, "create_diversity_plan", fake_plan)
+    monkeypatch.setattr(
+        campaigns.skillrace_method, "materialize_initial_test", fake_materialize
+    )
+    monkeypatch.setattr(campaigns.skillrace_method, "propose_test", fake_branch)
+    monkeypatch.setattr(
+        campaigns,
+        "_seed_test",
+        lambda *args: (_ for _ in ()).throw(
+            AssertionError("SkillRACE must use its frozen diversity plan")
+        ),
+    )
+
+    state: dict = {}
+    first = campaigns._select_test(
+        "skillrace", state, skill, properties, config, tmp_path / "selection-1"
+    )
+
+    assert observed["plan"][3] == tmp_path / "selection-1" / "diversity-plan"
+    assert observed["indices"] == [0]
+    assert state["schema"] == "skillrace-campaign-state/1"
+    assert state["phase"] == "initial_seeds"
+    assert state["execution_count"] == 0
+    assert state["plan"] == plan
+    assert state["current_selection"] == {
+        "phase": "initial_seed",
+        "seed_index": 1,
+        "seed_id": "seed-01",
+        "test_id": "skillrace-seed-1",
+    }
+    assert first["case"].test_id == "skillrace-seed-1"
+
+    state["current_selection"] = None
+    state["execution_count"] = 9
+    tenth = campaigns._select_test(
+        "skillrace", state, skill, properties, config, tmp_path / "selection-10"
+    )
+    assert observed["indices"] == [0, 9]
+    assert tenth["case"].test_id == "skillrace-seed-10"
+
+    state["current_selection"] = None
+    state["execution_count"] = 10
+    state["phase"] = "branch"
+    state["tree"]["nodes"].extend(
+        [
+            {
+                "node_id": "observed-source",
+                "purpose": "Inspect the artifact workflow",
+                "outcome": "The workflow was inspected",
+                "member_run_ids": ["run-1"],
+                "member_episode_ids": ["episode-1"],
+                "reach_status": "reached",
+                "failure_ids": [],
+            },
+            {
+                "node_id": "observed-target",
+                "purpose": "Execute the artifact workflow",
+                "outcome": "The workflow was executed",
+                "member_run_ids": ["run-1"],
+                "member_episode_ids": ["episode-2"],
+                "reach_status": "reached",
+                "failure_ids": [],
+            },
+        ]
+    )
+    state["tree"]["edges"].extend(
+        [
+            {
+                "source_node_id": "root",
+                "target_node_id": "observed-source",
+                "reason": "Inspect the workflow",
+            },
+            {
+                "source_node_id": "observed-source",
+                "target_node_id": "observed-target",
+                "reason": "Assume the ordinary artifact path",
+            },
+        ]
+    )
+    branch_case = campaigns._select_test(
+        "skillrace", state, skill, properties, config, tmp_path / "selection-11"
+    )
+    assert observed["branch"][0] is state["tree"]
+    assert observed["branch"][2] == properties
+    assert observed["branch"][3].output_root == tmp_path / "selection-11"
+    assert branch_case["case"] is branch
+    assert state["current_selection"]["target_edge_id"] == "edge-observed"
+
+
+def test_tenth_skillrace_observation_updates_tree_then_enables_branch_phase(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state = {
+        "schema": "skillrace-campaign-state/1",
+        "phase": "initial_seeds",
+        "execution_count": 9,
+        "plan": {"plan_hash": "plan-hash"},
+        "tree": campaigns._root_tree(),
+        "current_selection": {
+            "phase": "initial_seed",
+            "seed_index": 10,
+            "seed_id": "seed-10",
+            "test_id": "test-10",
+        },
+        "observations": [],
+    }
+    record = SimpleNamespace(run_id="run-10")
+    merged = campaigns._root_tree()
+    merged["nodes"].append(
+        {
+            "node_id": "branch-10",
+            "purpose": "A branch from the tenth seed",
+            "outcome": "The branch remains unexplored",
+            "member_run_ids": [],
+            "member_episode_ids": [],
+            "reach_status": "unreached",
+            "failure_ids": [],
+        }
+    )
+    merged["edges"].append(
+        {
+            "source_node_id": "root",
+            "target_node_id": "branch-10",
+            "reason": "Tenth seed exposed a branch",
+        }
+    )
+    monkeypatch.setattr(
+        campaigns.skillrace_method,
+        "create_episodes",
+        lambda *args: ([{"episode_id": "episode-10"}], tmp_path / "receipt.json"),
+    )
+    monkeypatch.setattr(
+        campaigns.skillrace_method,
+        "merge_episodes",
+        lambda *args: merged,
+    )
+
+    updated = campaigns._updated_state(
+        "skillrace",
+        state,
+        record,
+        [],
+        replace(config_for(tmp_path), iteration_budget=30),
+        tmp_path / "update",
+    )
+
+    assert updated["execution_count"] == 10
+    assert updated["phase"] == "branch"
+    assert updated["tree"] == merged
+    assert updated["current_selection"] is None
+    assert updated["observations"] == [
+        {
+            "execution": 10,
+            "phase": "initial_seed",
+            "seed_index": 10,
+            "seed_id": "seed-10",
+            "test_id": "test-10",
+            "run_id": "run-10",
+            "episode_ids": ["episode-10"],
+        }
+    ]
 
 
 def test_part2_campaign_opens_hidden_records_only_when_loop_requests_heldout(

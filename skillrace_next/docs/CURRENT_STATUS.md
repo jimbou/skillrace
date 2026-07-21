@@ -561,6 +561,17 @@ The final Task 16 cycle ran focused red/green tests, all 155 unit/integration te
 separate real production Part I/II CLI contracts, semantic evidence inspection, and the
 final two-model gate. Legacy-import and forbidden-architecture searches were reviewed.
 
+### Resolved: observed-edge SkillRACE selection and mutation
+
+Post-seed SkillRACE no longer depends on synthetic `unreached` nodes. The host creates a
+compact stable-ID index from real observed episode transitions. One fresh tool-free Pi
+call selects a promising edge, the host isolates its branch deterministically, and a
+second fresh tool-free Pi call generates the mutation from only that branch and the fixed
+catalog. Long-tree live contracts passed with both `lab/deepseek-v4-flash` and
+`lab/qwen3.6-flash`. Manual inspection confirmed that both selected the only meaningful
+helper-path edge, made its fixed-path assumption fail, preserved a feasible local recovery
+route, did not leak that route in the visible prompt, and produced Docker-valid tasks.
+
 ## Recorded lower-priority decisions
 
 ### No line-count refactor

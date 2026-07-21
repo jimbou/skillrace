@@ -128,9 +128,14 @@ The 30-execution SkillRACE budget has two direct phases:
    Every materialized test receives the entire frozen NL-check catalog. Execute each test,
    create episodes, and merge/update the reasoning tree, but select the next test only from
    the frozen initial list.
-3. After all ten initial tests have executed, use ordinary SkillRACE unreached-branch
-   selection for executions 11–30. Branch-directed proposals also see and carry the entire
-   frozen NL-check catalog.
+3. After all ten initial tests have executed, build a compact index of the real observed
+   episode-to-episode reasoning edges. A fresh tool-free same-track Pi call selects one
+   promising edge ID and explains why it may expose a patchable failure.
+4. The host validates that ID and isolates its root-to-edge branch. A second fresh
+   tool-free Pi call receives only that branch, the rationale, current skill, and complete
+   frozen catalog, then mutates the selected assumption into a prompt and Docker
+   environment. It must make the assumption fail without revealing the local recovery
+   path or making the task impossible.
 
 The one planning call is proposal overhead and does not consume one of the 30 weak-agent
 executions. Part II patching and accepted-skill carry-forward continue normally during
@@ -256,6 +261,11 @@ individual component contract.
   them in order while building the tree, and uses a tree-selected branch only afterward.
   Inspect the plan, first materialized seed, tenth tree update, and first branch-directed
   proposal for both models.
+  The isolated post-seed proposal component is complete: DeepSeek v4 Flash and Qwen 3.6
+  Flash each selected the unique promising edge from a 120-edge observed tree, the host
+  isolated it, and a fresh mutator produced a semantically inspected, Docker-valid local
+  recovery task without Pi tools. The combined ten-seed-through-first-mutation campaign
+  contract remains covered by this unchecked item.
 - [ ] Real same-track DeepSeek and Qwen patch/replay contracts prove that an achievable
   environment failure can produce guidance, exact replay uses the frozen Terra bundle,
   and admission still requires improvement without regression.

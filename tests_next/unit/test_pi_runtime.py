@@ -154,6 +154,42 @@ def test_run_pi_routes_lab_alias_with_its_key_and_minimal_catalog(
     assert secret not in result.stderr
 
 
+def test_run_pi_allows_an_explicit_empty_tool_set(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setenv("LAB_KEY_UNLIMITED", "lab-secret")
+    prompt = tmp_path / "prompt.txt"
+    prompt.write_text("Return one JSON object without tools.\n", encoding="utf-8")
+    output = tmp_path / "operation"
+    captured: dict[str, Any] = {}
+
+    def fake_runner(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        captured["command"] = command
+        accounting = output / "accounting"
+        accounting.mkdir(parents=True, exist_ok=True)
+        (accounting / "usage.json").write_text("{}\n", encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    result = run_pi(
+        PiRequest(
+            operation_id="pi-no-tools",
+            provider="lab",
+            model="deepseek-v4-flash",
+            prompt_path=prompt,
+            output_dir=output,
+            image="skillrace-pi:test",
+            allowed_tools=(),
+            max_turns=2,
+            timeout_seconds=60,
+        ),
+        fake_runner,
+    )
+
+    command = captured["command"]
+    assert command[command.index("--allowed-tools") + 1] == ""
+    assert json.loads(result.receipt_path.read_text())["allowed_tools"] == []
+
+
 @pytest.mark.parametrize("temperature", [-0.1, 2.1, float("nan")])
 def test_pi_request_rejects_invalid_temperature(
     tmp_path: Path, temperature: float

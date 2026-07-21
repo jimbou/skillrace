@@ -98,15 +98,67 @@ def _select_test(
             )
         )
     if method == "skillrace":
-        tree = state.get("tree")
-        if not isinstance(tree, dict) or skillrace_method.select_unreached_branch(tree) is None:
-            return _seed_test(method, skill, properties, config, output)
-        proposal_config = replace(config, output_root=output)
-        return _case(
-            skillrace_method.propose_test(
-                tree, skill, properties, proposal_config
+        if not state:
+            plan = skillrace_method.create_diversity_plan(
+                skill,
+                properties,
+                config,
+                output / "diversity-plan",
             )
+            state.update(
+                {
+                    "schema": "skillrace-campaign-state/1",
+                    "phase": "initial_seeds",
+                    "execution_count": 0,
+                    "plan": plan,
+                    "tree": _root_tree(),
+                    "current_selection": None,
+                    "observations": [],
+                }
+            )
+        if state.get("schema") != "skillrace-campaign-state/1":
+            raise ValueError("SkillRACE campaign state is invalid")
+        if state.get("current_selection") is not None:
+            raise ValueError("SkillRACE selection has not been observed")
+        execution_count = state["execution_count"]
+        if execution_count >= config.iteration_budget:
+            raise ValueError("SkillRACE execution budget exhausted")
+        if execution_count < 10:
+            description = state["plan"]["descriptions"][execution_count]
+            proposed = skillrace_method.materialize_initial_test(
+                state["plan"],
+                execution_count,
+                skill,
+                properties,
+                config,
+                output / "initial-seed",
+            )
+            if proposed.validation_status == "valid":
+                state["current_selection"] = {
+                    "phase": "initial_seed",
+                    "seed_index": execution_count + 1,
+                    "seed_id": description["seed_id"],
+                    "test_id": proposed.test_id,
+                }
+            return _case(proposed)
+        if state.get("phase") != "branch":
+            raise ValueError("SkillRACE branch phase is not active")
+        tree = state["tree"]
+        proposal_config = replace(config, output_root=output)
+        proposed = skillrace_method.propose_test(
+            tree, skill, properties, proposal_config
         )
+        if proposed.validation_status == "valid":
+            receipt = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
+            target_edge_id = receipt.get("target_edge_id")
+            if not isinstance(target_edge_id, str) or not target_edge_id:
+                raise ValueError("SkillRACE proposal receipt lacks its selected edge")
+            state["current_selection"] = {
+                "phase": "branch",
+                "target_edge_id": target_edge_id,
+                "test_id": proposed.test_id,
+            }
+        return _case(proposed)
     raise ValueError(f"unknown method: {method}")
 
 
@@ -206,6 +258,11 @@ def _updated_state(
     if method == "verigrey":
         sequence = verigrey_method.normalize_tool_sequence(record.trace_path)
         return verigrey_method.observe_execution(state, sequence)
+    if state.get("schema") != "skillrace-campaign-state/1":
+        raise ValueError("SkillRACE campaign state is invalid")
+    selection = state.get("current_selection")
+    if not isinstance(selection, dict):
+        raise ValueError("SkillRACE execution has no current selection")
     episodes, _ = skillrace_method.create_episodes(
         record, config, output / "episodes"
     )
@@ -225,7 +282,31 @@ def _updated_state(
         config,
         output / "tree",
     )
-    return {"episodes": episodes, "tree": tree, "branch": tree["nodes"][-1]}
+    execution_count = state["execution_count"] + 1
+    observation = {
+        "execution": execution_count,
+        "phase": selection["phase"],
+        "test_id": selection["test_id"],
+        "run_id": record.run_id,
+        "episode_ids": [episode["episode_id"] for episode in episodes],
+    }
+    if selection["phase"] == "initial_seed":
+        observation.update(
+            {
+                "seed_index": selection["seed_index"],
+                "seed_id": selection["seed_id"],
+            }
+        )
+    else:
+        observation["target_edge_id"] = selection["target_edge_id"]
+    return {
+        **state,
+        "phase": "branch" if execution_count >= 10 else "initial_seeds",
+        "execution_count": execution_count,
+        "tree": tree,
+        "current_selection": None,
+        "observations": [*state["observations"], observation],
+    }
 
 
 def _patch(
