@@ -163,6 +163,7 @@ def propose_test(
         {
             "schema": "skillrace-generated-test-proposal/1",
             "method": "random",
+            "independent": True,
             "catalog_hash": catalog_hash,
             "prompt_hash": prompt_hash,
             "environment_hash": environment_hash,

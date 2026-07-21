@@ -66,6 +66,68 @@ def test_generated_case_exposes_terminal_validation_status() -> None:
     }
 
 
+def test_random_selection_rejects_accumulated_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        campaigns,
+        "_seed_test",
+        lambda *args: {"test_id": "must-not-be-called"},
+    )
+
+    with pytest.raises(ValueError, match="Random cannot receive accumulated state"):
+        campaigns._select_test(
+            "random",
+            {"previous_test": "leaked"},
+            skill_version(tmp_path),
+            [{"property_id": "P1", "description": "The result is correct."}],
+            replace(config_for(tmp_path), iteration_budget=30),
+            tmp_path / "selection",
+        )
+
+
+def test_random_thirty_call_budget_reuses_only_the_complete_catalog(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    skill = skill_version(tmp_path)
+    properties = [
+        {"property_id": "P1", "description": "The result is correct."},
+        {"property_id": "P2", "description": "Inputs remain intact."},
+        {"property_id": "P3", "description": "The result is verified."},
+    ]
+    config = replace(config_for(tmp_path), iteration_budget=30)
+    calls: list[dict[str, object]] = []
+
+    def fake_seed(method, received_skill, received_properties, received_config, output):
+        calls.append(
+            {
+                "method": method,
+                "skill": received_skill,
+                "properties": received_properties,
+                "output": output,
+            }
+        )
+        return {"test_id": f"random-{len(calls)}"}
+
+    monkeypatch.setattr(campaigns, "_seed_test", fake_seed)
+
+    for iteration in range(config.iteration_budget):
+        campaigns._select_test(
+            "random",
+            {},
+            skill,
+            properties,
+            config,
+            tmp_path / "selections" / str(iteration),
+        )
+
+    assert len(calls) == 30
+    assert all(call["method"] == "random" for call in calls)
+    assert all(call["skill"] is skill for call in calls)
+    assert all(call["properties"] == properties for call in calls)
+    assert len({str(call["output"]) for call in calls}) == 30
+
+
 @pytest.mark.parametrize(
     ("method", "state", "module"),
     [

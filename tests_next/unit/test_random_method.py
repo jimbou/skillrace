@@ -129,6 +129,7 @@ def test_random_proposal_materializes_one_independent_test(tmp_path: Path) -> No
     receipt = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
     assert receipt["schema"] == "skillrace-generated-test-proposal/1"
     assert receipt["method"] == "random"
+    assert receipt["independent"] is True
     assert receipt["catalog_hash"] == proposed.nl_check_hash
     assert receipt["prompt_hash"] == proposed.prompt_hash
     assert receipt["environment_hash"] == proposed.environment_hash

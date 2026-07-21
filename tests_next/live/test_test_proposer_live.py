@@ -111,7 +111,8 @@ def test_real_random_proposal_passes_deterministic_validation(
     assert validated.container_image_id.startswith("sha256:")
     assert validated.origin_method == "random"
     prompt = validated.prompt_path.read_text(encoding="utf-8")
-    assert "file" in prompt.lower()
+    assert prompt.strip()
+    assert "/workspace/" in prompt
     assert "/mnt/data" not in prompt
     assert "/tmp" not in prompt
     checks = json.loads(validated.nl_check_path.read_text(encoding="utf-8"))
@@ -124,6 +125,7 @@ def test_real_random_proposal_passes_deterministic_validation(
     proposal_receipt = json.loads(
         validated.proposal_receipt.read_text(encoding="utf-8")
     )
+    assert proposal_receipt["independent"] is True
     assert proposal_receipt["catalog_hash"] == validated.nl_check_hash
     assert proposal_receipt["environment_hash"] == validated.environment_hash
     pi_receipt = json.loads(

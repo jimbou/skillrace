@@ -75,6 +75,8 @@ def _select_test(
     output: Path,
 ) -> dict[str, Any]:
     if method == "random":
+        if state:
+            raise ValueError("Random cannot receive accumulated state")
         return _seed_test(method, skill, properties, config, output)
     if method == "verigrey":
         if not state.get("transition_counts"):
