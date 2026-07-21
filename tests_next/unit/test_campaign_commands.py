@@ -147,6 +147,11 @@ def test_part2_campaign_opens_hidden_records_only_when_loop_requests_heldout(
     config = replace(config_for(tmp_path), part="part2", iteration_budget=1)
     scenario = tmp_path / "scenario.md"
     scenario.write_text("Create a skill that writes exact requested artifacts.\n", encoding="utf-8")
+    properties = tmp_path / "development-properties.json"
+    properties.write_text(
+        '[{"property_id":"P1","description":"The requested artifact is correct."}]\n',
+        encoding="utf-8",
+    )
     hidden = tmp_path / "hidden.json"
     hidden.write_text("{}\n", encoding="utf-8")
     generated = tmp_path / "generated"
@@ -174,6 +179,7 @@ def test_part2_campaign_opens_hidden_records_only_when_loop_requests_heldout(
     result = campaigns.run_part2_campaign(
         config,
         scenario,
+        properties,
         [hidden],
         tmp_path / "campaign",
     )
@@ -181,12 +187,21 @@ def test_part2_campaign_opens_hidden_records_only_when_loop_requests_heldout(
     assert result["schema"] == "skillrace-part2/1"
 
 
-def test_part2_seed_selection_uses_scenario_as_generated_nl_property(
+def test_part2_selection_uses_explicit_complete_development_properties(
     tmp_path: Path, monkeypatch
 ) -> None:
     config = replace(config_for(tmp_path), part="part2", iteration_budget=1)
     scenario = tmp_path / "scenario.md"
     scenario.write_text("The output must contain the exact requested bytes.\n", encoding="utf-8")
+    properties_path = tmp_path / "development-properties.json"
+    properties_path.write_text(
+        "["
+        '{"property_id":"P1","description":"The public behavior is correct."},'
+        '{"property_id":"P2","description":"Edge cases are handled."},'
+        '{"property_id":"P3","description":"The agent verifies the result."}'
+        "]\n",
+        encoding="utf-8",
+    )
     hidden = tmp_path / "hidden.json"
     hidden.write_text("{}\n", encoding="utf-8")
     generated = tmp_path / "generated"
@@ -214,6 +229,7 @@ def test_part2_seed_selection_uses_scenario_as_generated_nl_property(
     campaigns.run_part2_campaign(
         config,
         scenario,
+        properties_path,
         [hidden],
         tmp_path / "campaign",
     )
@@ -221,10 +237,9 @@ def test_part2_seed_selection_uses_scenario_as_generated_nl_property(
     assert observed["method"] == "random"
     assert observed["skill"] == s0
     assert observed["properties"] == [
-        {
-            "property_id": "P1",
-            "description": "The output must contain the exact requested bytes.",
-        }
+        {"property_id": "P1", "description": "The public behavior is correct."},
+        {"property_id": "P2", "description": "Edge cases are handled."},
+        {"property_id": "P3", "description": "The agent verifies the result."},
     ]
 
 
@@ -234,6 +249,11 @@ def test_part2_checker_receives_the_exact_current_skill(
     config = replace(config_for(tmp_path), part="part2", iteration_budget=1)
     scenario = tmp_path / "scenario.md"
     scenario.write_text("Create exact requested artifacts.\n", encoding="utf-8")
+    properties = tmp_path / "development-properties.json"
+    properties.write_text(
+        '[{"property_id":"P1","description":"The requested artifact is correct."}]\n',
+        encoding="utf-8",
+    )
     hidden = tmp_path / "hidden.json"
     hidden.write_text("{}\n", encoding="utf-8")
     generated = tmp_path / "generated"
@@ -279,6 +299,7 @@ def test_part2_checker_receives_the_exact_current_skill(
     campaigns.run_part2_campaign(
         config,
         scenario,
+        properties,
         [hidden],
         tmp_path / "campaign",
     )

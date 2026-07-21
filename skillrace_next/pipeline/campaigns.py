@@ -444,6 +444,7 @@ def _load_heldout_case(path: Path, config: ExperimentConfig) -> dict[str, Any]:
 def run_part2_campaign(
     config: ExperimentConfig,
     scenario_path: Path,
+    property_path: Path,
     heldout_paths: list[Path],
     output: Path,
 ) -> dict[str, object]:
@@ -453,8 +454,7 @@ def run_part2_campaign(
         raise ValueError("Part II scenario is missing or empty")
     if not heldout_paths:
         raise ValueError("Part II requires at least one held-out test record")
-    scenario_text = scenario_path.read_text(encoding="utf-8").strip()
-    properties = [{"property_id": "P1", "description": scenario_text}]
+    properties = validate_nl_checks(property_path)
     s0 = generate_base_skill(scenario_path, config, output.parent / "generated-s0")
     records: dict[str, RunRecord] = {}
     run_skills: dict[str, SkillVersion] = {}

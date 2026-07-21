@@ -47,6 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
                 command.add_argument("--properties")
             elif name == "part2":
                 command.add_argument("--scenario")
+                command.add_argument("--properties")
                 command.add_argument("--heldout-test", action="append", default=[])
     return parser
 
@@ -145,12 +146,13 @@ def run_part1_campaign(
 def run_part2_campaign(
     config: ExperimentConfig,
     scenario_path: Path,
+    property_path: Path,
     heldout_paths: list[Path],
     output: Path,
 ) -> dict[str, object]:
     from .pipeline.campaigns import run_part2_campaign as run
 
-    return run(config, scenario_path, heldout_paths, output)
+    return run(config, scenario_path, property_path, heldout_paths, output)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -206,9 +208,10 @@ def main(argv: list[str] | None = None) -> int:
                 if missing:
                     raise ValueError("part1 --live requires " + ", ".join(missing))
             else:
-                if not args.scenario or not args.heldout_test:
+                if not args.scenario or not args.properties or not args.heldout_test:
                     raise ValueError(
-                        "part2 --live requires --scenario and at least one --heldout-test"
+                        "part2 --live requires --scenario, --properties, and at least "
+                        "one --heldout-test"
                     )
             for replicate_number in range(1, config.replicate_count + 1):
                 replicate_root = (
@@ -228,6 +231,7 @@ def main(argv: list[str] | None = None) -> int:
                     run_part2_campaign(
                         replicate_config,
                         Path(args.scenario),
+                        Path(args.properties),
                         [Path(path) for path in args.heldout_test],
                         replicate_root / "campaign",
                     )

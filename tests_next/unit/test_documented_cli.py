@@ -270,16 +270,22 @@ def test_live_part2_passes_scenario_and_hidden_tests_to_campaign(
     config_path = write_config(tmp_path, "part2")
     scenario = tmp_path / "scenario.md"
     scenario.write_text("Build a reliable transformation skill.\n", encoding="utf-8")
+    properties = tmp_path / "development-properties.json"
+    properties.write_text(
+        '[{"property_id":"P1","description":"The result is correct."}]\n',
+        encoding="utf-8",
+    )
     hidden_a = tmp_path / "hidden-a.json"
     hidden_b = tmp_path / "hidden-b.json"
     hidden_a.write_text("{}\n", encoding="utf-8")
     hidden_b.write_text("{}\n", encoding="utf-8")
     observed: dict[str, object] = {}
 
-    def fake_campaign(config, scenario_path, heldout_paths, output):
+    def fake_campaign(config, scenario_path, property_path, heldout_paths, output):
         observed.update(
             config=config,
             scenario_path=scenario_path,
+            property_path=property_path,
             heldout_paths=heldout_paths,
             output=output,
         )
@@ -294,6 +300,8 @@ def test_live_part2_passes_scenario_and_hidden_tests_to_campaign(
             str(config_path),
             "--scenario",
             str(scenario),
+            "--properties",
+            str(properties),
             "--heldout-test",
             str(hidden_a),
             "--heldout-test",
@@ -303,6 +311,7 @@ def test_live_part2_passes_scenario_and_hidden_tests_to_campaign(
     ) == 0
 
     assert observed["scenario_path"] == scenario
+    assert observed["property_path"] == properties
     assert observed["heldout_paths"] == [hidden_a, hidden_b]
     replicate = tmp_path / "part2-run" / "replicates" / "0001"
     assert observed["config"].scenario_path == scenario
@@ -321,6 +330,11 @@ def test_failed_live_campaign_writes_terminal_command_receipt(
     config_path = write_config(tmp_path, "part2")
     scenario = tmp_path / "scenario.md"
     scenario.write_text("Build a reliable transformation skill.\n", encoding="utf-8")
+    properties = tmp_path / "development-properties.json"
+    properties.write_text(
+        '[{"property_id":"P1","description":"The result is correct."}]\n',
+        encoding="utf-8",
+    )
     hidden = tmp_path / "hidden.json"
     hidden.write_text("{}\n", encoding="utf-8")
 
@@ -337,6 +351,8 @@ def test_failed_live_campaign_writes_terminal_command_receipt(
                 str(config_path),
                 "--scenario",
                 str(scenario),
+                "--properties",
+                str(properties),
                 "--heldout-test",
                 str(hidden),
                 "--live",
