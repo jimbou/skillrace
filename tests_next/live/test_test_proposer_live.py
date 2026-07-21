@@ -16,15 +16,17 @@ from skillrace_next.storage import atomic_write_json, tree_hash
 pytestmark = pytest.mark.live
 
 
+@pytest.mark.parametrize("model_id", ["deepseek-v4-flash", "qwen3.6-flash"])
 def test_real_random_proposal_passes_deterministic_validation(
     live_evidence_root: Path,
+    model_id: str,
 ) -> None:
     secret = os.environ.get("LAB_KEY_UNLIMITED")
     if not secret:
         pytest.fail("LAB_KEY_UNLIMITED is required for the live contract")
 
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
-    evidence = live_evidence_root / "test-proposer" / run_id
+    evidence = live_evidence_root / "test-proposer" / model_id / run_id
     evidence.mkdir(parents=True)
     image = "skillrace-next/task-fixture:test"
     subprocess.run(
@@ -39,7 +41,7 @@ def test_real_random_proposal_passes_deterministic_validation(
         check=True,
         capture_output=True,
         text=True,
-        timeout=300,
+        timeout=600,
     )
     skill_dir = evidence / "skill"
     skill_dir.mkdir()
@@ -58,7 +60,7 @@ def test_real_random_proposal_passes_deterministic_validation(
         directory_path=skill_dir,
         tree_hash=tree_hash(skill_dir),
         creation_role="fixture",
-        model_id="deepseek-v4-flash",
+        model_id=model_id,
         receipt_path=skill_receipt,
     )
     config = ExperimentConfig(
@@ -67,7 +69,7 @@ def test_real_random_proposal_passes_deterministic_validation(
         methods=("random",),
         replicate_count=1,
         provider="lab",
-        model_id="deepseek-v4-flash",
+        model_id=model_id,
         pi_version="0.73.1",
         role_budgets={"proposer": 4, "weak_agent": 4, "patcher": 6},
         verifier_backend="codex",
@@ -114,19 +116,27 @@ def test_real_random_proposal_passes_deterministic_validation(
     assert "file" in prompt.lower()
     assert "/mnt/data" not in prompt
     assert "/tmp" not in prompt
-    assert "already exists" not in prompt.lower()
     checks = json.loads(validated.nl_check_path.read_text(encoding="utf-8"))
-    assert checks
-    assert {check["property_id"] for check in checks} <= {"P1", "P2"}
+    assert checks == properties
+    dockerfile = (validated.environment_directory / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    assert dockerfile.startswith(f"FROM {image}\n")
+    assert "WORKDIR /workspace" in dockerfile
     proposal_receipt = json.loads(
         validated.proposal_receipt.read_text(encoding="utf-8")
     )
-    assert proposal_receipt["status"] == "completed"
-    assert proposal_receipt["provider"] == "lab"
-    assert proposal_receipt["model"] == "deepseek-v4-flash"
-    assert proposal_receipt["qualified_model"] == "lab/deepseek-v4-flash"
-    assert proposal_receipt["usage"]["input_tokens"] > 0
-    assert Path(proposal_receipt["trace_path"]).is_file()
+    assert proposal_receipt["catalog_hash"] == validated.nl_check_hash
+    assert proposal_receipt["environment_hash"] == validated.environment_hash
+    pi_receipt = json.loads(
+        Path(proposal_receipt["pi_receipt_path"]).read_text(encoding="utf-8")
+    )
+    assert pi_receipt["status"] == "completed"
+    assert pi_receipt["provider"] == "lab"
+    assert pi_receipt["model"] == model_id
+    assert pi_receipt["qualified_model"] == f"lab/{model_id}"
+    assert pi_receipt["usage"]["input_tokens"] > 0
+    assert Path(pi_receipt["trace_path"]).is_file()
     for path in evidence.rglob("*"):
         if path.is_file():
             assert secret not in path.read_text(encoding="utf-8", errors="replace")

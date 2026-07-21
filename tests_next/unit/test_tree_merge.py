@@ -16,6 +16,12 @@ from tests_next.unit.test_episode_creator import valid_episodes
 from tests_next.unit.test_test_cases import config_for
 
 
+PROPERTIES = [
+    {"property_id": "P1", "description": "The requested artifact is correct."},
+    {"property_id": "P2", "description": "The result preserves supplied inputs."},
+]
+
+
 def root_tree() -> dict[str, object]:
     return {
         "schema": "skillrace-reasoning-tree/1",
@@ -377,7 +383,11 @@ def test_skillrace_proposal_records_selected_branch_and_validates_test(
                                 "text": json.dumps(
                                     {
                                         "prompt": "Exercise the alternative workflow exactly.",
-                                        "check_description": "The requested alternative output exists.",
+                                        "dockerfile": (
+                                            "FROM skillrace-next/task-fixture:test\n"
+                                            "RUN printf 'source\\n' > /source.txt\n"
+                                            "WORKDIR /workspace\n"
+                                        ),
                                     }
                                 ),
                             }
@@ -423,6 +433,7 @@ def test_skillrace_proposal_records_selected_branch_and_validates_test(
     proposed = propose_test(
         existing_branch_tree(),
         skill,
+        PROPERTIES,
         config,
         pi_runner=proposal_pi,
         validator=validator,
@@ -433,10 +444,13 @@ def test_skillrace_proposal_records_selected_branch_and_validates_test(
     receipt = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
     assert receipt["target_node_id"] == "alternative"
     assert receipt["pi_receipt_path"] == str(requests[0].output_dir / "receipt.json")
+    assert receipt["catalog_hash"] == proposed.nl_check_hash
+    assert receipt["environment_hash"] == proposed.environment_hash
     proposal_prompt = requests[0].prompt_path.read_text(encoding="utf-8")
-    assert "starts with an empty /workspace" in proposal_prompt
-    assert "Do not use /mnt/data or /tmp" in proposal_prompt
-    assert "must not add requirements" in proposal_prompt
+    assert "Dockerfile" in proposal_prompt
+    assert json.dumps(PROPERTIES, sort_keys=True) in proposal_prompt
+    assert "do not use /mnt/data or /tmp" in proposal_prompt.lower()
+    assert "consistent with the visible prompt" in proposal_prompt
     assert "meaningfully exercise the supplied skill" in proposal_prompt
     assert "not a substitute for skill relevance" in proposal_prompt
     assert "internally consistent" in proposal_prompt
@@ -444,6 +458,7 @@ def test_skillrace_proposal_records_selected_branch_and_validates_test(
     assert "Try an alternative workflow" in proposal_prompt
     assert "Do not use Markdown fences" in proposal_prompt
     assert "self-contained" in proposal_prompt
-    assert "The requested alternative output exists" in proposed.nl_check_path.read_text(
+    assert json.loads(proposed.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
+    assert (proposed.environment_directory / "Dockerfile").read_text(
         encoding="utf-8"
-    )
+    ).startswith("FROM skillrace-next/task-fixture:test\nRUN printf")

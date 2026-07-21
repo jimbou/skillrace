@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Callable
 import uuid
 
-from ..pipeline.stages import validate_test
+from ..pipeline.stages import validate_generated_dockerfile, validate_test
 from ..records import ExperimentConfig, RunRecord, SkillVersion, TestCase
 from ..runtime.pi import PiRequest, PiResult, run_pi
 from ..storage import atomic_write_json, file_hash, tree_hash
@@ -529,11 +529,19 @@ def select_unreached_branch(tree: dict[str, Any]) -> dict[str, Any] | None:
 def propose_test(
     tree: dict[str, Any],
     skill: SkillVersion,
+    properties: list[dict[str, Any]],
     config: ExperimentConfig,
     *,
     pi_runner: PiRunner = run_pi,
     validator: TestValidator = validate_test,
 ) -> TestCase:
+    property_ids = [item.get("property_id") for item in properties]
+    if (
+        not properties
+        or not all(isinstance(item, str) and item for item in property_ids)
+        or len(set(property_ids)) != len(properties)
+    ):
+        raise ValueError("properties must contain unique property IDs")
     target = select_unreached_branch(tree)
     if target is None:
         raise ValueError("reasoning tree has no unreached branch")
@@ -548,17 +556,20 @@ def propose_test(
         "task that merely resembles the branch is invalid; the branch is not a substitute "
         "for skill relevance. Make all inline data, expected values, examples, and prose "
         "internally consistent; do not emit mutually inconsistent requirements. The task "
-        "must be self-contained: specify all paths, inline "
-        "input data, and an observable expected result. The task container starts with an "
-        "empty /workspace, so do not claim that a file or project already exists. Tell the "
-        "agent to create every needed file, and put every task and artifact path under "
-        "/workspace. Do not use /mnt/data or /tmp. The check_description must not add "
-        "requirements absent from the visible task prompt. Return only one JSON object with "
-        "exactly prompt and check_description; both values must be nonempty strings. "
-        "check_description must state a concrete artifact observation. The entire response "
-        "must start with { and end with }. "
+        "must be self-contained. Generate its visible prompt and complete Dockerfile. The "
+        "Dockerfile may create task inputs, and the prompt must accurately describe them. "
+        "Put task and artifact paths under /workspace and do not use /mnt/data or /tmp in "
+        "the task prompt. The Dockerfile must be no larger than 32 KiB, start with exactly "
+        f"'FROM {config.docker_image}', contain exactly one FROM, use no ADD or COPY, and "
+        "contain exactly 'WORKDIR /workspace'. Preserve the installed Pi runtime. The task "
+        "must be compatible with every fixed property, and all property requirements must "
+        "be consistent with the visible prompt. Return only one JSON object with exactly "
+        "prompt and dockerfile; both values must be nonempty strings. Do not return check "
+        "prose, check IDs, or any other keys. The entire response must start with { and end "
+        "with }. "
         "Do not use Markdown fences or tools.\n\n"
         f"SELECTED BRANCH:\n{json.dumps(target, sort_keys=True)}\n\n"
+        f"FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
         f"SKILL.md:\n{skill_text}\n",
         encoding="utf-8",
     )
@@ -578,20 +589,19 @@ def propose_test(
     if result.status != "completed":
         raise RuntimeError(f"Pi SkillRACE proposal failed: {result.status}")
     response = _assistant_json(result.trace_path)
-    if not isinstance(response, dict) or set(response) != {
-        "prompt",
-        "check_description",
-    }:
+    if not isinstance(response, dict) or set(response) != {"prompt", "dockerfile"}:
         raise ValueError("SkillRACE proposal response is invalid")
     prompt = response["prompt"]
-    check_description = response["check_description"]
     if (
         not isinstance(prompt, str)
         or not prompt.strip()
-        or not isinstance(check_description, str)
-        or not check_description.strip()
+        or not isinstance(response["dockerfile"], str)
+        or not response["dockerfile"].strip()
     ):
         raise ValueError("SkillRACE proposal fields must be nonempty")
+    dockerfile = validate_generated_dockerfile(
+        response["dockerfile"], config.docker_image
+    )
     test_id = "skillrace-" + uuid.uuid4().hex
     case = output / test_id
     environment = case / "environment"
@@ -599,43 +609,38 @@ def propose_test(
     task_path = case / "prompt.txt"
     task_path.write_text(prompt.strip() + "\n", encoding="utf-8")
     checks_path = case / "nl_checks.json"
-    atomic_write_json(
-        checks_path,
-        [
-            {
-                "property_id": "P1",
-                "description": (
-                    f"{check_description.strip()} Target branch {target['node_id']}: "
-                    f"{target['purpose']}."
-                ),
-            }
-        ],
-    )
-    if "\n" in config.docker_image:
-        raise ValueError("docker image must not contain a newline")
+    atomic_write_json(checks_path, properties)
     (environment / "Dockerfile").write_text(
-        f"FROM {config.docker_image}\nWORKDIR /workspace\n", encoding="utf-8"
+        dockerfile, encoding="utf-8"
     )
     atomic_write_json(environment / "sanity.json", {"status": "pass"})
+    prompt_hash = file_hash(task_path)
+    environment_hash = tree_hash(environment)
+    catalog_hash = file_hash(checks_path)
     proposal_receipt = case / "proposal.json"
     atomic_write_json(
         proposal_receipt,
         {
-            "schema": "skillrace-branch-proposal/1",
+            "schema": "skillrace-generated-test-proposal/1",
+            "method": "skillrace",
+            "catalog_hash": catalog_hash,
+            "prompt_hash": prompt_hash,
+            "environment_hash": environment_hash,
             "target_node_id": target["node_id"],
             "target_reach_status": target["reach_status"],
             "pi_receipt_path": str(result.receipt_path),
+            "pi_receipt_hash": file_hash(result.receipt_path),
             "model": config.model_id,
         },
     )
     proposed = TestCase(
         test_id=test_id,
         prompt_path=task_path,
-        prompt_hash=file_hash(task_path),
+        prompt_hash=prompt_hash,
         environment_directory=environment,
-        environment_hash=tree_hash(environment),
+        environment_hash=environment_hash,
         nl_check_path=checks_path,
-        nl_check_hash=file_hash(checks_path),
+        nl_check_hash=catalog_hash,
         origin_method="skillrace",
         proposal_receipt=proposal_receipt,
         validation_status="pending",

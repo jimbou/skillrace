@@ -38,6 +38,19 @@ PROPERTIES = [
 ]
 
 
+def proposal(prompt: str) -> str:
+    return json.dumps(
+        {
+            "prompt": prompt,
+            "dockerfile": (
+                "FROM skillrace-next/task-fixture:test\n"
+                "RUN printf 'seeded\\n' > /seed.txt\n"
+                "WORKDIR /workspace\n"
+            ),
+        }
+    )
+
+
 def fake_pi_responses(responses: list[str], calls: list[PiRequest]) -> Any:
     def fake(request: PiRequest) -> PiResult:
         calls.append(request)
@@ -77,12 +90,7 @@ def fake_pi_responses(responses: list[str], calls: list[PiRequest]) -> Any:
 
 def test_random_proposal_materializes_one_independent_test(tmp_path: Path) -> None:
     calls: list[PiRequest] = []
-    response = json.dumps(
-        {
-            "prompt": "Create result.txt containing exactly alpha.",
-            "property_ids": ["P1", "P2"],
-        }
-    )
+    response = proposal("Create result.txt containing exactly alpha.")
 
     proposed = propose_test(
         skill_version(tmp_path),
@@ -94,9 +102,10 @@ def test_random_proposal_materializes_one_independent_test(tmp_path: Path) -> No
 
     assert len(calls) == 1
     proposal_prompt = calls[0].prompt_path.read_text(encoding="utf-8")
-    assert "starts with an empty /workspace" in proposal_prompt
-    assert "Do not use /mnt/data or /tmp" in proposal_prompt
-    assert "must not add requirements" in proposal_prompt
+    assert "Dockerfile" in proposal_prompt
+    assert "skillrace-next/task-fixture:test" in proposal_prompt
+    assert "do not use /mnt/data or /tmp" in proposal_prompt.lower()
+    assert "consistent with requirements visible" in proposal_prompt
     assert "meaningfully exercise the supplied skill" in proposal_prompt
     assert "not a substitute for skill relevance" in proposal_prompt
     assert "internally consistent" in proposal_prompt
@@ -107,14 +116,26 @@ def test_random_proposal_materializes_one_independent_test(tmp_path: Path) -> No
         "Create result.txt containing exactly alpha.\n"
     )
     checks = json.loads(proposed.nl_check_path.read_text(encoding="utf-8"))
-    assert [check["property_id"] for check in checks] == ["P1", "P2"]
-    assert (proposed.environment_directory / "Dockerfile").is_file()
+    assert checks == PROPERTIES
+    assert (proposed.environment_directory / "Dockerfile").read_text(
+        encoding="utf-8"
+    ) == (
+        "FROM skillrace-next/task-fixture:test\n"
+        "RUN printf 'seeded\\n' > /seed.txt\n"
+        "WORKDIR /workspace\n"
+    )
     assert (proposed.environment_directory / "sanity.json").is_file()
+    receipt = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
+    assert receipt["schema"] == "skillrace-generated-test-proposal/1"
+    assert receipt["method"] == "random"
+    assert receipt["catalog_hash"] == proposed.nl_check_hash
+    assert receipt["prompt_hash"] == proposed.prompt_hash
+    assert receipt["environment_hash"] == proposed.environment_hash
 
 
 def test_random_proposal_allows_one_format_correction(tmp_path: Path) -> None:
     calls: list[PiRequest] = []
-    valid = json.dumps({"prompt": "Create beta.txt.", "property_ids": ["P1"]})
+    valid = proposal("Create beta.txt.")
 
     proposed = propose_test(
         skill_version(tmp_path),
@@ -133,8 +154,8 @@ def test_random_proposal_accepts_one_standard_json_fence(tmp_path: Path) -> None
     calls: list[PiRequest] = []
     response = (
         "```json\n"
-        '{"prompt":"Create result.txt.","property_ids":["P1"]}'
-        "\n```"
+        + proposal("Create result.txt.")
+        + "\n```"
     )
 
     proposed = propose_test(
@@ -153,11 +174,8 @@ def test_random_proposal_accepts_outer_fence_when_prompt_contains_code_fence(
     tmp_path: Path,
 ) -> None:
     calls: list[PiRequest] = []
-    response = "```json\n" + json.dumps(
-        {
-            "prompt": "Create example.py containing:\n```python\nprint('ok')\n```",
-            "property_ids": ["P1"],
-        }
+    response = "```json\n" + proposal(
+        "Create example.py containing:\n```python\nprint('ok')\n```"
     ) + "\n```"
 
     proposed = propose_test(
@@ -197,7 +215,7 @@ def test_invalid_proposal_gets_one_replacement_without_spending_agent_slot(
         config_for(tmp_path),
         tmp_path / "base",
         fake_pi_responses(
-            [json.dumps({"prompt": "Create gamma.txt.", "property_ids": ["P1"]})],
+            [proposal("Create gamma.txt.")],
             [],
         ),
     )

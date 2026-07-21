@@ -80,13 +80,21 @@ def _select_test(
         if not state.get("transition_counts"):
             return _seed_test(method, skill, properties, config, output)
         proposal_config = replace(config, output_root=output)
-        return _case(verigrey_method.propose_test(state, skill, proposal_config))
+        return _case(
+            verigrey_method.propose_test(
+                state, skill, properties, proposal_config
+            )
+        )
     if method == "skillrace":
         tree = state.get("tree")
         if not isinstance(tree, dict) or skillrace_method.select_unreached_branch(tree) is None:
             return _seed_test(method, skill, properties, config, output)
         proposal_config = replace(config, output_root=output)
-        return _case(skillrace_method.propose_test(tree, skill, proposal_config))
+        return _case(
+            skillrace_method.propose_test(
+                tree, skill, properties, proposal_config
+            )
+        )
     raise ValueError(f"unknown method: {method}")
 
 

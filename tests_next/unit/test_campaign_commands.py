@@ -126,7 +126,8 @@ def test_adaptive_proposals_are_stored_under_the_iteration_selection(
     )
 
     def fake_propose(*args, **kwargs):
-        observed["config"] = args[2]
+        observed["properties"] = args[2]
+        observed["config"] = args[3]
         return proposed
 
     monkeypatch.setattr(module, "propose_test", fake_propose)
@@ -136,6 +137,7 @@ def test_adaptive_proposals_are_stored_under_the_iteration_selection(
     )
 
     assert observed["config"].output_root == destination
+    assert observed["properties"] == [{"property_id": "P1"}]
     assert selected["case"] is proposed
 
 

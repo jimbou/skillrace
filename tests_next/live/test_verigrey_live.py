@@ -21,6 +21,12 @@ from tests_next.live.test_tree_merge_live import live_config
 pytestmark = pytest.mark.live
 
 
+PROPERTIES = [
+    {"property_id": "P1", "description": "The requested artifact is correct."},
+    {"property_id": "P2", "description": "The agent verifies the result."},
+]
+
+
 def write_trace(path: Path) -> None:
     calls = [
         ("read", {"path": "/workspace/input.txt", "offset": 2, "limit": 3}),
@@ -100,7 +106,7 @@ def test_real_yunwu_proposes_valid_test_for_tool_novelty_target(
         {"base_image": config.docker_image, "base_image_id": base_image_id},
     )
 
-    proposed = propose_test(state, skill, config)
+    proposed = propose_test(state, skill, PROPERTIES, config)
 
     assert proposed.validation_status == "valid"
     assert proposed.container_image_id.startswith("sha256:")
@@ -113,7 +119,7 @@ def test_real_yunwu_proposes_valid_test_for_tool_novelty_target(
     assert pi_receipt["model"] == "deepseek-v3.2"
     assert pi_receipt["status"] == "completed"
     assert pi_receipt["usage"]["total_tokens"] > 0
-    assert "write -> bash" in proposed.nl_check_path.read_text(encoding="utf-8")
+    assert json.loads(proposed.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
     atomic_write_json(evidence / "test-case.json", proposed.to_dict())
     for path in evidence.rglob("*"):
         if path.is_file():
@@ -164,7 +170,7 @@ def test_real_deepseek_v4_proposes_relevant_verigrey_test(
         timeouts={**base.timeouts, "pi": 240},
     )
 
-    proposed = propose_test(state, skill, config)
+    proposed = propose_test(state, skill, PROPERTIES, config)
 
     assert proposed.validation_status == "valid"
     prompt = proposed.prompt_path.read_text(encoding="utf-8")

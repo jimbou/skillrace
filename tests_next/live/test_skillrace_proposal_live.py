@@ -15,6 +15,12 @@ from tests_next.live.test_tree_merge_live import live_config
 pytestmark = pytest.mark.live
 
 
+PROPERTIES = [
+    {"property_id": "P1", "description": "The requested artifact is correct."},
+    {"property_id": "P2", "description": "The agent verifies the result."},
+]
+
+
 def latest_real_tree() -> Path:
     root = Path("out/live-contracts/tree-merger")
     for candidate in sorted(root.iterdir(), reverse=True) if root.is_dir() else []:
@@ -61,6 +67,7 @@ def test_real_yunwu_proposes_valid_test_for_selected_unreached_branch(
     proposed = propose_test(
         tree,
         skill,
+        PROPERTIES,
         live_config(evidence, {"proposer": 4}),
     )
 
@@ -73,7 +80,7 @@ def test_real_yunwu_proposes_valid_test_for_selected_unreached_branch(
     assert pi_receipt["provider"] == "yunwu"
     assert pi_receipt["model"] == "deepseek-v3.2"
     assert pi_receipt["status"] == "completed"
-    assert selected["purpose"] in proposed.nl_check_path.read_text(encoding="utf-8")
+    assert json.loads(proposed.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
     for path in evidence.rglob("*"):
         if path.is_file():
             assert secret not in path.read_text(encoding="utf-8", errors="replace")

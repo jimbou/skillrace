@@ -64,13 +64,26 @@ def pending_test(root: Path) -> SkillTestCase:
         encoding="utf-8",
     )
     (environment / "Dockerfile").write_text(
-        "FROM skillrace-next/task-fixture:test\n", encoding="utf-8"
+        "FROM skillrace-next/task-fixture:test\nWORKDIR /workspace\n", encoding="utf-8"
     )
     (environment / "sanity.json").write_text(
         json.dumps({"status": "pass"}), encoding="utf-8"
     )
     receipt = case / "proposal.json"
-    receipt.write_text("{}\n", encoding="utf-8")
+    receipt.write_text(
+        json.dumps(
+            {
+                "schema": "skillrace-generated-test-proposal/1",
+                "method": "random",
+                "catalog_hash": file_hash(checks),
+                "prompt_hash": file_hash(prompt),
+                "environment_hash": tree_hash(environment),
+                "pi_receipt_path": "proposal-attempt-1/receipt.json",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     return SkillTestCase(
         test_id="test-1",
         prompt_path=prompt,
@@ -138,6 +151,41 @@ def test_validate_test_accepts_method_generated_case_under_output_root(
     validated = validate_test(test, config, successful_build)
 
     assert validated.validation_status == "valid"
+
+
+def test_validate_test_rejects_generated_catalog_substitution(tmp_path: Path) -> None:
+    test = pending_test(tmp_path)
+    test.nl_check_path.write_text(
+        json.dumps(
+            [{"property_id": "P1", "description": "A substituted check."}]
+        ),
+        encoding="utf-8",
+    )
+    test = replace(test, nl_check_hash=file_hash(test.nl_check_path))
+
+    result = validate_test(test, config_for(tmp_path), successful_build)
+
+    assert result.validation_status == "invalid_test"
+    assert "catalog hash" in result.validation_diagnostic
+
+
+def test_validate_test_rejects_generated_dockerfile_with_different_base(
+    tmp_path: Path,
+) -> None:
+    test = pending_test(tmp_path)
+    (test.environment_directory / "Dockerfile").write_text(
+        "FROM python:3.13\nWORKDIR /workspace\n", encoding="utf-8"
+    )
+    environment_hash = tree_hash(test.environment_directory)
+    receipt = json.loads(test.proposal_receipt.read_text(encoding="utf-8"))
+    receipt["environment_hash"] = environment_hash
+    test.proposal_receipt.write_text(json.dumps(receipt) + "\n", encoding="utf-8")
+    test = replace(test, environment_hash=environment_hash)
+
+    result = validate_test(test, config_for(tmp_path), successful_build)
+
+    assert result.validation_status == "invalid_test"
+    assert "base image" in result.validation_diagnostic
 
 
 @pytest.mark.parametrize(

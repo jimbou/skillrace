@@ -13,6 +13,25 @@ from skillrace_next.storage import tree_hash
 from tests_next.unit.test_test_cases import config_for
 
 
+PROPERTIES = [
+    {"property_id": "P1", "description": "The requested artifact is correct."},
+    {"property_id": "P2", "description": "The agent verifies the result."},
+]
+
+
+def proposal_response(prompt: str) -> str:
+    return json.dumps(
+        {
+            "prompt": prompt,
+            "dockerfile": (
+                "FROM skillrace-next/task-fixture:test\n"
+                "RUN printf 'input\\n' > /fixture.txt\n"
+                "WORKDIR /workspace\n"
+            ),
+        }
+    )
+
+
 def tool_trace(path: Path) -> None:
     records = [
         {
@@ -176,13 +195,8 @@ def test_proposal_targets_undercovered_transition_and_records_exact_evidence(
                         "content": [
                             {
                                 "type": "text",
-                                "text": json.dumps(
-                                    {
-                                        "prompt": "Create /workspace/result.txt with one line.",
-                                        "check_description": (
-                                            "/workspace/result.txt exists and has exactly one line."
-                                        ),
-                                    }
+                                "text": proposal_response(
+                                    "Create /workspace/result.txt with one line."
                                 ),
                             }
                         ],
@@ -218,6 +232,7 @@ def test_proposal_targets_undercovered_transition_and_records_exact_evidence(
     proposed = propose_test(
         state,
         skill,
+        PROPERTIES,
         replace(config_for(tmp_path), role_budgets={"proposer": 4}),
         pi_runner=fake_pi,
         validator=fake_validator,
@@ -226,9 +241,10 @@ def test_proposal_targets_undercovered_transition_and_records_exact_evidence(
     target = {"source": write, "target": bash, "count": 1}
     assert len(requests) == 1
     pi_prompt = requests[0].prompt_path.read_text(encoding="utf-8")
-    assert "starts with an empty /workspace" in pi_prompt
-    assert "Do not use /mnt/data or /tmp" in pi_prompt
-    assert "must not add requirements" in pi_prompt
+    assert "Dockerfile" in pi_prompt
+    assert json.dumps(PROPERTIES, sort_keys=True) in pi_prompt
+    assert "do not use /mnt/data or /tmp" in pi_prompt.lower()
+    assert "consistent with the visible prompt" in pi_prompt
     assert "meaningfully exercise the supplied skill" in pi_prompt
     assert "not a substitute for skill relevance" in pi_prompt
     assert "internally consistent" in pi_prompt
@@ -239,8 +255,12 @@ def test_proposal_targets_undercovered_transition_and_records_exact_evidence(
     proposal = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
     assert proposal["novelty_target"] == target
     assert proposal["tool_sequence_evidence"] == state["last_observation"]
-    assert "write" in proposed.nl_check_path.read_text(encoding="utf-8")
-    assert "bash" in proposed.nl_check_path.read_text(encoding="utf-8")
+    assert json.loads(proposed.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
+    assert proposal["catalog_hash"] == proposed.nl_check_hash
+    assert proposal["environment_hash"] == proposed.environment_hash
+    assert (proposed.environment_directory / "Dockerfile").read_text(
+        encoding="utf-8"
+    ).startswith("FROM skillrace-next/task-fixture:test\nRUN printf")
 
 
 def test_proposal_allows_one_format_correction(tmp_path: Path) -> None:
@@ -269,12 +289,7 @@ def test_proposal_allows_one_format_correction(tmp_path: Path) -> None:
         response = (
             "```json\n{\"prompt\": \"bad\", \"check_description\": \"bad\"}\n```"
             if len(requests) == 1
-            else json.dumps(
-                {
-                    "prompt": "Create /workspace/data.csv and summarize its rows.",
-                    "check_description": "The row count is reported.",
-                }
-            )
+            else proposal_response("Create /workspace/data.csv and summarize its rows.")
         )
         trace = request.output_dir / "trace.jsonl"
         trace.write_text(
@@ -316,6 +331,7 @@ def test_proposal_allows_one_format_correction(tmp_path: Path) -> None:
     proposed = propose_test(
         state,
         skill,
+        PROPERTIES,
         replace(config_for(tmp_path), role_budgets={"proposer": 4}),
         pi_runner=correcting_pi,
         validator=validator,

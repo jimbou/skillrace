@@ -508,6 +508,31 @@ def validate_nl_checks(path: str | Path) -> list[dict[str, Any]]:
     return checks
 
 
+def validate_generated_dockerfile(dockerfile: str, base_image: str) -> str:
+    if not isinstance(dockerfile, str) or not dockerfile.strip():
+        raise ValueError("generated Dockerfile must be nonempty")
+    if "\x00" in dockerfile or len(dockerfile.encode("utf-8")) > 32 * 1024:
+        raise ValueError("generated Dockerfile is malformed or too large")
+    if not base_image or "\n" in base_image or "\r" in base_image:
+        raise ValueError("Docker base image is malformed")
+    lines = [
+        line.strip()
+        for line in dockerfile.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    first = lines[0].split() if lines else []
+    if len(first) != 2 or first[0].upper() != "FROM" or first[1] != base_image:
+        raise ValueError(f"generated Dockerfile must use base image {base_image}")
+    instructions = [line.split(maxsplit=1)[0].upper() for line in lines]
+    if instructions.count("FROM") != 1:
+        raise ValueError("generated Dockerfile must contain exactly one FROM")
+    if any(instruction in {"ADD", "COPY"} for instruction in instructions):
+        raise ValueError("generated Dockerfile cannot use ADD or COPY")
+    if not any(line.upper() == "WORKDIR /WORKSPACE" for line in lines):
+        raise ValueError("generated Dockerfile must set WORKDIR /workspace")
+    return dockerfile.rstrip() + "\n"
+
+
 def _inside(path: Path, root: Path) -> bool:
     try:
         path.resolve().relative_to(root.resolve())
@@ -557,6 +582,23 @@ def validate_test(
         dockerfile = test.environment_directory / "Dockerfile"
         if not dockerfile.is_file():
             raise ValueError("environment Dockerfile is missing")
+        if test.origin_method in {"random", "verigrey", "skillrace"}:
+            proposal = json.loads(test.proposal_receipt.read_text(encoding="utf-8"))
+            if not isinstance(proposal, dict) or proposal.get("schema") != (
+                "skillrace-generated-test-proposal/1"
+            ):
+                raise ValueError("generated proposal receipt is invalid")
+            if proposal.get("method") != test.origin_method:
+                raise ValueError("generated proposal method is invalid")
+            if proposal.get("catalog_hash") != test.nl_check_hash:
+                raise ValueError("generated proposal catalog hash mismatch")
+            if proposal.get("prompt_hash") != test.prompt_hash:
+                raise ValueError("generated proposal prompt hash mismatch")
+            if proposal.get("environment_hash") != test.environment_hash:
+                raise ValueError("generated proposal environment hash mismatch")
+            validate_generated_dockerfile(
+                dockerfile.read_text(encoding="utf-8"), config.docker_image
+            )
         sanity_path = test.environment_directory / "sanity.json"
         sanity = json.loads(sanity_path.read_text(encoding="utf-8"))
         if not isinstance(sanity, dict) or sanity.get("status") != "pass":

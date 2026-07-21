@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Callable
 import uuid
 
-from ..pipeline.stages import validate_test
+from ..pipeline.stages import validate_generated_dockerfile, validate_test
 from ..records import ExperimentConfig, SkillVersion, TestCase
 from ..runtime.pi import PiRequest, PiResult, run_pi
 from ..storage import atomic_write_json, file_hash, tree_hash
@@ -40,25 +40,21 @@ def _assistant_json(trace_path: Path) -> dict[str, Any]:
     ):
         response = response[len("```json\n") : -len("\n```")]
     value = json.loads(response)
-    if not isinstance(value, dict) or set(value) != {"prompt", "property_ids"}:
-        raise ValueError("proposal must contain exactly prompt and property_ids")
+    if not isinstance(value, dict) or set(value) != {"prompt", "dockerfile"}:
+        raise ValueError("proposal must contain exactly prompt and dockerfile")
     prompt = value["prompt"]
-    property_ids = value["property_ids"]
+    dockerfile = value["dockerfile"]
     if not isinstance(prompt, str) or not prompt.strip():
         raise ValueError("proposal prompt must be nonempty")
-    if (
-        not isinstance(property_ids, list)
-        or not property_ids
-        or not all(isinstance(item, str) for item in property_ids)
-        or len(set(property_ids)) != len(property_ids)
-    ):
-        raise ValueError("proposal property_ids must be a nonempty unique string list")
-    return {"prompt": prompt.strip(), "property_ids": property_ids}
+    if not isinstance(dockerfile, str) or not dockerfile.strip():
+        raise ValueError("proposal Dockerfile must be nonempty")
+    return {"prompt": prompt.strip(), "dockerfile": dockerfile}
 
 
 def _proposal_prompt(
     skill: SkillVersion,
     properties: list[dict[str, Any]],
+    base_image: str,
     diagnostic: str | None = None,
 ) -> str:
     skill_text = (skill.directory_path / "SKILL.md").read_text(encoding="utf-8")
@@ -69,18 +65,21 @@ def _proposal_prompt(
     )
     return (
         "Propose one independent development test for this skill. Return only one JSON "
-        "object with exactly two keys: prompt (a nonempty task string) and property_ids "
-        "(a nonempty list chosen only from the supplied property IDs). The task container "
-        "must meaningfully exercise the supplied skill and the selected properties. A "
+        "object with exactly two keys: prompt (a nonempty task string) and dockerfile "
+        "(the complete Dockerfile string for the task). Do not return check prose, check "
+        "IDs, or any other keys. The task container must meaningfully exercise the supplied "
+        "skill and be compatible with the complete fixed property catalog. A "
         "generic task that merely uses convenient tools is invalid; tool use is not a "
         "substitute for skill relevance. Make all inline data, expected values, examples, "
         "and prose internally consistent; do not emit mutually inconsistent requirements. "
-        "The task container "
-        "starts with an empty /workspace, so the prompt must include all input data and tell "
-        "the agent to create every needed file. Do not claim that a file or project already "
-        "exists. Put every task and artifact path under /workspace. Do not use /mnt/data or "
-        "/tmp. The selected properties must not add requirements absent from the visible "
-        "task prompt. Do not use tools.\n\n"
+        "The Dockerfile may create task inputs, and the visible prompt must accurately "
+        "describe any files or environment conditions it creates. Put every task and "
+        "artifact path under /workspace. Do not use /mnt/data or /tmp in the task prompt. "
+        "The Dockerfile must be no larger than 32 KiB, start with exactly "
+        f"'FROM {base_image}', contain exactly one FROM, use no ADD or COPY, "
+        "and contain exactly 'WORKDIR /workspace'. Preserve the installed Pi runtime. "
+        "All fixed properties must be consistent with requirements visible in the task "
+        "prompt. Do not use Markdown fences or tools.\n\n"
         f"SKILL.md:\n{skill_text}\n\n"
         f"Properties:\n{json.dumps(properties, sort_keys=True)}"
         f"{correction}\n"
@@ -101,17 +100,18 @@ def propose_test(
         for item in properties
         if isinstance(item, dict) and isinstance(item.get("property_id"), str)
     }
-    if not known:
-        raise ValueError("properties must contain at least one property_id")
+    if not known or len(known) != len(properties):
+        raise ValueError("properties must contain unique property IDs")
     parsed: dict[str, Any] | None = None
-    receipt_path: Path | None = None
+    pi_receipt_path: Path | None = None
     diagnostic: str | None = None
     for ordinal in (1, 2):
         attempt = output / f"proposal-attempt-{ordinal}"
         attempt.mkdir()
         prompt_path = attempt / "prompt.txt"
         prompt_path.write_text(
-            _proposal_prompt(skill, properties, diagnostic), encoding="utf-8"
+            _proposal_prompt(skill, properties, config.docker_image, diagnostic),
+            encoding="utf-8",
         )
         suffix = "" if ordinal == 1 else ".correction"
         result = pi_runner(
@@ -127,17 +127,18 @@ def propose_test(
                 timeout_seconds=config.timeouts["pi"],
             )
         )
-        receipt_path = result.receipt_path
+        pi_receipt_path = result.receipt_path
         if result.status != "completed":
             raise RuntimeError(f"Pi proposal failed: {result.status}")
         try:
             parsed = _assistant_json(result.trace_path)
-            if any(property_id not in known for property_id in parsed["property_ids"]):
-                raise ValueError("proposal referenced an unknown property ID")
+            parsed["dockerfile"] = validate_generated_dockerfile(
+                parsed["dockerfile"], config.docker_image
+            )
             break
         except (json.JSONDecodeError, OSError, ValueError) as error:
             diagnostic = str(error)
-    if parsed is None or receipt_path is None:
+    if parsed is None or pi_receipt_path is None:
         raise ValueError("two malformed proposal responses")
 
     test_id = "random-" + uuid.uuid4().hex
@@ -147,24 +148,38 @@ def propose_test(
     prompt_path = case / "prompt.txt"
     prompt_path.write_text(parsed["prompt"] + "\n", encoding="utf-8")
     nl_check_path = case / "nl_checks.json"
-    selected = [known[property_id] for property_id in parsed["property_ids"]]
-    atomic_write_json(nl_check_path, selected)
-    if "\n" in config.docker_image:
-        raise ValueError("docker image must not contain a newline")
+    atomic_write_json(nl_check_path, list(known.values()))
     (environment / "Dockerfile").write_text(
-        f"FROM {config.docker_image}\nWORKDIR /workspace\n", encoding="utf-8"
+        parsed["dockerfile"], encoding="utf-8"
     )
     atomic_write_json(environment / "sanity.json", {"status": "pass"})
+    prompt_hash = file_hash(prompt_path)
+    environment_hash = tree_hash(environment)
+    catalog_hash = file_hash(nl_check_path)
+    proposal_receipt = case / "proposal.json"
+    atomic_write_json(
+        proposal_receipt,
+        {
+            "schema": "skillrace-generated-test-proposal/1",
+            "method": "random",
+            "catalog_hash": catalog_hash,
+            "prompt_hash": prompt_hash,
+            "environment_hash": environment_hash,
+            "pi_receipt_path": str(pi_receipt_path),
+            "pi_receipt_hash": file_hash(pi_receipt_path),
+            "model": config.model_id,
+        },
+    )
     return TestCase(
         test_id=test_id,
         prompt_path=prompt_path,
-        prompt_hash=file_hash(prompt_path),
+        prompt_hash=prompt_hash,
         environment_directory=environment,
-        environment_hash=tree_hash(environment),
+        environment_hash=environment_hash,
         nl_check_path=nl_check_path,
-        nl_check_hash=file_hash(nl_check_path),
+        nl_check_hash=catalog_hash,
         origin_method="random",
-        proposal_receipt=receipt_path,
+        proposal_receipt=proposal_receipt,
         validation_status="pending",
         validation_diagnostic="",
         container_image_id="",
