@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -35,6 +36,11 @@ function argument(name) {
   return process.argv[index + 1];
 }
 
+function optionalArgument(name) {
+  const index = process.argv.indexOf(name);
+  return index < 0 || index + 1 >= process.argv.length ? undefined : process.argv[index + 1];
+}
+
 async function loadPiSdk() {
   const candidates = [
     "/usr/local/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js",
@@ -50,6 +56,8 @@ const provider = argument("--provider");
 const modelId = argument("--model");
 const keyEnvironment = argument("--key-environment");
 const maxTurns = Number.parseInt(argument("--max-turns"), 10);
+const rawTemperature = optionalArgument("--temperature");
+const temperature = rawTemperature === undefined ? undefined : Number(rawTemperature);
 const allowedTools = argument("--allowed-tools").split(",").filter(Boolean);
 const promptPath = argument("--prompt-path");
 const accountingDir = argument("--accounting-dir");
@@ -109,6 +117,9 @@ try {
   if (!Number.isInteger(maxTurns) || maxTurns < 1 || maxTurns > 12) {
     throw new Error("max turns must be in 1..12");
   }
+  if (temperature !== undefined && (!Number.isFinite(temperature) || temperature < 0 || temperature > 2)) {
+    throw new Error("temperature must be in 0..2");
+  }
   const prompt = fs.readFileSync(promptPath, "utf8");
   const {
     AuthStorage,
@@ -164,6 +175,13 @@ try {
     settingsManager,
   });
   session = created.session;
+  if (temperature !== undefined) {
+    const priorOnPayload = session.agent.onPayload;
+    session.agent.onPayload = async (payload, activeModel) => {
+      const transformed = priorOnPayload ? await priorOnPayload(payload, activeModel) : payload;
+      return { ...transformed, temperature };
+    };
+  }
   if (created.extensionsResult.errors.length) {
     throw new Error(JSON.stringify(created.extensionsResult.errors));
   }
@@ -207,6 +225,7 @@ class PiRequest:
     timeout_seconds: int
     mounts: tuple[tuple[Path, str, str], ...] = ()
     provider: str = "yunwu"
+    temperature: float | None = None
 
     def __post_init__(self) -> None:
         if not self.operation_id or len(self.operation_id) > 256:
@@ -224,6 +243,13 @@ class PiRequest:
             raise ValueError("timeout_seconds must be in 1..3600")
         if any(mode not in {"ro", "rw"} for _, _, mode in self.mounts):
             raise ValueError("mount mode must be ro or rw")
+        if self.temperature is not None and (
+            isinstance(self.temperature, bool)
+            or not isinstance(self.temperature, (int, float))
+            or not math.isfinite(self.temperature)
+            or not 0 <= self.temperature <= 2
+        ):
+            raise ValueError("temperature must be a finite number in 0..2")
 
 
 @dataclass(frozen=True)
@@ -349,6 +375,8 @@ def run_pi(
         "--accounting-dir",
         "/accounting",
     ]
+    if request.temperature is not None:
+        command.extend(("--temperature", str(request.temperature)))
     started = time.monotonic()
     return_code: int | None = None
     stdout = ""
@@ -395,6 +423,7 @@ def run_pi(
             "timeout_seconds": request.timeout_seconds,
             "max_turns": request.max_turns,
             "allowed_tools": list(request.allowed_tools),
+            "temperature": request.temperature,
             "trace_path": str(trace_path),
             "usage": usage,
             "estimated_cost_usd": (

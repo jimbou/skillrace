@@ -7,8 +7,7 @@ import uuid
 
 import pytest
 
-from skillrace_next.methods.random import propose_test
-from skillrace_next.pipeline.stages import validate_test
+from skillrace_next.methods.random import propose_valid_test
 from skillrace_next.records import ExperimentConfig, SkillVersion
 from skillrace_next.storage import atomic_write_json, tree_hash
 
@@ -105,8 +104,7 @@ def test_real_random_proposal_passes_deterministic_validation(
         },
     ]
 
-    proposed = propose_test(skill, properties, config, evidence / "proposal")
-    validated = validate_test(proposed, config)
+    validated = propose_valid_test(skill, properties, config, evidence / "proposal")
     atomic_write_json(evidence / "validated-test.json", validated.to_dict())
 
     assert validated.validation_status == "valid", validated.validation_diagnostic
@@ -135,6 +133,7 @@ def test_real_random_proposal_passes_deterministic_validation(
     assert pi_receipt["provider"] == "lab"
     assert pi_receipt["model"] == model_id
     assert pi_receipt["qualified_model"] == f"lab/{model_id}"
+    assert pi_receipt["temperature"] == 1.0
     assert pi_receipt["usage"]["input_tokens"] > 0
     assert Path(pi_receipt["trace_path"]).is_file()
     for path in evidence.rglob("*"):

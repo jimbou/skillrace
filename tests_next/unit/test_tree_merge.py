@@ -440,6 +440,7 @@ def test_skillrace_proposal_records_selected_branch_and_validates_test(
     )
 
     assert proposed.validation_status == "valid"
+    assert requests[0].temperature == 1.0
     assert proposed.origin_method == "skillrace"
     receipt = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
     assert receipt["target_node_id"] == "alternative"

@@ -125,6 +125,7 @@ def propose_test(
                 allowed_tools=("read",),
                 max_turns=config.role_budgets["proposer"],
                 timeout_seconds=config.timeouts["pi"],
+                temperature=1.0,
             )
         )
         pi_receipt_path = result.receipt_path
@@ -168,6 +169,7 @@ def propose_test(
             "pi_receipt_path": str(pi_receipt_path),
             "pi_receipt_hash": file_hash(pi_receipt_path),
             "model": config.model_id,
+            "temperature": 1.0,
         },
     )
     return TestCase(

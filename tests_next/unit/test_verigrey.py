@@ -240,6 +240,7 @@ def test_proposal_targets_undercovered_transition_and_records_exact_evidence(
 
     target = {"source": write, "target": bash, "count": 1}
     assert len(requests) == 1
+    assert requests[0].temperature == 1.0
     pi_prompt = requests[0].prompt_path.read_text(encoding="utf-8")
     assert "Dockerfile" in pi_prompt
     assert json.dumps(PROPERTIES, sort_keys=True) in pi_prompt

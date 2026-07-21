@@ -101,6 +101,7 @@ def test_random_proposal_materializes_one_independent_test(tmp_path: Path) -> No
     )
 
     assert len(calls) == 1
+    assert calls[0].temperature == 1.0
     proposal_prompt = calls[0].prompt_path.read_text(encoding="utf-8")
     assert "Dockerfile" in proposal_prompt
     assert "skillrace-next/task-fixture:test" in proposal_prompt

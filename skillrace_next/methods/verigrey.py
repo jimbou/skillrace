@@ -280,6 +280,7 @@ def propose_test(
                 allowed_tools=("read",),
                 max_turns=config.role_budgets["proposer"],
                 timeout_seconds=config.timeouts["pi"],
+                temperature=1.0,
             )
         )
         if result.status != "completed":
@@ -323,6 +324,7 @@ def propose_test(
             "pi_receipt_path": str(result.receipt_path),
             "pi_receipt_hash": file_hash(result.receipt_path),
             "model": config.model_id,
+            "temperature": 1.0,
         },
     )
     proposed = TestCase(

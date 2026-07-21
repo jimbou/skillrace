@@ -100,6 +100,7 @@ def test_generate_one_isolated_s0_with_receipt_and_identical_method_copies(
     assert requests[0].model == "deepseek-v3.2"
     assert requests[0].allowed_tools == ("read",)
     assert requests[0].mounts == ()
+    assert requests[0].temperature is None
     prompt = requests[0].prompt_path.read_text(encoding="utf-8")
     assert "Do not begin with prose or a Markdown fence" in prompt
     assert "---\nname: concise-name\ndescription: concise description\n---" in prompt

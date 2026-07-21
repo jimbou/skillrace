@@ -4,6 +4,8 @@ from pathlib import Path
 import subprocess
 from typing import Any
 
+import pytest
+
 from skillrace_next.runtime import pi
 from skillrace_next.runtime.pi import PiRequest, direct_provider_preflight, run_pi
 
@@ -60,6 +62,7 @@ def test_run_pi_builds_bounded_yunwu_command_and_saves_sanitized_evidence(
         allowed_tools=("read", "write"),
         max_turns=4,
         timeout_seconds=180,
+        temperature=1.0,
     )
 
     result = run_pi(request, fake_runner)
@@ -70,6 +73,7 @@ def test_run_pi_builds_bounded_yunwu_command_and_saves_sanitized_evidence(
     assert command[command.index("--model") + 1] == "deepseek-v3.2"
     assert command[command.index("--max-turns") + 1] == "4"
     assert command[command.index("--allowed-tools") + 1] == "read,write"
+    assert command[command.index("--temperature") + 1] == "1.0"
     assert f"{prompt.resolve()}:/input/prompt.txt:ro" in command
     assert f"{(output / 'accounting').resolve()}:/accounting" in command
     assert captured["kwargs"]["timeout"] == 180
@@ -85,6 +89,7 @@ def test_run_pi_builds_bounded_yunwu_command_and_saves_sanitized_evidence(
     assert "[REDACTED]" in result.stderr
     evidence = result.receipt_path.read_text(encoding="utf-8")
     assert secret not in evidence
+    assert json.loads(evidence)["temperature"] == 1.0
     assert os.environ["yunwu_key"] == secret
 
 
@@ -136,6 +141,7 @@ def test_run_pi_routes_lab_alias_with_its_key_and_minimal_catalog(
     assert command[command.index("--key-environment") + 1] == "LAB_KEY_UNLIMITED"
     assert command[command.index("-e") + 1] == "LAB_KEY_UNLIMITED"
     assert f"{(output / 'models.json').resolve()}:/root/.pi/agent/models.json:ro" in command
+    assert "--temperature" not in command
     assert secret not in " ".join(command)
 
     receipt = json.loads(result.receipt_path.read_text(encoding="utf-8"))
@@ -144,7 +150,29 @@ def test_run_pi_routes_lab_alias_with_its_key_and_minimal_catalog(
     assert receipt["qualified_model"] == "lab/deepseek-v4-flash"
     assert receipt["upstream_model"] == "ds/deepseek-v4-flash"
     assert receipt["estimated_cost_usd"] == "0.0002863"
+    assert receipt["temperature"] is None
     assert secret not in result.stderr
+
+
+@pytest.mark.parametrize("temperature", [-0.1, 2.1, float("nan")])
+def test_pi_request_rejects_invalid_temperature(
+    tmp_path: Path, temperature: float
+) -> None:
+    prompt = tmp_path / "prompt.txt"
+    prompt.write_text("test\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="temperature"):
+        PiRequest(
+            operation_id="bad-temperature",
+            model="deepseek-v3.2",
+            prompt_path=prompt,
+            output_dir=tmp_path / "out",
+            image="skillrace-pi:test",
+            allowed_tools=("read",),
+            max_turns=1,
+            timeout_seconds=30,
+            temperature=temperature,
+        )
 
 
 def test_direct_preflight_routes_lab_upstream_model_and_records_actual_cost(
