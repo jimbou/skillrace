@@ -70,6 +70,7 @@ def test_timing_pilot_freezes_both_models_over_approved_inputs(
             assert config.replicate_count == 1
             assert config.heldout_repetitions == 1
             assert config.timeouts["pi"] == 600
+            assert config.timeouts["codex"] == 600
             assert config.live is True
             output_roots.append(config.output_root)
     assert len(set(output_roots)) == 16

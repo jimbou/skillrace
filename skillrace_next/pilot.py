@@ -58,7 +58,7 @@ def _config(
             "provider": 60,
             "pi": 600,
             "docker": 180,
-            "codex": 300,
+            "codex": 600,
             "check": 60,
             "patch": 600,
         },
