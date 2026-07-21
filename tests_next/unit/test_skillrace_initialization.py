@@ -98,6 +98,8 @@ def test_create_diversity_plan_freezes_exactly_ten_ordered_descriptions(
     assert "do not emit property or check ids" in prompt.lower()
     assert "every description must be feasible" in prompt.lower()
     assert "recovery path" in prompt.lower()
+    assert "no docker access" in prompt.lower()
+    assert "no runtime network" in prompt.lower()
     assert result["schema"] == "skillrace-diversity-plan/1"
     assert [item["seed_id"] for item in result["descriptions"]] == [
         f"seed-{index:02d}" for index in range(1, 11)
@@ -114,6 +116,61 @@ def test_create_diversity_plan_freezes_exactly_ten_ordered_descriptions(
     assert receipt["description_count"] == 10
     assert receipt["model"] == "deepseek-v3.2"
     assert receipt["temperature"] == 1.0
+
+
+def test_create_diversity_plan_states_workspace_artifact_rule_without_rejecting_routes(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+    response = plan_response()
+    response[0] = {
+        "task": "Expose a /health HTTP route.",
+        "environment_conditions": "A binary is available at /usr/bin/tool.",
+    }
+
+    def fake_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        request.output_dir.mkdir(parents=True, exist_ok=True)
+        trace = request.output_dir / "trace.jsonl"
+        trace.write_text(
+            json.dumps(
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": json.dumps(response)}],
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        receipt = request.output_dir / "receipt.json"
+        receipt.write_text("{}\n", encoding="utf-8")
+        return PiResult(
+            operation_id=request.operation_id,
+            model=request.model,
+            status="completed",
+            trace_path=trace,
+            usage={},
+            stderr="",
+            receipt_path=receipt,
+            return_code=0,
+            wall_seconds=0.1,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+    result = skillrace.create_diversity_plan(
+        fixture_skill(tmp_path),
+        PROPERTIES,
+        config_for(tmp_path),
+        tmp_path / "plan",
+        pi_runner=fake_pi,
+    )
+
+    assert len(requests) == 1
+    prompt = requests[0].prompt_path.read_text(encoding="utf-8")
+    assert "requested artifact destinations under /workspace" in prompt
+    assert result["descriptions"][0]["task"] == response[0]["task"]
 
 
 def test_materialize_initial_test_binds_plan_description_and_full_catalog(
