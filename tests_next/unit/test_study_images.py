@@ -380,3 +380,11 @@ def test_repository_sources_cover_all_selected_contexts_with_required_tools() ->
         assert "--mount=type=cache,target=/root/.cache/pip" in dockerfile
         assert "--timeout 600" in dockerfile
         assert "--no-cache-dir" not in dockerfile
+
+    fastapi_stage = (
+        DEFAULT_SOURCE_ROOT / "part1" / "fastapi-endpoint" / "Dockerfile"
+    ).read_text(encoding="utf-8").split("\nFROM skillrace/pi-runtime", 1)[0]
+    sqlmodel_stage = (
+        DEFAULT_SOURCE_ROOT / "part1" / "sqlmodel-orm" / "Dockerfile"
+    ).read_text(encoding="utf-8").split("\nFROM skillrace/pi-runtime", 1)[0]
+    assert sqlmodel_stage == fastapi_stage
