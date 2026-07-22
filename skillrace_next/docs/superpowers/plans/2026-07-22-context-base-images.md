@@ -169,7 +169,7 @@ def build_study_images(
         subprocess.run(
             ["docker", "build", "--tag", record["image_tag"], str(context)],
             check=True,
-            timeout=900,
+            timeout=3600,
         )
         image_id = subprocess.run(
             ["docker", "image", "inspect", "--format", "{{.Id}}", record["image_tag"]],
@@ -190,7 +190,7 @@ def build_study_images(
 
 Loop in Part I rank order followed by Part II selection order. For each final Dockerfile,
 run one authoritative `docker build --tag`, one `docker image inspect`, and one
-`docker run --rm` probe. Use a 900-second per-build timeout, stop on failure, preserve logs,
+`docker run --rm` probe. Use a 3600-second per-build timeout, stop on failure, preserve logs,
 and write the aggregate manifest only after all images pass.
 
 - [ ] **Step 4: Write the failing subprocess-order test**

@@ -197,6 +197,12 @@ def _write_command_log(
     )
 
 
+def _timeout_text(value: str | bytes | None) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value or ""
+
+
 def build_study_images(
     source_root: str | Path = DEFAULT_SOURCE_ROOT,
     evidence_root: str | Path = Path("out/live-contracts/study-base-images"),
@@ -220,19 +226,41 @@ def build_study_images(
         context_output = evidence / f"{ordinal:02d}-{record['part']}-{record['context_id']}"
         context_output.mkdir()
         dockerfile = Path(record["dockerfile_path"])
-        build = command_runner(
-            [
-                "docker",
-                "build",
-                "--tag",
-                record["image_tag"],
-                str(dockerfile.parent),
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=900,
-        )
+        build_command = [
+            "docker",
+            "build",
+            "--tag",
+            record["image_tag"],
+            str(dockerfile.parent),
+        ]
+        try:
+            build = command_runner(
+                build_command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=3600,
+            )
+        except subprocess.TimeoutExpired as exc:
+            timed_out = subprocess.CompletedProcess(
+                build_command,
+                124,
+                _timeout_text(exc.stdout),
+                _timeout_text(exc.stderr),
+            )
+            _write_command_log(context_output, "build", timed_out)
+            atomic_write_json(
+                context_output / "receipt.json",
+                {
+                    "schema": "skillrace-study-base-image-build/1",
+                    **record,
+                    "status": "failed",
+                    "failure": "build_timeout",
+                },
+            )
+            raise RuntimeError(
+                f"Docker build timed out for {record['part']}/{record['context_id']}"
+            ) from exc
         _write_command_log(context_output, "build", build)
         if build.returncode != 0:
             raise RuntimeError(

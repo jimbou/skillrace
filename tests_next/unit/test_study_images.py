@@ -236,6 +236,51 @@ def test_build_study_images_stops_without_manifest_after_build_failure(
     assert not (source / "manifest.json").exists()
 
 
+def test_build_study_images_preserves_partial_output_after_build_timeout(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "images"
+    part1, part2 = write_selection_files(tmp_path)
+    for part, context_id in (
+        ("part1", "alpha"),
+        ("part1", "beta"),
+        ("part2", "gamma"),
+    ):
+        write_image_source(source, part, context_id)
+
+    def runner(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        assert kwargs["timeout"] == 3600
+        raise subprocess.TimeoutExpired(
+            command,
+            kwargs["timeout"],
+            output="partial build output\n",
+            stderr="mirror stalled\n",
+        )
+
+    evidence = tmp_path / "evidence"
+    with pytest.raises(RuntimeError, match="Docker build timed out.*part1/alpha"):
+        build_study_images(
+            source,
+            evidence,
+            "run-1",
+            part1_selection=part1,
+            part2_selection=part2,
+            command_runner=runner,
+        )
+
+    context = evidence / "run-1" / "01-part1-alpha"
+    assert (context / "build.stdout.txt").read_text(encoding="utf-8") == (
+        "partial build output\n"
+    )
+    assert (context / "build.stderr.txt").read_text(encoding="utf-8") == (
+        "mirror stalled\n"
+    )
+    failed = json.loads((context / "receipt.json").read_text(encoding="utf-8"))
+    assert failed["status"] == "failed"
+    assert failed["failure"] == "build_timeout"
+    assert not (source / "manifest.json").exists()
+
+
 def test_repository_sources_cover_all_selected_contexts_with_required_tools() -> None:
     records = validate_image_sources(
         DEFAULT_SOURCE_ROOT, PART1_SELECTION, PART2_SELECTION
@@ -266,3 +311,18 @@ def test_repository_sources_cover_all_selected_contexts_with_required_tools() ->
     for context_id in ("sql-queries", "sql-query-generator"):
         assert "sqlite3" in by_context[("part1", context_id)]
     assert "sqlite3" in by_context[("part2", "sqlite-query")]
+
+    apt_contexts = {
+        ("part1", "compiler-hardening"),
+        ("part1", "sql-queries"),
+        ("part1", "sql-query-generator"),
+        ("part1", "sqlmodel-orm"),
+        ("part1", "validator-agent"),
+        ("part2", "sqlite-query"),
+    }
+    for part, context_id in apt_contexts:
+        dockerfile = (
+            DEFAULT_SOURCE_ROOT / part / context_id / "Dockerfile"
+        ).read_text(encoding="utf-8")
+        assert "https://mirrors.aliyun.com/debian-security" in dockerfile
+        assert "https://mirrors.aliyun.com/debian" in dockerfile
