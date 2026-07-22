@@ -249,7 +249,7 @@ def test_build_study_images_preserves_partial_output_after_build_timeout(
         write_image_source(source, part, context_id)
 
     def runner(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        assert kwargs["timeout"] == 3600
+        assert kwargs["timeout"] == 7200
         raise subprocess.TimeoutExpired(
             command,
             kwargs["timeout"],

@@ -239,7 +239,7 @@ def build_study_images(
                 check=False,
                 capture_output=True,
                 text=True,
-                timeout=3600,
+                timeout=7200,
             )
         except subprocess.TimeoutExpired as exc:
             timed_out = subprocess.CompletedProcess(
