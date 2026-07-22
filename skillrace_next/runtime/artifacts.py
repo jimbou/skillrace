@@ -22,6 +22,8 @@ def freeze_artifact(path: str | Path, checker_uid: int) -> FrozenArtifact:
         reverse=True,
     )
     for child in children:
+        if child.is_symlink():
+            continue
         child.chmod(child.stat().st_mode & ~0o222)
     artifact.chmod(artifact.stat().st_mode & ~0o222)
     return FrozenArtifact(path=artifact, tree_hash=digest, checker_uid=checker_uid)

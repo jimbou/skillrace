@@ -1,6 +1,7 @@
 import json
 import hashlib
 from pathlib import Path
+import re
 from typing import Any, Callable
 import uuid
 
@@ -160,10 +161,23 @@ def _assistant_json(trace_path: Path) -> Any:
     if (
         response.startswith("```json\n")
         and response.endswith("```")
-        and response.count("```") == 2
     ):
         response = response[len("```json\n") : -len("```")].strip()
     return json.loads(response)
+
+
+def _episode_json(trace_path: Path) -> Any:
+    try:
+        return _assistant_json(trace_path)
+    except json.JSONDecodeError:
+        response = _assistant_text(trace_path)
+        if not response.startswith('["{') or not response.endswith(("}]", '}\"]')):
+            raise
+        response = response[0] + response[2:]
+        response = response.replace('}","{', "},{")
+        if response.endswith('}\"]'):
+            response = response[:-2] + "]"
+        return json.loads(response)
 
 
 def _selector_json(trace_path: Path) -> Any:
@@ -171,10 +185,10 @@ def _selector_json(trace_path: Path) -> Any:
     try:
         return json.loads(response)
     except json.JSONDecodeError:
-        if response.count("```json") != 1 or response.count("```") != 2:
+        if response.count("```json") != 1 or not response.rstrip().endswith("```"):
             raise
         start = response.index("```json") + len("```json")
-        end = response.index("```", start)
+        end = response.rfind("```")
         return json.loads(response[start:end].strip())
 
 
@@ -200,7 +214,7 @@ def create_diversity_plan(
     diagnostic: str | None = None
     descriptions: list[dict[str, str]] | None = None
     result: PiResult | None = None
-    for ordinal in (1, 2):
+    for ordinal in (1, 2, 3):
         attempt = output / f"plan-attempt-{ordinal}"
         attempt.mkdir()
         correction = (
@@ -215,14 +229,27 @@ def create_diversity_plan(
             "descriptions for the supplied skill. Consider the complete fixed property "
             "catalog while maximizing diversity across tasks and Docker-environment "
             "conditions. Every description must be feasible: the requested task must be "
-            "finishable in its stated environment within the fixed agent budget. Do not "
+            "finishable in its stated environment within the fixed agent budget. A strong "
+            f"agent must finish implementation and verification in at most "
+            f"{config.role_budgets.get('weak_agent', 4)} Pi turns and "
+            f"{config.timeouts['pi']} seconds. Ask for one focused behavior, not a broad "
+            "application, server, multi-feature library, or accompanying test suite unless "
+            "the supplied skill specifically requires it. Do not "
             "make a required dependency unavailable without a concrete local recovery path, "
             "require unavailable credentials or services, or use sheer task size as the "
-            "challenge. The weak agent has no Docker access and no runtime network; bake "
+            "challenge. Do not require a huge preloaded input when a small representative "
+            "fixture exercises the same behavior. The weak agent has no Docker access and "
+            "no runtime network. Python 3, Node.js, Bash/POSIX coreutils, and Perl are "
+            "preinstalled. Go, Rust/Cargo, Ruby, jq, the TypeScript compiler, and ts-node "
+            "are absent. Use an absent tool only when the environment conditions state a "
+            "concrete local recovery that can be built entirely from preinstalled tools. "
+            "Never describe a dependency as fetchable. Bake "
             "required dependencies and inputs into the proposed environment instead. Keep "
             "environment conditions limited to pre-existing inputs and dependencies; they "
             "must not contain the requested solution or claim that it is already embedded. "
-            "Keep requested artifact destinations under /workspace. HTTP routes "
+            "Keep requested artifact destinations under /workspace. Do not use /mnt/data "
+            "or /tmp in the intended task or environment conditions because the frozen "
+            "description must be materializable under the generated-task path contract. HTTP routes "
             "and system paths used only as inputs or repair conditions may be described "
             "normally. Return only one JSON array of exactly ten objects. Every object "
             "must contain exactly task and environment_conditions, both nonempty strings. "
@@ -276,12 +303,28 @@ def create_diversity_plan(
             ]
             if len({json.dumps(item, sort_keys=True) for item in normalized}) != 10:
                 raise ValueError("SkillRACE diversity plan contains duplicates")
+            external_path = next(
+                (
+                    path
+                    for path in ("/mnt/data", "/tmp")
+                    if any(
+                        path in item[field]
+                        for item in normalized
+                        for field in ("task", "environment_conditions")
+                    )
+                ),
+                None,
+            )
+            if external_path is not None:
+                raise ValueError(
+                    "generated plan path is outside /workspace: " + external_path
+                )
             descriptions = normalized
             break
         except (json.JSONDecodeError, ValueError) as error:
             diagnostic = str(error)
     if descriptions is None or result is None:
-        raise ValueError("two invalid SkillRACE diversity plans")
+        raise ValueError("three invalid SkillRACE diversity plans")
     frozen = [
         {"seed_id": f"seed-{index:02d}", **item}
         for index, item in enumerate(descriptions, 1)
@@ -347,13 +390,13 @@ def materialize_initial_test(
     diagnostic: str | None = None
     last: TestCase | None = None
     last_result: PiResult | None = None
-    for replacement in (1, 2):
+    for replacement in (1, 2, 3):
         attempt = output / f"replacement-{replacement}"
         pi_output = attempt / "pi"
         pi_output.mkdir(parents=True)
         correction = (
             f" Your previous materialization was invalid: {diagnostic}. Generate a fresh "
-            "corrected test."
+            "corrected test. Recheck every Dockerfile constraint before responding."
             if diagnostic
             else ""
         )
@@ -363,11 +406,17 @@ def materialize_initial_test(
             "development test. Generate its visible task prompt and complete Dockerfile. "
             "The description guides task and environment diversity but does not replace the "
             "complete fixed property catalog. The prompt and Dockerfile must not contradict "
-            "the frozen environment conditions. Any required dependency must already exist "
+            "the frozen environment conditions. Keep the concrete task finishable, including "
+            f"verification, in at most {config.role_budgets.get('weak_agent', 4)} Pi turns "
+            f"and {config.timeouts['pi']} seconds. Python 3, Node.js, Bash/POSIX coreutils, "
+            "and Perl are preinstalled. Go, Rust/Cargo, Ruby, jq, the TypeScript compiler, "
+            "and ts-node are absent. Any required dependency must already exist "
             "in the resulting image or have a concrete local recovery path; the task must "
             "not depend on runtime network access. The task must meaningfully exercise the skill "
             "and remain compatible with every property. The Dockerfile may provide inputs and "
             "dependencies but must not create or test the requested solution. Put all task "
+            "inputs in the image compactly: if repetitive fixture data is required, generate "
+            "it compactly instead of enumerating thousands of values. Put all task "
             "and artifact paths under /workspace; do not use /mnt/data or /tmp in the task "
             "prompt. The Dockerfile must "
             "be no larger than 32 KiB, start with exactly "
@@ -540,6 +589,7 @@ def materialize_initial_test(
 def _episode_prompt(
     run_id: str,
     trace_jsonl: str,
+    relevant_event_ids: list[str],
     correction: str | None = None,
 ) -> str:
     suffix = (
@@ -557,6 +607,7 @@ def _episode_prompt(
         "verify the array before answering, but output no reasoning. The top-level JSON type "
         "must be an array. The entire response must begin with [ and end with ]. Do not return "
         "JSONL or NDJSON, multiple root objects, prose, or Markdown fences. "
+        "Every array item must be a JSON object, never a string containing encoded JSON. "
         "Every item must contain exactly episode_id, start_event_id, end_event_id, "
         "purpose, outcome, and reason_for_next. All IDs must be JSON strings. For example: "
         "{\"episode_id\":\"episode-1\",\"start_event_id\":\"event-id\","
@@ -564,6 +615,10 @@ def _episode_prompt(
         "\"reason_for_next\":null}. Event boundaries must use IDs from the "
         "trace. purpose and outcome must be nonempty. reason_for_next is a nonempty "
         f"string or null. Run ID: {run_id}.{suffix}\n\n"
+        "REQUIRED RELEVANT EVENT IDS IN ORDER: "
+        f"{json.dumps(relevant_event_ids)}. Use only these exact IDs as episode "
+        "boundaries and cover every one. The final episode must end at "
+        f"{relevant_event_ids[-1]}.\n\n"
         f"TRACE JSONL:\n{trace_jsonl}"
     )
 
@@ -577,13 +632,21 @@ def create_episodes(
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     trace_jsonl = run.trace_path.read_text(encoding="utf-8")
+    relevant_event_ids = [
+        event["id"] for event in _trace_events(run.trace_path) if _is_relevant_event(event)
+    ]
+    if not relevant_event_ids:
+        raise ValueError("trace has no relevant reasoning/tool events")
     correction: str | None = None
-    for ordinal in (1, 2):
+    for ordinal in (1, 2, 3):
         attempt = output / f"episode-attempt-{ordinal}"
         attempt.mkdir()
         prompt_path = attempt / "prompt.txt"
         prompt_path.write_text(
-            _episode_prompt(run.run_id, trace_jsonl, correction), encoding="utf-8"
+            _episode_prompt(
+                run.run_id, trace_jsonl, relevant_event_ids, correction
+            ),
+            encoding="utf-8",
         )
         result = pi_runner(
             PiRequest(
@@ -602,13 +665,18 @@ def create_episodes(
         if result.status != "completed":
             raise RuntimeError(f"Pi episode creation failed: {result.status}")
         try:
-            parsed = _assistant_json(result.trace_path)
+            parsed = _episode_json(result.trace_path)
+            if isinstance(parsed, list):
+                parsed = [
+                    json.loads(item) if isinstance(item, str) else item
+                    for item in parsed
+                ]
             episodes = validate_episodes(parsed, run.trace_path)
         except (json.JSONDecodeError, ValueError) as error:
             correction = str(error)
-            if ordinal == 1:
+            if ordinal < 3:
                 continue
-            raise ValueError("two invalid episode responses") from error
+            raise ValueError("three invalid episode responses") from error
         atomic_write_json(output / "episodes.json", episodes)
         atomic_write_json(
             output / "episode-creation.json",
@@ -708,7 +776,7 @@ def _alignment_parent(
 ) -> tuple[str, Path]:
     diagnostic: str | None = None
     known_nodes = {node["node_id"] for node in tree["nodes"]}
-    for ordinal in (1, 2):
+    for ordinal in (1, 2, 3):
         attempt = output / f"alignment-attempt-{ordinal}"
         attempt.mkdir(parents=True)
         prompt_path = attempt / "prompt.txt"
@@ -753,9 +821,9 @@ def _alignment_parent(
                 raise ValueError("tree alignment selected an unknown parent")
         except (json.JSONDecodeError, ValueError) as error:
             diagnostic = str(error)
-            if ordinal == 1:
+            if ordinal < 3:
                 continue
-            raise ValueError("two invalid tree alignment responses") from error
+            raise ValueError("three invalid tree alignment responses") from error
         return parent, result.receipt_path
     raise RuntimeError("tree alignment loop did not return")
 
@@ -906,122 +974,82 @@ def propose_test(
     atomic_write_json(selector_input / "tree.json", validated_tree)
     atomic_write_json(selector_input / "edge-index.json", edge_index)
     skill_text = (skill.directory_path / "SKILL.md").read_text(encoding="utf-8")
-    selector_output = output / "selector-pi"
-    selector_output.mkdir()
-    selector_prompt = selector_output / "prompt.txt"
-    selector_prompt.write_text(
-        "Act as the SkillRACE edge selector. Choose exactly one real observed reasoning "
-        "edge from the COMPACT EDGE INDEX below. Prefer the edge whose assumption has the "
-        "best chance of exposing a genuine, patchable skill failure under the fixed checks. "
-        "The resulting task must remain achievable within the unchanged agent budget when "
-        "the skill gives the right guidance; do not select sheer difficulty, impossible "
-        "requirements, unavailable credentials, or an environment condition without a "
-        "concrete local recovery route. Return only one JSON object with exactly "
-        "target_edge_id and selection_reason, both nonempty strings. The edge ID must be "
-        "copied exactly from the index. Do not use tools.\n\n"
-        f"FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
-        f"SKILL.md:\n{skill_text}\n\n"
-        f"COMPACT EDGE INDEX:\n{json.dumps(edge_index, sort_keys=True)}\n",
-        encoding="utf-8",
-    )
-    selector_result = pi_runner(
-        PiRequest(
-            operation_id=f"proposal.skillrace.select.{uuid.uuid4().hex}",
-            provider=config.provider,
-            model=config.model_id,
-            prompt_path=selector_prompt,
-            output_dir=selector_output,
-            image=config.docker_image,
-            allowed_tools=(),
-            max_turns=min(2, config.role_budgets["proposer"]),
-            timeout_seconds=config.timeouts["provider"],
-            temperature=1.0,
+    selector_diagnostic: str | None = None
+    selector_result: PiResult | None = None
+    target_edge_id: str | None = None
+    selection_reason: str | None = None
+    for ordinal in (1, 2, 3):
+        selector_output = output / f"selector-attempt-{ordinal}"
+        selector_output.mkdir()
+        selector_prompt = selector_output / "prompt.txt"
+        correction = (
+            f" Your previous response was invalid: {selector_diagnostic}. Return corrected "
+            "raw JSON only."
+            if selector_diagnostic
+            else ""
         )
-    )
-    if selector_result.status != "completed":
-        raise RuntimeError(
-            f"Pi SkillRACE edge selection failed: {selector_result.status}"
+        selector_prompt.write_text(
+            "Act as the SkillRACE edge selector. Choose exactly one real observed reasoning "
+            "edge from the COMPACT EDGE INDEX below. Prefer the edge whose assumption has the "
+            "best chance of exposing a genuine, patchable skill failure under the fixed checks. "
+            "The resulting task must remain achievable within the unchanged agent budget when "
+            "the skill gives the right guidance; do not select sheer difficulty, impossible "
+            "requirements, unavailable credentials, or an environment condition without a "
+            "concrete local recovery route. Return only one JSON object with exactly "
+            "target_edge_id and selection_reason, both nonempty strings. The edge ID must be "
+            f"copied exactly from the index. Do not use tools.{correction}\n\n"
+            f"FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
+            f"SKILL.md:\n{skill_text}\n\n"
+            f"COMPACT EDGE INDEX:\n{json.dumps(edge_index, sort_keys=True)}\n",
+            encoding="utf-8",
         )
-    selection = _selector_json(selector_result.trace_path)
-    if not isinstance(selection, dict) or set(selection) != {
-        "target_edge_id",
-        "selection_reason",
-    }:
-        raise ValueError("SkillRACE edge selection response is invalid")
-    if not all(
-        isinstance(selection[name], str) and selection[name].strip()
-        for name in ("target_edge_id", "selection_reason")
-    ):
-        raise ValueError("SkillRACE edge selection fields must be nonempty")
-    target_edge_id = selection["target_edge_id"].strip()
-    selection_reason = selection["selection_reason"].strip()
-    if target_edge_id not in known_edge_ids:
-        raise ValueError("SkillRACE edge selector selected an unknown edge")
+        selector_result = pi_runner(
+            PiRequest(
+                operation_id=f"proposal.skillrace.select.{uuid.uuid4().hex}",
+                provider=config.provider,
+                model=config.model_id,
+                prompt_path=selector_prompt,
+                output_dir=selector_output,
+                image=config.docker_image,
+                allowed_tools=(),
+                max_turns=min(2, config.role_budgets["proposer"]),
+                timeout_seconds=config.timeouts["provider"],
+                temperature=1.0,
+            )
+        )
+        if selector_result.status != "completed":
+            raise RuntimeError(
+                f"Pi SkillRACE edge selection failed: {selector_result.status}"
+            )
+        try:
+            selection = _selector_json(selector_result.trace_path)
+            if not isinstance(selection, dict) or set(selection) != {
+                "target_edge_id",
+                "selection_reason",
+            }:
+                raise ValueError("SkillRACE edge selection response is invalid")
+            if not all(
+                isinstance(selection[name], str) and selection[name].strip()
+                for name in ("target_edge_id", "selection_reason")
+            ):
+                raise ValueError("SkillRACE edge selection fields must be nonempty")
+            target_edge_id = selection["target_edge_id"].strip()
+            selection_reason = selection["selection_reason"].strip()
+            if target_edge_id not in known_edge_ids:
+                raise ValueError("SkillRACE edge selector selected an unknown edge")
+        except (json.JSONDecodeError, ValueError) as error:
+            selector_diagnostic = str(error)
+            if ordinal < 3:
+                continue
+            raise ValueError("three invalid SkillRACE edge selections") from error
+        break
+    if selector_result is None or target_edge_id is None or selection_reason is None:
+        raise RuntimeError("SkillRACE edge selection loop did not return")
 
     selected_branch = isolate_branch(validated_tree, target_edge_id)
     atomic_write_json(selector_input / "selected-branch.json", selected_branch)
     selector_input_hash = tree_hash(selector_input)
 
-    mutator_output = output / "mutator-pi"
-    mutator_output.mkdir()
-    mutator_prompt = mutator_output / "prompt.txt"
-    mutator_prompt.write_text(
-        "Act as the SkillRACE test mutator. Use the ISOLATED OBSERVED BRANCH below to "
-        "mutate the assumption at the exact target edge into one concrete development "
-        "test likely to expose a genuine skill bug. The mutation must make the selected "
-        "edge assumption fail rather than changing the environment to make that assumption "
-        "correct, and the visible task must not reveal the recovery path. Reaching the exact target edge is "
-        "diagnostic rather than mandatory, but the test must meaningfully exercise the "
-        "supplied skill. The mutation must remain achievable within the unchanged agent "
-        "budget when the skill gives the right guidance. Do not merely enlarge the workload, "
-        "remove an essential capability, require unavailable credentials or services, or "
-        "create contradictory requirements. A relocated or missing tool is valid only when "
-        "a concrete local recovery path exists. Explain the bug hypothesis, mutation, and "
-        "why a SKILL.md patch could enable success within budget. Make all inline data, "
-        "expected values, examples, and prose internally consistent. Generate a self-contained "
-        "visible prompt and complete Dockerfile. The Dockerfile must not download or install "
-        "packages or contact external services; use only software already present in the base "
-        "image and create environment variations with local files or symlinks. Every "
-        "capability required by the prompt must exist when the task container starts. The "
-        "Dockerfile must not remove, move, or disable software from the base image. If the "
-        "mutation depends on a special path or local recovery route, create it explicitly in "
-        "the Dockerfile. Use a quoted here-document rather than printf when creating a "
-        "multiline helper script so percent signs and shell expressions remain literal. The "
-        "Dockerfile may create task inputs, and the prompt must accurately describe them. "
-        "Put task and artifact paths under /workspace and do not use /mnt/data or /tmp in "
-        "the task prompt. The Dockerfile must be no larger than 32 KiB, start with exactly "
-        f"'FROM {config.docker_image}', contain exactly one FROM, use no ADD or COPY, and "
-        "contain exactly 'WORKDIR /workspace'. Preserve the installed Pi runtime. The task "
-        "must be compatible with every fixed property, and all property requirements must "
-        "be consistent with the visible prompt. Return only one JSON object with exactly "
-        "bug_hypothesis, mutation, why_patchable, prompt, and dockerfile; all values must "
-        "be nonempty strings. "
-        "Do not return check prose, check IDs, or any other keys. The entire response must "
-        "start with { and end with }. Do not use Markdown fences or tools.\n\n"
-        f"TARGET EDGE ID:\n{target_edge_id}\n\n"
-        f"SELECTION REASON:\n{selection_reason}\n\n"
-        f"ISOLATED OBSERVED BRANCH:\n{json.dumps(selected_branch, sort_keys=True)}\n\n"
-        f"FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
-        f"SKILL.md:\n{skill_text}\n",
-        encoding="utf-8",
-    )
-    mutator_result = pi_runner(
-        PiRequest(
-            operation_id=f"proposal.skillrace.mutate.{uuid.uuid4().hex}",
-            provider=config.provider,
-            model=config.model_id,
-            prompt_path=mutator_prompt,
-            output_dir=mutator_output,
-            image=config.docker_image,
-            allowed_tools=(),
-            max_turns=config.role_budgets["proposer"],
-            timeout_seconds=config.timeouts["provider"],
-            temperature=1.0,
-        )
-    )
-    if mutator_result.status != "completed":
-        raise RuntimeError(f"Pi SkillRACE proposal failed: {mutator_result.status}")
-    response = _selector_json(mutator_result.trace_path)
     response_fields = {
         "bug_hypothesis",
         "mutation",
@@ -1029,65 +1057,175 @@ def propose_test(
         "prompt",
         "dockerfile",
     }
-    if not isinstance(response, dict) or set(response) != response_fields:
-        raise ValueError("SkillRACE proposal response is invalid")
-    if not all(isinstance(response[name], str) and response[name].strip() for name in response_fields):
-        raise ValueError("SkillRACE proposal fields must be nonempty")
-    prompt = response["prompt"]
-    dockerfile = validate_generated_dockerfile(
-        response["dockerfile"], config.docker_image
-    )
-    test_id = "skillrace-" + uuid.uuid4().hex
-    case = output / test_id
-    environment = case / "environment"
-    environment.mkdir(parents=True)
-    task_path = case / "prompt.txt"
-    task_path.write_text(prompt.strip() + "\n", encoding="utf-8")
-    checks_path = case / "nl_checks.json"
-    atomic_write_json(checks_path, properties)
-    (environment / "Dockerfile").write_text(
-        dockerfile, encoding="utf-8"
-    )
-    atomic_write_json(environment / "sanity.json", {"status": "pass"})
-    prompt_hash = file_hash(task_path)
-    environment_hash = tree_hash(environment)
-    catalog_hash = file_hash(checks_path)
-    proposal_receipt = case / "proposal.json"
-    atomic_write_json(
-        proposal_receipt,
-        {
-            "schema": "skillrace-generated-test-proposal/1",
-            "method": "skillrace",
-            "catalog_hash": catalog_hash,
-            "prompt_hash": prompt_hash,
-            "environment_hash": environment_hash,
-            "target_edge_id": target_edge_id,
-            "selection_reason": selection_reason,
-            "bug_hypothesis": response["bug_hypothesis"].strip(),
-            "mutation": response["mutation"].strip(),
-            "why_patchable": response["why_patchable"].strip(),
-            "selector_input_path": str(selector_input),
-            "selector_input_hash": selector_input_hash,
-            "selector_pi_receipt_path": str(selector_result.receipt_path),
-            "selector_pi_receipt_hash": file_hash(selector_result.receipt_path),
-            "pi_receipt_path": str(mutator_result.receipt_path),
-            "pi_receipt_hash": file_hash(mutator_result.receipt_path),
-            "model": config.model_id,
-            "temperature": 1.0,
-        },
-    )
-    proposed = TestCase(
-        test_id=test_id,
-        prompt_path=task_path,
-        prompt_hash=prompt_hash,
-        environment_directory=environment,
-        environment_hash=environment_hash,
-        nl_check_path=checks_path,
-        nl_check_hash=catalog_hash,
-        origin_method="skillrace",
-        proposal_receipt=proposal_receipt,
-        validation_status="pending",
-        validation_diagnostic="",
-        container_image_id="",
-    )
-    return validator(proposed, config)
+    mutator_diagnostic: str | None = None
+    last: TestCase | None = None
+    for ordinal in (1, 2, 3):
+        mutator_output = output / f"mutator-attempt-{ordinal}"
+        mutator_output.mkdir()
+        mutator_prompt = mutator_output / "prompt.txt"
+        correction = (
+            f" Your previous generated test was invalid: {mutator_diagnostic}. Generate "
+            "a corrected test for the same selected edge."
+            if mutator_diagnostic
+            else ""
+        )
+        mutator_prompt.write_text(
+            "Act as the SkillRACE test mutator. Use the ISOLATED OBSERVED BRANCH below to "
+            "mutate the assumption at the exact target edge into one concrete development "
+            "test likely to expose a genuine skill bug. The mutation must make the selected "
+            "edge assumption fail rather than changing the environment to make that assumption "
+            "correct, and the visible task must not reveal the recovery path. Reaching the "
+            "exact target edge is diagnostic rather than mandatory, but the test must "
+            "meaningfully exercise the supplied skill. The mutation must remain achievable "
+            "within the unchanged agent budget when the skill gives the right guidance: a "
+            f"strong agent must finish implementation and verification in at most "
+            f"{config.role_budgets.get('weak_agent', 4)} Pi turns and "
+            f"{config.timeouts['pi']} seconds. Do "
+            "not merely enlarge the workload, remove an essential capability, require "
+            "unavailable credentials or services, or create contradictory requirements. A "
+            "relocated or missing tool is valid only when a concrete local recovery path "
+            "exists. Explain the bug hypothesis, mutation, and why a SKILL.md patch could "
+            "enable success within budget. Make all inline data, expected values, examples, "
+            "and prose internally consistent. Keep bug_hypothesis, mutation, and why_patchable "
+            "at most 600 characters each. Request one focused artifact or behavior, not a "
+            "multi-stage application. Keep the visible prompt at most 2 KiB and the complete "
+            "Dockerfile at most 8 KiB. The Dockerfile must not download or install packages or "
+            "contact external services; use only software already present in the base image "
+            "and create environment variations with local files or symlinks. Python 3, "
+            "Node.js, Bash/POSIX coreutils, and Perl are preinstalled. Go, Rust/Cargo, Ruby, "
+            "jq, the TypeScript compiler, and ts-node are absent. Every capability "
+            "required by the prompt must exist when the task container starts. The Dockerfile "
+            "must not remove, move, or disable software from the base image. If the mutation "
+            "depends on a special path or local recovery route, create it explicitly in the "
+            "Dockerfile. Use a quoted here-document rather than printf when creating a "
+            "multiline helper script so percent signs and shell expressions remain literal. "
+            "The Dockerfile may create task inputs, and the prompt must accurately describe "
+            "them. Put task and artifact paths under /workspace and do not use /mnt/data or "
+            "/tmp in the task prompt. The Dockerfile must be no larger than 8 KiB, start "
+            "with exactly "
+            f"'FROM {config.docker_image}', contain exactly one FROM, use no ADD or COPY, and "
+            "contain exactly 'WORKDIR /workspace'. Preserve the installed Pi runtime. The task "
+            "must be compatible with every fixed property, and all property requirements must "
+            "be consistent with the visible prompt. Return only one JSON object with exactly "
+            "bug_hypothesis, mutation, why_patchable, prompt, and dockerfile; all values must "
+            "be nonempty strings. Do not return check prose, check IDs, or any other keys. "
+            "The entire response must start with { and end with }. Do not use Markdown fences "
+            f"or tools.{correction}\n\n"
+            f"TARGET EDGE ID:\n{target_edge_id}\n\n"
+            f"SELECTION REASON:\n{selection_reason}\n\n"
+            f"ISOLATED OBSERVED BRANCH:\n{json.dumps(selected_branch, sort_keys=True)}\n\n"
+            f"FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
+            f"SKILL.md:\n{skill_text}\n",
+            encoding="utf-8",
+        )
+        mutator_result = pi_runner(
+            PiRequest(
+                operation_id=f"proposal.skillrace.mutate.{uuid.uuid4().hex}",
+                provider=config.provider,
+                model=config.model_id,
+                prompt_path=mutator_prompt,
+                output_dir=mutator_output,
+                image=config.docker_image,
+                allowed_tools=(),
+                max_turns=config.role_budgets["proposer"],
+                timeout_seconds=config.timeouts["provider"],
+                temperature=1.0,
+            )
+        )
+        if mutator_result.status != "completed":
+            raise RuntimeError(f"Pi SkillRACE proposal failed: {mutator_result.status}")
+        try:
+            response = _selector_json(mutator_result.trace_path)
+            if not isinstance(response, dict) or set(response) != response_fields:
+                raise ValueError("SkillRACE proposal response is invalid")
+            if not all(
+                isinstance(response[name], str) and response[name].strip()
+                for name in response_fields
+            ):
+                raise ValueError("SkillRACE proposal fields must be nonempty")
+            for field in ("bug_hypothesis", "mutation", "why_patchable"):
+                if len(response[field]) > 600:
+                    raise ValueError(f"{field} exceeds 600 characters")
+            if len(response["prompt"].encode("utf-8")) > 2 * 1024:
+                raise ValueError("prompt exceeds 2 KiB")
+            if len(response["dockerfile"].encode("utf-8")) > 8 * 1024:
+                raise ValueError("dockerfile exceeds 8 KiB")
+            mutated_system_paths = set(
+                re.findall(
+                    r"/(?:usr|opt|bin|sbin|lib|lib64|etc)"
+                    r"(?:/[A-Za-z0-9._-]+)+",
+                    response["mutation"],
+                )
+            )
+            if any(path in response["prompt"] for path in mutated_system_paths):
+                raise ValueError(
+                    "visible prompt reveals the mutation's recovery path"
+                )
+            prompt = response["prompt"]
+            dockerfile = validate_generated_dockerfile(
+                response["dockerfile"], config.docker_image
+            )
+        except (json.JSONDecodeError, OSError, ValueError) as error:
+            mutator_diagnostic = str(error)
+            if ordinal < 3:
+                continue
+            raise ValueError("three invalid SkillRACE proposal responses") from error
+
+        test_id = "skillrace-" + uuid.uuid4().hex
+        case = output / test_id
+        environment = case / "environment"
+        environment.mkdir(parents=True)
+        task_path = case / "prompt.txt"
+        task_path.write_text(prompt.strip() + "\n", encoding="utf-8")
+        checks_path = case / "nl_checks.json"
+        atomic_write_json(checks_path, properties)
+        (environment / "Dockerfile").write_text(dockerfile, encoding="utf-8")
+        atomic_write_json(environment / "sanity.json", {"status": "pass"})
+        prompt_hash = file_hash(task_path)
+        environment_hash = tree_hash(environment)
+        catalog_hash = file_hash(checks_path)
+        proposal_receipt = case / "proposal.json"
+        atomic_write_json(
+            proposal_receipt,
+            {
+                "schema": "skillrace-generated-test-proposal/1",
+                "method": "skillrace",
+                "catalog_hash": catalog_hash,
+                "prompt_hash": prompt_hash,
+                "environment_hash": environment_hash,
+                "target_edge_id": target_edge_id,
+                "selection_reason": selection_reason,
+                "bug_hypothesis": response["bug_hypothesis"].strip(),
+                "mutation": response["mutation"].strip(),
+                "why_patchable": response["why_patchable"].strip(),
+                "selector_input_path": str(selector_input),
+                "selector_input_hash": selector_input_hash,
+                "selector_pi_receipt_path": str(selector_result.receipt_path),
+                "selector_pi_receipt_hash": file_hash(selector_result.receipt_path),
+                "pi_receipt_path": str(mutator_result.receipt_path),
+                "pi_receipt_hash": file_hash(mutator_result.receipt_path),
+                "model": config.model_id,
+                "temperature": 1.0,
+            },
+        )
+        proposed = TestCase(
+            test_id=test_id,
+            prompt_path=task_path,
+            prompt_hash=prompt_hash,
+            environment_directory=environment,
+            environment_hash=environment_hash,
+            nl_check_path=checks_path,
+            nl_check_hash=catalog_hash,
+            origin_method="skillrace",
+            proposal_receipt=proposal_receipt,
+            validation_status="pending",
+            validation_diagnostic="",
+            container_image_id="",
+        )
+        last = validator(proposed, config)
+        if last.validation_status == "valid":
+            return last
+        mutator_diagnostic = last.validation_diagnostic
+    if last is not None:
+        return last
+    raise RuntimeError("SkillRACE mutator correction loop did not return")

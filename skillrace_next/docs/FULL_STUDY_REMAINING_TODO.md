@@ -229,11 +229,16 @@ sanitized evidence, and commit only that item.
   the fixed weak-execution cutoff. The 23 valid runs have median 16.548 seconds, p95
   31.620 seconds, and maximum 33.287 seconds. The frozen cutoff is 60 seconds; see
   `study/timing-pilot-v8/TIMING_ANALYSIS.md`.
+- [ ] Create one frozen base image per selected Part I skill and Part II scenario before
+  freezing the full-study configs. Install only the small tool set appropriate to that
+  context, record the immutable image ID and capability context, and give that context to
+  test generation. The current Python/Node/Bash/Perl wording applies only to the temporary
+  `skillrace-next/task-fixture:test` contract image.
 - [ ] Bind the frozen 60-second `timeouts.pi` value into every full-study config. Exact
   replay uses the same value. Non-task Pi calls now use `timeouts.provider`; patch
   authoring, Docker, Terra, and checker limits also remain separate.
 - [x] Run the full offline suite after the revised method implementation. The latest
-  2026-07-21 verification completed 208 non-live tests with no failures.
+  2026-07-22 verification completed 220 non-live tests with no failures.
 - [ ] Complete the separate live contracts listed below. Manually inspect semantic outputs,
   scan exact active credentials, and confirm container cleanup.
 - [ ] Freeze 80 full-study campaign configs: 30 Part I plus ten Part II campaigns for each
@@ -279,13 +284,39 @@ individual component contract.
   them in order while building the tree, and uses a tree-selected branch only afterward.
   Inspect the plan, first materialized seed, tenth tree update, and first branch-directed
   proposal for both models.
-  DeepSeek has produced a frozen ten-description plan and first materialized seed. The
-  equivalent Qwen initializer and the complete ten executions/tree updates remain. The
-  isolated post-seed proposal component is complete: DeepSeek v4 Flash and Qwen 3.6
-  Flash each selected the unique promising edge from a 120-edge observed tree, the host
-  isolated it, and a fresh mutator produced a semantically inspected, Docker-valid local
-  recovery task without Pi tools. The combined ten-seed-through-first-mutation campaign
-  contract remains covered by this unchecked item.
+  DeepSeek completed the combined eleven-execution contract: ten ordered seeds built a
+  45-node/44-edge tree, then a tree-selected branch produced the eleventh test and a
+  50-node/49-edge final tree. Evidence is under
+  `out/live-contracts/skillrace-ten-seed/deepseek-v4-flash/20260721T172930Z-31b0bfd6/`.
+  Qwen has repeatedly completed real plans, materializations, weak executions, Terra
+  bundles, Docker checks, and tree updates, reaching as far as seed nine. Episode creation
+  now receives the exact ordered relevant-event IDs and permits two correction calls
+  (three total attempts) for both tracks. The exact nine-event Qwen trace that previously
+  failed strict coverage/schema validation passed as five semantically correct grounded
+  episodes under
+  `out/live-contracts/episode-creator/qwen3.6-flash/20260722T002556Z-d4041428/`.
+  Trace splitting was deliberately not added because the failure was a schema typo on a
+  short trace, not a context-size failure. Initial-test materialization now has the same
+  three-total-attempt bound. A fresh Qwen combined run then completed all ten ordered
+  weak executions, Terra/Docker checks, episode updates, and tree merges, ending in branch
+  phase with 48 nodes and 47 edges. Its first branch mutator response was semantically
+  unsuitable and structurally invalid: it used document size as the failure mechanism,
+  added an undeclared response field, and wrapped JSON containing embedded fences in an
+  outer fence. Preserve
+  `out/live-contracts/skillrace-ten-seed/qwen3.6-flash/20260722T002923Z-06536695/`.
+  Every SkillRACE model-authored boundary now has the same three-total-attempt correction
+  bound. Selector correction does not rerun after a valid edge, mutator correction retains
+  that edge, and weak-agent execution remains exactly once. A real Qwen long-tree run used
+  one selector call, retained an invalid first mutator attempt, and corrected the mutator on
+  its second call. The final Docker-valid task hid the real helper path from the visible
+  prompt and was manually inspected under
+  `out/live-contracts/skillrace-edge-selector/qwen3.6-flash/20260722T025327Z-87914bff/`.
+  Two later combined roots remain diagnostic rather than passing: one exhausted three
+  invalid seed-09 materializations after an oversized plan, and one completed nine seeds
+  before host artifact freezing followed a broken `.venv` symlink. Planning now carries the
+  exact weak-agent budget and compact-task constraints; artifact freezing skips symlink mode
+  mutation while hashing the link target. The combined ten-seed-through-first-mutation
+  campaign contract remains covered by this unchecked item.
 - [ ] Real same-track DeepSeek and Qwen patch/replay contracts prove that an achievable
   environment failure can produce guidance, exact replay uses the frozen Terra bundle,
   and admission still requires improvement without regression.

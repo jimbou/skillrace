@@ -101,6 +101,11 @@ def test_create_diversity_plan_freezes_exactly_ten_ordered_descriptions(
     assert "no docker access" in prompt.lower()
     assert "no runtime network" in prompt.lower()
     assert "must not contain the requested solution" in prompt.lower()
+    assert "small representative fixture" in prompt.lower()
+    assert "4 pi turns and 180 seconds" in prompt.lower()
+    assert "one focused behavior" in prompt.lower()
+    assert "python 3, node.js, bash/posix coreutils, and perl" in prompt.lower()
+    assert "go, rust/cargo, ruby, jq" in prompt.lower()
     assert result["schema"] == "skillrace-diversity-plan/1"
     assert [item["seed_id"] for item in result["descriptions"]] == [
         f"seed-{index:02d}" for index in range(1, 11)
@@ -171,7 +176,64 @@ def test_create_diversity_plan_states_workspace_artifact_rule_without_rejecting_
     assert len(requests) == 1
     prompt = requests[0].prompt_path.read_text(encoding="utf-8")
     assert "requested artifact destinations under /workspace" in prompt
+    assert "do not use /mnt/data or /tmp" in prompt.lower()
     assert result["descriptions"][0]["task"] == response[0]["task"]
+
+
+def test_diversity_plan_corrects_a_description_that_cannot_be_materialized(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+    invalid = plan_response()
+    invalid[2] = {
+        "task": "Write a cleanup command containing /tmp/cache into a script.",
+        "environment_conditions": "The artifact destination is under /workspace.",
+    }
+
+    def fake_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        request.output_dir.mkdir(parents=True, exist_ok=True)
+        response = invalid if len(requests) < 3 else plan_response()
+        trace = request.output_dir / "trace.jsonl"
+        trace.write_text(
+            json.dumps(
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": json.dumps(response)}],
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        receipt = request.output_dir / "receipt.json"
+        receipt.write_text("{}\n", encoding="utf-8")
+        return PiResult(
+            operation_id=request.operation_id,
+            model=request.model,
+            status="completed",
+            trace_path=trace,
+            usage={},
+            stderr="",
+            receipt_path=receipt,
+            return_code=0,
+            wall_seconds=0.1,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+    result = skillrace.create_diversity_plan(
+        fixture_skill(tmp_path),
+        PROPERTIES,
+        config_for(tmp_path),
+        tmp_path / "plan",
+        pi_runner=fake_pi,
+    )
+
+    assert len(requests) == 3
+    assert "outside /workspace" in requests[1].prompt_path.read_text(encoding="utf-8")
+    assert "outside /workspace" in requests[2].prompt_path.read_text(encoding="utf-8")
+    assert result["descriptions"][2]["task"] == plan_response()[2]["task"]
 
 
 def test_materialize_initial_test_binds_plan_description_and_full_catalog(
@@ -261,6 +323,9 @@ def test_materialize_initial_test_binds_plan_description_and_full_catalog(
         "must not create or test the requested solution"
         in materialization_prompt.lower()
     )
+    assert "generate it compactly" in materialization_prompt.lower()
+    assert "4 pi turns and 180 seconds" in materialization_prompt.lower()
+    assert "go, rust/cargo, ruby, jq" in materialization_prompt.lower()
     assert proposed.validation_status == "valid"
     assert proposed.origin_method == "skillrace"
     assert json.loads(proposed.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
@@ -274,7 +339,96 @@ def test_materialize_initial_test_binds_plan_description_and_full_catalog(
     assert receipt["temperature"] == 1.0
 
 
-def test_twice_malformed_initial_test_is_returned_as_invalid_slot(
+def test_materialize_initial_test_allows_two_validation_corrections(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+    validation_calls = 0
+    skill = fixture_skill(tmp_path)
+    config = config_for(tmp_path)
+
+    def fake_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        request.output_dir.mkdir(parents=True, exist_ok=True)
+        response = (
+            plan_response()
+            if ".plan." in request.operation_id
+            else {
+                "prompt": "Create /workspace/seed-one.txt with exact content one.",
+                "dockerfile": (
+                    "FROM skillrace-next/task-fixture:test\n"
+                    "WORKDIR /workspace\n"
+                ),
+            }
+        )
+        trace = request.output_dir / "trace.jsonl"
+        trace.write_text(
+            json.dumps(
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": json.dumps(response)}],
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        receipt = request.output_dir / "receipt.json"
+        receipt.write_text("{}\n", encoding="utf-8")
+        return PiResult(
+            operation_id=request.operation_id,
+            model=request.model,
+            status="completed",
+            trace_path=trace,
+            usage={},
+            stderr="",
+            receipt_path=receipt,
+            return_code=0,
+            wall_seconds=0.1,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+    def validator(case: CaseRecord, received_config: object) -> CaseRecord:
+        nonlocal validation_calls
+        validation_calls += 1
+        return replace(
+            case,
+            validation_status="valid" if validation_calls == 3 else "invalid_test",
+            validation_diagnostic=(
+                "validated" if validation_calls == 3 else "Docker build failed"
+            ),
+            container_image_id=("sha256:fixture" if validation_calls == 3 else ""),
+        )
+
+    plan = skillrace.create_diversity_plan(
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "plan",
+        pi_runner=fake_pi,
+    )
+    proposed = skillrace.materialize_initial_test(
+        plan,
+        0,
+        skill,
+        PROPERTIES,
+        config,
+        tmp_path / "seed-01",
+        pi_runner=fake_pi,
+        validator=validator,
+    )
+
+    assert proposed.validation_status == "valid"
+    assert validation_calls == 3
+    assert len(requests) == 4
+    assert "Docker build failed" in requests[3].prompt_path.read_text(encoding="utf-8")
+    assert "recheck every dockerfile constraint" in requests[3].prompt_path.read_text(
+        encoding="utf-8"
+    ).lower()
+
+
+def test_thrice_malformed_initial_test_is_returned_as_invalid_slot(
     tmp_path: Path,
 ) -> None:
     requests: list[PiRequest] = []
@@ -335,8 +489,8 @@ def test_twice_malformed_initial_test_is_returned_as_invalid_slot(
         pi_runner=fake_pi,
     )
 
-    assert len(requests) == 3
-    assert "previous materialization was invalid" in requests[2].prompt_path.read_text(
+    assert len(requests) == 4
+    assert "previous materialization was invalid" in requests[3].prompt_path.read_text(
         encoding="utf-8"
     )
     assert proposed.validation_status == "invalid_test"

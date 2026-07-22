@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 import json
 import os
 from pathlib import Path
+import re
 import uuid
 
 import pytest
@@ -148,10 +149,13 @@ def test_real_pi_selects_and_mutates_one_edge_from_a_long_tree(
     dockerfile = (
         proposed.environment_directory / "Dockerfile"
     ).read_text(encoding="utf-8")
-    assert "/opt/report-tools/bin/reportgen" in dockerfile
+    helper_paths = set(
+        re.findall(r"/(?:usr|opt)(?:/[A-Za-z0-9._-]+)+/reportgen", dockerfile)
+    )
+    assert helper_paths
     assert "/usr/bin/reportgen" not in dockerfile
     visible_prompt = proposed.prompt_path.read_text(encoding="utf-8")
-    assert "/opt/report-tools/bin/reportgen" not in visible_prompt
+    assert not [path for path in helper_paths if path in visible_prompt]
     assert receipt["selection_reason"].strip()
     for key in ("selector_pi_receipt_path", "pi_receipt_path"):
         pi_receipt_path = Path(receipt[key])

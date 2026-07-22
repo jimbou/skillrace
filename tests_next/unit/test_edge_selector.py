@@ -92,6 +92,61 @@ def fixture_skill(tmp_path: Path) -> SkillVersion:
     )
 
 
+def pi_result(request: PiRequest, response: str) -> PiResult:
+    request.output_dir.mkdir(parents=True, exist_ok=True)
+    trace = request.output_dir / "trace.jsonl"
+    trace.write_text(
+        json.dumps(
+            {
+                "type": "message",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": response}],
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    receipt = request.output_dir / "receipt.json"
+    receipt.write_text("{}\n", encoding="utf-8")
+    return PiResult(
+        operation_id=request.operation_id,
+        model=request.model,
+        status="completed",
+        trace_path=trace,
+        usage={},
+        stderr="",
+        receipt_path=receipt,
+        return_code=0,
+        wall_seconds=0.1,
+        timeout_seconds=request.timeout_seconds,
+    )
+
+
+def valid_mutation() -> dict[str, str]:
+    return {
+        "bug_hypothesis": "The skill assumes a fixed executable path.",
+        "mutation": "Place the executable at a recoverable nonstandard path.",
+        "why_patchable": "Path discovery guidance makes the task finishable.",
+        "prompt": "Create /workspace/result.txt with the local tool and verify it.",
+        "dockerfile": (
+            "FROM skillrace-next/task-fixture:test\n"
+            "RUN mkdir -p /opt/tool/bin && ln -s /bin/printf /opt/tool/bin/tool\n"
+            "WORKDIR /workspace\n"
+        ),
+    }
+
+
+def valid_case(case: CaseRecord, config: object) -> CaseRecord:
+    return replace(
+        case,
+        validation_status="valid",
+        validation_diagnostic="validated",
+        container_image_id="sha256:fixture",
+    )
+
+
 def test_compact_index_and_branch_isolation_cover_a_long_observed_tree() -> None:
     tree = long_observed_tree()
 
@@ -240,6 +295,11 @@ def test_pi_agent_selects_one_observed_edge_then_returns_patchable_mutation(
     assert "must make the selected edge assumption fail" in mutator_prompt
     assert "must not reveal the recovery path" in mutator_prompt
     assert "quoted here-document" in mutator_prompt
+    assert "4 pi turns and 180 seconds" in mutator_prompt.lower()
+    assert "go, rust/cargo, ruby, jq" in mutator_prompt.lower()
+    assert "at most 600 characters" in mutator_prompt.lower()
+    assert "at most 2 kib" in mutator_prompt.lower()
+    assert "at most 8 kib" in mutator_prompt.lower()
     receipt = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
     selector_root = Path(receipt["selector_input_path"])
     assert len(json.loads((selector_root / "edge-index.json").read_text())) == 139
@@ -253,3 +313,253 @@ def test_pi_agent_selects_one_observed_edge_then_returns_patchable_mutation(
     assert receipt["selector_input_hash"] == tree_hash(selector_root)
     assert receipt["selector_pi_receipt_path"] == str(selector_request.output_dir / "receipt.json")
     assert receipt["pi_receipt_path"] == str(mutator_request.output_dir / "receipt.json")
+
+
+def test_edge_selector_allows_two_corrections_without_rerunning_mutator(
+    tmp_path: Path,
+) -> None:
+    tree = long_observed_tree()
+    selected = edge_id("node-090", "node-091")
+    requests: list[PiRequest] = []
+    selector_responses = [
+        "not json",
+        json.dumps(
+            {
+                "target_edge_id": "edge-unknown",
+                "selection_reason": "A brittle assumption.",
+            }
+        ),
+        json.dumps(
+            {
+                "target_edge_id": selected,
+                "selection_reason": "A recoverable path assumption.",
+            }
+        ),
+    ]
+
+    def proposal_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        response = (
+            selector_responses.pop(0)
+            if ".select." in request.operation_id
+            else json.dumps(valid_mutation())
+        )
+        return pi_result(request, response)
+
+    proposed = skillrace.propose_test(
+        tree,
+        fixture_skill(tmp_path),
+        PROPERTIES,
+        replace(config_for(tmp_path), role_budgets={"proposer": 6}),
+        pi_runner=proposal_pi,
+        validator=valid_case,
+    )
+
+    assert proposed.validation_status == "valid"
+    selector_requests = [item for item in requests if ".select." in item.operation_id]
+    mutator_requests = [item for item in requests if ".mutate." in item.operation_id]
+    assert len(selector_requests) == 3
+    assert len(mutator_requests) == 1
+    assert "previous response was invalid" in selector_requests[1].prompt_path.read_text(
+        encoding="utf-8"
+    ).lower()
+    assert "unknown edge" in selector_requests[2].prompt_path.read_text(
+        encoding="utf-8"
+    )
+
+
+def test_mutator_allows_two_structural_corrections_without_rerunning_selector(
+    tmp_path: Path,
+) -> None:
+    tree = long_observed_tree()
+    selected = edge_id("node-090", "node-091")
+    requests: list[PiRequest] = []
+    invalid_with_inner_fences = {
+        **valid_mutation(),
+        "prompt": "Write this example:\n```text\nok\n```\nto /workspace/result.txt.",
+        "unexpected": "extra field",
+    }
+    invalid_dockerfile = {
+        **valid_mutation(),
+        "dockerfile": "FROM wrong:image\nWORKDIR /workspace\n",
+    }
+    mutator_responses = [
+        "```json\n" + json.dumps(invalid_with_inner_fences) + "\n```",
+        json.dumps(invalid_dockerfile),
+        json.dumps(valid_mutation()),
+    ]
+
+    def proposal_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        response = (
+            json.dumps(
+                {
+                    "target_edge_id": selected,
+                    "selection_reason": "A recoverable path assumption.",
+                }
+            )
+            if ".select." in request.operation_id
+            else mutator_responses.pop(0)
+        )
+        return pi_result(request, response)
+
+    proposed = skillrace.propose_test(
+        tree,
+        fixture_skill(tmp_path),
+        PROPERTIES,
+        replace(config_for(tmp_path), role_budgets={"proposer": 6}),
+        pi_runner=proposal_pi,
+        validator=valid_case,
+    )
+
+    assert proposed.validation_status == "valid"
+    selector_requests = [item for item in requests if ".select." in item.operation_id]
+    mutator_requests = [item for item in requests if ".mutate." in item.operation_id]
+    assert len(selector_requests) == 1
+    assert len(mutator_requests) == 3
+    assert "response is invalid" in mutator_requests[1].prompt_path.read_text(
+        encoding="utf-8"
+    )
+    assert "must start with" in mutator_requests[2].prompt_path.read_text(
+        encoding="utf-8"
+    ).lower()
+
+
+def test_mutator_corrects_failed_generated_test_validation(tmp_path: Path) -> None:
+    tree = long_observed_tree()
+    selected = edge_id("node-090", "node-091")
+    requests: list[PiRequest] = []
+    validation_calls = 0
+
+    def proposal_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        response = (
+            {
+                "target_edge_id": selected,
+                "selection_reason": "A recoverable path assumption.",
+            }
+            if ".select." in request.operation_id
+            else valid_mutation()
+        )
+        return pi_result(request, json.dumps(response))
+
+    def validator(case: CaseRecord, config: object) -> CaseRecord:
+        nonlocal validation_calls
+        validation_calls += 1
+        return replace(
+            case,
+            validation_status="valid" if validation_calls == 3 else "invalid_test",
+            validation_diagnostic=(
+                "validated" if validation_calls == 3 else "Docker build failed"
+            ),
+            container_image_id=("sha256:fixture" if validation_calls == 3 else ""),
+        )
+
+    proposed = skillrace.propose_test(
+        tree,
+        fixture_skill(tmp_path),
+        PROPERTIES,
+        replace(config_for(tmp_path), role_budgets={"proposer": 6}),
+        pi_runner=proposal_pi,
+        validator=validator,
+    )
+
+    assert proposed.validation_status == "valid"
+    assert validation_calls == 3
+    selector_requests = [item for item in requests if ".select." in item.operation_id]
+    mutator_requests = [item for item in requests if ".mutate." in item.operation_id]
+    assert len(selector_requests) == 1
+    assert len(mutator_requests) == 3
+    assert "Docker build failed" in mutator_requests[1].prompt_path.read_text(
+        encoding="utf-8"
+    )
+    assert "Docker build failed" in mutator_requests[2].prompt_path.read_text(
+        encoding="utf-8"
+    )
+
+
+def test_mutator_corrects_a_visible_prompt_that_reveals_the_recovery_path(
+    tmp_path: Path,
+) -> None:
+    tree = long_observed_tree()
+    selected = edge_id("node-090", "node-091")
+    requests: list[PiRequest] = []
+    revealed = {
+        **valid_mutation(),
+        "mutation": "Relocate the helper to /usr/local/lib/helpdesk/bin/reportgen.",
+        "prompt": (
+            "Create /workspace/result.txt and verify it with "
+            "/usr/local/lib/helpdesk/bin/reportgen."
+        ),
+    }
+    responses = [revealed, valid_mutation()]
+
+    def proposal_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        response = (
+            {
+                "target_edge_id": selected,
+                "selection_reason": "A recoverable path assumption.",
+            }
+            if ".select." in request.operation_id
+            else responses.pop(0)
+        )
+        return pi_result(request, json.dumps(response))
+
+    proposed = skillrace.propose_test(
+        tree,
+        fixture_skill(tmp_path),
+        PROPERTIES,
+        replace(config_for(tmp_path), role_budgets={"proposer": 6}),
+        pi_runner=proposal_pi,
+        validator=valid_case,
+    )
+
+    assert proposed.validation_status == "valid"
+    selector_requests = [item for item in requests if ".select." in item.operation_id]
+    mutator_requests = [item for item in requests if ".mutate." in item.operation_id]
+    assert len(selector_requests) == 1
+    assert len(mutator_requests) == 2
+    assert "visible prompt reveals the mutation's recovery path" in (
+        mutator_requests[1].prompt_path.read_text(encoding="utf-8")
+    )
+
+
+def test_mutator_corrects_an_oversized_response(tmp_path: Path) -> None:
+    tree = long_observed_tree()
+    selected = edge_id("node-090", "node-091")
+    requests: list[PiRequest] = []
+    responses = [
+        {**valid_mutation(), "bug_hypothesis": "x" * 601},
+        valid_mutation(),
+    ]
+
+    def proposal_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        response = (
+            {
+                "target_edge_id": selected,
+                "selection_reason": "A recoverable path assumption.",
+            }
+            if ".select." in request.operation_id
+            else responses.pop(0)
+        )
+        return pi_result(request, json.dumps(response))
+
+    proposed = skillrace.propose_test(
+        tree,
+        fixture_skill(tmp_path),
+        PROPERTIES,
+        replace(config_for(tmp_path), role_budgets={"proposer": 6}),
+        pi_runner=proposal_pi,
+        validator=valid_case,
+    )
+
+    assert proposed.validation_status == "valid"
+    selector_requests = [item for item in requests if ".select." in item.operation_id]
+    mutator_requests = [item for item in requests if ".mutate." in item.operation_id]
+    assert len(selector_requests) == 1
+    assert len(mutator_requests) == 2
+    assert "bug_hypothesis exceeds 600 characters" in (
+        mutator_requests[1].prompt_path.read_text(encoding="utf-8")
+    )

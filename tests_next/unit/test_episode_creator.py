@@ -154,11 +154,14 @@ def test_create_episodes_uses_same_track_pi_and_saves_validated_output(
     prompt = requests[0].prompt_path.read_text(encoding="utf-8")
     assert '"id":"e1"' in prompt
     assert "Do not create episodes for text-only assistant messages" in prompt
+    assert "never a string containing encoded JSON" in prompt
     assert '"episode_id":"episode-1"' in prompt
     assert "All IDs must be JSON strings" in prompt
     assert "top-level JSON type must be an array" in prompt
     assert "Do not return JSONL or NDJSON" in prompt
     assert "Reason internally and verify the array" in prompt
+    assert 'REQUIRED RELEVANT EVENT IDS IN ORDER: ["e1", "e2", "e3", "e4"]' in prompt
+    assert "The final episode must end at e4" in prompt
     assert json.loads((tmp_path / "episodes" / "episodes.json").read_text()) == episodes
 
 
@@ -209,6 +212,53 @@ def test_create_episodes_allows_one_json_correction(tmp_path: Path) -> None:
     assert calls == 2
 
 
+def test_create_episodes_allows_two_json_corrections(tmp_path: Path) -> None:
+    calls = 0
+
+    def correcting_pi(request: PiRequest) -> PiResult:
+        nonlocal calls
+        calls += 1
+        request.output_dir.mkdir(parents=True, exist_ok=True)
+        trace = request.output_dir / "trace.jsonl"
+        response = "not-json" if calls < 3 else json.dumps(valid_episodes())
+        trace.write_text(
+            json.dumps(
+                {
+                    "type": "message",
+                    "id": f"response-{calls}",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": response}],
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        receipt = request.output_dir / "receipt.json"
+        receipt.write_text("{}\n", encoding="utf-8")
+        return PiResult(
+            operation_id=request.operation_id,
+            model=request.model,
+            status="completed",
+            trace_path=trace,
+            usage={},
+            stderr="",
+            receipt_path=receipt,
+            return_code=0,
+            wall_seconds=0.1,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+    config = replace(config_for(tmp_path), role_budgets={"segmenter": 4})
+    episodes, _ = create_episodes(
+        run_record(tmp_path), config, tmp_path / "episodes", correcting_pi
+    )
+
+    assert episodes == valid_episodes()
+    assert calls == 3
+
+
 def test_create_episodes_accepts_one_json_code_fence(tmp_path: Path) -> None:
     def fenced_pi(request: PiRequest) -> PiResult:
         request.output_dir.mkdir(parents=True, exist_ok=True)
@@ -249,6 +299,143 @@ def test_create_episodes_accepts_one_json_code_fence(tmp_path: Path) -> None:
     )
 
     assert episodes == valid_episodes()
+
+
+def test_create_episodes_accepts_outer_fence_when_field_contains_fence(
+    tmp_path: Path,
+) -> None:
+    expected = valid_episodes()
+    expected[0]["purpose"] = "Inspect the ```json example before writing the file"
+
+    def nested_fence_pi(request: PiRequest) -> PiResult:
+        request.output_dir.mkdir(parents=True, exist_ok=True)
+        trace = request.output_dir / "trace.jsonl"
+        response = f"```json\n{json.dumps(expected)}\n```"
+        trace.write_text(
+            json.dumps(
+                {
+                    "type": "message",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": response}],
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        receipt = request.output_dir / "receipt.json"
+        receipt.write_text("{}\n", encoding="utf-8")
+        return PiResult(
+            operation_id=request.operation_id,
+            model=request.model,
+            status="completed",
+            trace_path=trace,
+            usage={},
+            stderr="",
+            receipt_path=receipt,
+            return_code=0,
+            wall_seconds=0.1,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+    config = replace(config_for(tmp_path), role_budgets={"segmenter": 4})
+
+    episodes, _ = create_episodes(
+        run_record(tmp_path), config, tmp_path / "episodes", nested_fence_pi
+    )
+
+    assert episodes == expected
+
+
+def test_create_episodes_decodes_json_object_array_items_once(tmp_path: Path) -> None:
+    def string_items_pi(request: PiRequest) -> PiResult:
+        request.output_dir.mkdir(parents=True, exist_ok=True)
+        trace = request.output_dir / "trace.jsonl"
+        response = json.dumps([json.dumps(item) for item in valid_episodes()])
+        trace.write_text(
+            json.dumps(
+                {
+                    "type": "message",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": response}],
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        receipt = request.output_dir / "receipt.json"
+        receipt.write_text("{}\n", encoding="utf-8")
+        return PiResult(
+            operation_id=request.operation_id,
+            model=request.model,
+            status="completed",
+            trace_path=trace,
+            usage={},
+            stderr="",
+            receipt_path=receipt,
+            return_code=0,
+            wall_seconds=0.1,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+    config = replace(config_for(tmp_path), role_budgets={"segmenter": 4})
+
+    episodes, _ = create_episodes(
+        run_record(tmp_path), config, tmp_path / "episodes", string_items_pi
+    )
+
+    assert episodes == valid_episodes()
+
+
+def test_create_episodes_recovers_unescaped_object_array_wrappers(tmp_path: Path) -> None:
+    calls = 0
+
+    def malformed_wrappers_pi(request: PiRequest) -> PiResult:
+        nonlocal calls
+        calls += 1
+        request.output_dir.mkdir(parents=True, exist_ok=True)
+        trace = request.output_dir / "trace.jsonl"
+        objects = [json.dumps(item, separators=(",", ":")) for item in valid_episodes()]
+        response = '["' + '","'.join(objects) + "]"
+        trace.write_text(
+            json.dumps(
+                {
+                    "type": "message",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": response}],
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        receipt = request.output_dir / "receipt.json"
+        receipt.write_text("{}\n", encoding="utf-8")
+        return PiResult(
+            operation_id=request.operation_id,
+            model=request.model,
+            status="completed",
+            trace_path=trace,
+            usage={},
+            stderr="",
+            receipt_path=receipt,
+            return_code=0,
+            wall_seconds=0.1,
+            timeout_seconds=request.timeout_seconds,
+        )
+
+    config = replace(config_for(tmp_path), role_budgets={"segmenter": 4})
+
+    episodes, _ = create_episodes(
+        run_record(tmp_path), config, tmp_path / "episodes", malformed_wrappers_pi
+    )
+
+    assert episodes == valid_episodes()
+    assert calls == 1
 
 
 def test_create_episodes_allows_one_validation_correction(tmp_path: Path) -> None:

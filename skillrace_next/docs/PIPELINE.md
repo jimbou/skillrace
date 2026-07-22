@@ -299,8 +299,12 @@ Its campaign state contains:
 
 SkillRACE first segments the actual agent trace into ordered, non-overlapping episodes.
 Episode boundaries must use real trace event IDs and collectively cover every relevant
-assistant thinking/tool-call event and tool-result event. One correction attempt is
-allowed for malformed or ungrounded episode output.
+assistant thinking/tool-call event and tool-result event. Diversity planning, initial-test
+materialization, episode creation, ambiguous tree alignment, edge selection, and branch
+mutation each permit at most three total model calls. Every correction call receives the
+exact validation diagnostic. A valid edge selection is retained while an invalid mutation
+is corrected; the selector is not rerun. Weak-agent execution is never retried by these
+format and validation loops.
 
 The tree stores nodes with purpose, outcome, member run/episode IDs, reach state, and
 failure IDs. Exact purpose/outcome matches merge deterministically. If placement is
@@ -319,6 +323,8 @@ saved tree. A second fresh tool-free Pi call sees only that isolated branch, sel
 rationale, current skill, and fixed properties. It mutates the selected assumption and
 returns one prompt and Dockerfile. The mutation must make the assumption fail while keeping
 a local recovery route, must not reveal that route in the visible prompt, and must remain
-solvable within the unchanged budget. Generated environments use only the pinned base-image
-software and local files or symlinks. Exact edge reach is diagnostic; any genuine fixed-
-property failure remains useful.
+solvable within the unchanged budget. Before the full study, each selected Part I skill and
+Part II scenario receives one frozen base image with a small context-appropriate tool set.
+Its immutable image ID and capability context are supplied to test generation. Generated
+environments use only that pinned software and local files or symlinks. Exact edge reach is
+diagnostic; any genuine fixed-property failure remains useful.

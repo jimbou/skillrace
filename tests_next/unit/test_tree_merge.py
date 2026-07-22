@@ -201,11 +201,12 @@ def test_ambiguous_first_placement_uses_one_batched_alignment_call(
     )
 
 
-def test_ambiguous_alignment_gets_one_format_correction(tmp_path: Path) -> None:
+def test_ambiguous_alignment_allows_two_format_corrections(tmp_path: Path) -> None:
     calls: list[PiRequest] = []
     responses = [
         "The chain is a top-level alternative.\n\n"
         "```json\n{\"parent_node_id\": \"root\"}\n```",
+        '{"parent_node_id":"unknown"}',
         '{"parent_node_id":"root"}',
     ]
 
@@ -251,10 +252,11 @@ def test_ambiguous_alignment_gets_one_format_correction(tmp_path: Path) -> None:
         alignment_pi,
     )
 
-    assert len(calls) == 2
+    assert len(calls) == 3
     assert "previous response was invalid" in calls[1].prompt_path.read_text(
         encoding="utf-8"
     )
+    assert "unknown parent" in calls[2].prompt_path.read_text(encoding="utf-8")
     first_created = next(
         node for node in merged["nodes"] if "episode-1" in node["member_episode_ids"]
     )

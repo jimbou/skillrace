@@ -438,12 +438,57 @@ falsely admitted. Credentials were absent and all three owned containers were re
   received byte-identical proposer inputs on its two independent calls, with no prior
   proposal state, and produced two valid tests under distinct receipts/output roots.
   Temperature and model provenance were correct and exact-key scans were clean.
+- [ ] Complete the combined ten-seed-through-first-branch SkillRACE contract for Qwen.
+  DeepSeek completed ten ordered seeds and the first tree-selected branch under
+  `out/live-contracts/skillrace-ten-seed/deepseek-v4-flash/20260721T172930Z-31b0bfd6/`.
+  Qwen repeatedly completed the real weak runs, Terra bundles, Docker checks, and tree
+  updates, reaching seed nine in one preserved root. Episode creation now supplies the
+  exact ordered relevant-event IDs and permits two correction calls. The exact previously
+  failing nine-event Qwen trace passed live as five grounded episodes under
+  `out/live-contracts/episode-creator/qwen3.6-flash/20260722T002556Z-d4041428/`.
+  Trace splitting was not added because the observed failure was a field-name typo on a
+  short trace. Initial materialization now also permits two correction calls. The next
+  fresh combined run completed all ten ordered weak executions and tree updates, reaching
+  branch phase with 48 nodes and 47 edges. The first branch mutator response then violated
+  its contract: it relied on document size, added an undeclared field, and returned outer-
+  fenced JSON containing embedded fences. Preserve
+  `out/live-contracts/skillrace-ten-seed/qwen3.6-flash/20260722T002923Z-06536695/`
+  and the earlier diagnostic roots.
+  All SkillRACE model-authored boundaries now permit two correction calls after an invalid
+  response: diversity planning, seed materialization, episode creation, ambiguous tree
+  alignment, edge selection, and branch mutation. Selector correction stops as soon as a
+  valid edge is chosen; mutator correction never reruns that selector. Weak-agent task
+  execution is still exactly once.
+  The next Qwen root,
+  `out/live-contracts/skillrace-ten-seed/qwen3.6-flash/20260722T013522Z-e0d0a78f/`,
+  exercised third-attempt seed materialization and episode creation, then stopped when all
+  three seed-09 materializations were invalid. Its plan had requested an unnecessarily huge
+  dictionary fixture. The plan/materializer prompts now require one focused task under the
+  exact turn/time budget and compact repetitive fixtures. A smaller real initializer passed
+  with a manually inspected feasible ten-task plan under
+  `out/live-contracts/skillrace-initializer/qwen3.6-flash/20260722T021309Z-225f0507/`.
+  A subsequent combined root completed nine seeds and entered seed ten, then hit a host
+  artifact-freezing bug on a broken `.venv/bin/python` symlink before checks:
+  `out/live-contracts/skillrace-ten-seed/qwen3.6-flash/20260722T021441Z-49fcfb86/`.
+  `freeze_artifact` now preserves symlinks without following them, and `tree_hash` records
+  their link targets; the focused regression and task-container integration tests pass.
+  The corrected individual Qwen long-tree contract passed under
+  `out/live-contracts/skillrace-edge-selector/qwen3.6-flash/20260722T025327Z-87914bff/`.
+  It selected the unique promising edge once, retained an invalid first mutator attempt,
+  corrected only the mutator, and produced a Docker-valid, semantically inspected task whose
+  `/opt/report-tools/bin/reportgen` recovery path is absent from the visible prompt. The full
+  combined Qwen eleven-execution contract remains incomplete; do not relabel these roots.
 - [x] Choose the full-study scale: DeepSeek v4 Flash and Qwen 3.6 Flash tracks, 30
   development iterations, one held-out repetition, and one replicate per campaign. Every
   non-verifier role in a track uses that track's same model.
 - [ ] Create one frozen campaign config per selected skill/scenario and model track, with
   separate input and output roots. The replicate loop creates numbered replicate
   directories inside that campaign output.
+- [ ] Before freezing those configs, create one frozen base image per selected Part I skill
+  and Part II scenario with the small tool set appropriate to that context. Record the image
+  ID and expose its capability context to test generation. The current Python/Node/Bash/Perl
+  capability wording is only for `skillrace-next/task-fixture:test`; replace it with each
+  per-skill image's frozen context before the full study.
 - [x] Finish the bounded pilot using the frozen v3-v8 cells. Preserve all
   interrupted predecessor outputs and do not resume a terminal output root. Starting a
   fresh root after a recorded infrastructure correction is not a retry of an unfavorable

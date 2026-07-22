@@ -30,7 +30,18 @@ def file_hash(path: str | Path) -> str:
 def tree_hash(path: str | Path) -> str:
     root = Path(path)
     digest = hashlib.sha256()
-    for child in sorted(candidate for candidate in root.rglob("*") if candidate.is_file()):
+    for child in sorted(root.rglob("*")):
+        if child.is_symlink():
+            relative = child.relative_to(root).as_posix().encode("utf-8")
+            target = os.readlink(child).encode("utf-8")
+            digest.update(b"symlink")
+            digest.update(len(relative).to_bytes(8, "big"))
+            digest.update(relative)
+            digest.update(len(target).to_bytes(8, "big"))
+            digest.update(target)
+            continue
+        if not child.is_file():
+            continue
         relative = child.relative_to(root).as_posix().encode("utf-8")
         digest.update(len(relative).to_bytes(8, "big"))
         digest.update(relative)

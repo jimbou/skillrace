@@ -47,3 +47,20 @@ def test_verify_artifact_unchanged_detects_content_mutation(tmp_path: Path) -> N
     output.write_text("after\n", encoding="utf-8")
 
     assert not verify_artifact_unchanged(frozen)
+
+
+def test_freeze_preserves_and_hashes_a_broken_symlink(tmp_path: Path) -> None:
+    artifact = tmp_path / "artifact"
+    bin_dir = artifact / ".venv" / "bin"
+    bin_dir.mkdir(parents=True)
+    link = bin_dir / "python"
+    link.symlink_to("python3")
+
+    frozen = freeze_artifact(artifact, checker_uid=65534)
+
+    assert link.is_symlink()
+    assert link.readlink() == Path("python3")
+    bin_dir.chmod(0o755)
+    link.unlink()
+    link.symlink_to("python3.12")
+    assert not verify_artifact_unchanged(frozen)
