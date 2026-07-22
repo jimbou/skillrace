@@ -205,6 +205,52 @@ def test_build_study_images_is_strictly_sequential(tmp_path: Path) -> None:
     assert all(item["image_id"].startswith("sha256:") for item in frozen["images"])
 
 
+def test_build_study_images_can_start_late_without_writing_final_manifest(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "images"
+    part1, part2 = write_selection_files(tmp_path)
+    for part, context_id in (
+        ("part1", "alpha"),
+        ("part1", "beta"),
+        ("part2", "gamma"),
+    ):
+        write_image_source(source, part, context_id)
+    commands: list[list[str]] = []
+
+    def runner(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        stdout = "sha256:resume" if command[1:3] == ["image", "inspect"] else "ok"
+        return subprocess.CompletedProcess(command, 0, stdout + "\n", "")
+
+    partial = build_study_images(
+        source,
+        tmp_path / "evidence",
+        "run-1",
+        start_ordinal=2,
+        part1_selection=part1,
+        part2_selection=part2,
+        command_runner=runner,
+    )
+
+    assert [command[1] for command in commands] == [
+        "build",
+        "image",
+        "run",
+        "build",
+        "image",
+        "run",
+    ]
+    assert "study-part1-beta" in commands[0][3]
+    assert partial.name == "partial-manifest.json"
+    summary = json.loads(partial.read_text(encoding="utf-8"))
+    assert summary["schema"] == "skillrace-study-base-images-partial/1"
+    assert summary["start_ordinal"] == 2
+    assert summary["image_count"] == 2
+    assert not (source / "manifest.json").exists()
+    assert not (tmp_path / "evidence" / "run-1" / "01-part1-alpha").exists()
+
+
 def test_build_study_images_stops_without_manifest_after_build_failure(
     tmp_path: Path,
 ) -> None:

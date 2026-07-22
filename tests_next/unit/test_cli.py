@@ -45,6 +45,30 @@ def test_build_study_images_runs_the_frozen_builder(
     assert calls == ["image-run"]
 
 
+def test_build_study_images_passes_start_ordinal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple[str, int]] = []
+
+    def fake_builder(*, run_id: str, start_ordinal: int) -> Path:
+        calls.append((run_id, start_ordinal))
+        return tmp_path / "partial-manifest.json"
+
+    monkeypatch.setattr(cli, "build_study_images", fake_builder)
+
+    assert cli.main(
+        [
+            "build-study-images",
+            "--live",
+            "--run-id",
+            "resume-run",
+            "--start-ordinal",
+            "11",
+        ]
+    ) == 0
+    assert calls == [("resume-run", 11)]
+
+
 def test_internal_stage_is_not_a_command() -> None:
     with pytest.raises(SystemExit):
         build_parser().parse_args(["author-checks"])

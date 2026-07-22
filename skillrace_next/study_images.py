@@ -208,6 +208,7 @@ def build_study_images(
     evidence_root: str | Path = Path("out/live-contracts/study-base-images"),
     run_id: str = "",
     *,
+    start_ordinal: int = 1,
     part1_selection: str | Path = PART1_SELECTION,
     part2_selection: str | Path = PART2_SELECTION,
     command_runner: CommandRunner = subprocess.run,
@@ -219,10 +220,12 @@ def build_study_images(
     if manifest_path.exists():
         raise ValueError("study image manifest already exists")
     records = validate_image_sources(root, part1_selection, part2_selection)
+    if start_ordinal < 1 or start_ordinal > len(records):
+        raise ValueError("study image start ordinal is invalid")
     evidence = Path(evidence_root) / run_id
     evidence.mkdir(parents=True, exist_ok=False)
     built: list[dict[str, Any]] = []
-    for ordinal, record in enumerate(records, 1):
+    for ordinal, record in list(enumerate(records, 1))[start_ordinal - 1 :]:
         context_output = evidence / f"{ordinal:02d}-{record['part']}-{record['context_id']}"
         context_output.mkdir()
         dockerfile = Path(record["dockerfile_path"])
@@ -321,13 +324,19 @@ def build_study_images(
                 "receipt_hash": file_hash(receipt_path),
             }
         )
-    atomic_write_json(
-        manifest_path,
-        {
-            "schema": "skillrace-study-base-images/1",
-            "run_id": run_id,
-            "image_count": len(built),
-            "images": built,
-        },
-    )
-    return manifest_path
+    if start_ordinal == 1:
+        output_path = manifest_path
+        schema = "skillrace-study-base-images/1"
+    else:
+        output_path = evidence / "partial-manifest.json"
+        schema = "skillrace-study-base-images-partial/1"
+    summary = {
+        "schema": schema,
+        "run_id": run_id,
+        "image_count": len(built),
+        "images": built,
+    }
+    if start_ordinal != 1:
+        summary["start_ordinal"] = start_ordinal
+    atomic_write_json(output_path, summary)
+    return output_path

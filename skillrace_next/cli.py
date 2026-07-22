@@ -35,6 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
     image_command = sub.add_parser("build-study-images")
     image_command.add_argument("--live", action="store_true")
     image_command.add_argument("--run-id", required=True)
+    image_command.add_argument("--start-ordinal", type=int, default=1)
     for name in ("live-smoke", "part1", "part2", "analyze"):
         command = sub.add_parser(name)
         if name == "analyze":
@@ -164,7 +165,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "build-study-images":
         if not args.live:
             raise ValueError("build-study-images requires explicit --live")
-        build_study_images(run_id=args.run_id)
+        if args.start_ordinal == 1:
+            build_study_images(run_id=args.run_id)
+        else:
+            build_study_images(
+                run_id=args.run_id,
+                start_ordinal=args.start_ordinal,
+            )
         return 0
     if args.command == "analyze":
         run = Path(args.run)
