@@ -7,6 +7,7 @@ from ..pipeline.stages import validate_generated_dockerfile, validate_test
 from ..records import ExperimentConfig, SkillVersion, TestCase
 from ..runtime.pi import PiRequest, PiResult, run_pi
 from ..storage import atomic_write_json, file_hash, tree_hash
+from ..study_images import capability_for_image
 
 
 PiRunner = Callable[[PiRequest], PiResult]
@@ -55,6 +56,7 @@ def _proposal_prompt(
     skill: SkillVersion,
     properties: list[dict[str, Any]],
     base_image: str,
+    capability_text: str,
     diagnostic: str | None = None,
 ) -> str:
     skill_text = (skill.directory_path / "SKILL.md").read_text(encoding="utf-8")
@@ -80,6 +82,7 @@ def _proposal_prompt(
         "and contain exactly 'WORKDIR /workspace'. Preserve the installed Pi runtime. "
         "All fixed properties must be consistent with requirements visible in the task "
         "prompt. Do not use Markdown fences or tools.\n\n"
+        f"BASE IMAGE CAPABILITIES:\n{capability_text}\n\n"
         f"SKILL.md:\n{skill_text}\n\n"
         f"Properties:\n{json.dumps(properties, sort_keys=True)}"
         f"{correction}\n"
@@ -105,12 +108,19 @@ def propose_test(
     parsed: dict[str, Any] | None = None
     pi_receipt_path: Path | None = None
     diagnostic: str | None = None
+    capability = capability_for_image(config.docker_image)
     for ordinal in (1, 2):
         attempt = output / f"proposal-attempt-{ordinal}"
         attempt.mkdir()
         prompt_path = attempt / "prompt.txt"
         prompt_path.write_text(
-            _proposal_prompt(skill, properties, config.docker_image, diagnostic),
+            _proposal_prompt(
+                skill,
+                properties,
+                config.docker_image,
+                capability.text,
+                diagnostic,
+            ),
             encoding="utf-8",
         )
         suffix = "" if ordinal == 1 else ".correction"
@@ -171,6 +181,7 @@ def propose_test(
             "pi_receipt_hash": file_hash(pi_receipt_path),
             "model": config.model_id,
             "temperature": 1.0,
+            "capability_manifest_hash": capability.manifest_hash,
         },
     )
     return TestCase(

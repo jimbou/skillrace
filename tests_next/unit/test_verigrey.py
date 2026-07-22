@@ -328,6 +328,8 @@ def test_initialize_corpus_materializes_every_ordered_property_seed_before_execu
         assert json.dumps(PROPERTIES, sort_keys=True) in prompt
         assert "internally consistent" in prompt
         assert "Verify every stated exact count" in prompt
+        assert "BASE IMAGE CAPABILITIES" in prompt
+        assert "may install additional packages online" in prompt
         case = CaseRecord.from_dict(seed["test_case"])
         assert json.loads(case.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
         proposal = json.loads(case.proposal_receipt.read_text(encoding="utf-8"))
@@ -335,6 +337,7 @@ def test_initialize_corpus_materializes_every_ordered_property_seed_before_execu
         assert proposal["seed_id"] == seed["seed_id"]
         assert proposal["focus_property_id"] == seed["focus_property_id"]
         assert proposal["temperature"] == 1.0
+        assert proposal["capability_manifest_hash"] == "fixture"
     corpus_receipt = Path(state["initial_corpus_receipt"])
     assert corpus_receipt.is_file()
     frozen = json.loads(corpus_receipt.read_text(encoding="utf-8"))
@@ -481,12 +484,15 @@ def test_verigrey_fifo_energy_mutation_and_coverage_admission(
     assert json.dumps(PROPERTIES, sort_keys=True) in mutation_prompt
     assert "internally consistent" in mutation_prompt
     assert "Verify every stated exact count" in mutation_prompt
+    assert "BASE IMAGE CAPABILITIES" in mutation_prompt
+    assert "may install additional packages online" in mutation_prompt
     proposal = json.loads(first_mutation.proposal_receipt.read_text(encoding="utf-8"))
     assert proposal["phase"] == "mutation"
     assert proposal["parent_seed_id"] == "seed-P1"
     assert proposal["assigned_energy"] == 3
     assert proposal["mutation_ordinal"] == 1
     assert proposal["temperature"] == 1.0
+    assert proposal["capability_manifest_hash"] == "fixture"
     assert json.loads(first_mutation.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES
 
     bash = {"tool": "bash", "arguments": {"command": "string"}}

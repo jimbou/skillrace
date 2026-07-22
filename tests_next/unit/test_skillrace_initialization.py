@@ -99,13 +99,13 @@ def test_create_diversity_plan_freezes_exactly_ten_ordered_descriptions(
     assert "every description must be feasible" in prompt.lower()
     assert "recovery path" in prompt.lower()
     assert "no docker access" in prompt.lower()
-    assert "no runtime network" in prompt.lower()
+    assert "base image capabilities" in prompt.lower()
+    assert "may install additional packages online" in prompt.lower()
     assert "must not contain the requested solution" in prompt.lower()
     assert "small representative fixture" in prompt.lower()
     assert "4 pi turns and 180 seconds" in prompt.lower()
     assert "one focused behavior" in prompt.lower()
-    assert "python 3, node.js, bash/posix coreutils, and perl" in prompt.lower()
-    assert "go, rust/cargo, ruby, jq" in prompt.lower()
+    assert "python 3" in prompt.lower()
     assert result["schema"] == "skillrace-diversity-plan/1"
     assert [item["seed_id"] for item in result["descriptions"]] == [
         f"seed-{index:02d}" for index in range(1, 11)
@@ -318,14 +318,16 @@ def test_materialize_initial_test_binds_plan_description_and_full_catalog(
     assert json.dumps(plan["descriptions"][0], sort_keys=True) in materialization_prompt
     assert json.dumps(PROPERTIES, sort_keys=True) in materialization_prompt
     assert "must not contradict" in materialization_prompt.lower()
-    assert "runtime network" in materialization_prompt.lower()
+    assert "base image capabilities" in materialization_prompt.lower()
+    assert "may install additional packages online" in materialization_prompt.lower()
     assert (
         "must not create or test the requested solution"
         in materialization_prompt.lower()
     )
     assert "generate it compactly" in materialization_prompt.lower()
     assert "4 pi turns and 180 seconds" in materialization_prompt.lower()
-    assert "go, rust/cargo, ruby, jq" in materialization_prompt.lower()
+    receipt = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
+    assert receipt["capability_manifest_hash"] == "fixture"
     assert proposed.validation_status == "valid"
     assert proposed.origin_method == "skillrace"
     assert json.loads(proposed.nl_check_path.read_text(encoding="utf-8")) == PROPERTIES

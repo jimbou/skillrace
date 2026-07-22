@@ -10,6 +10,7 @@ from ..pipeline.stages import validate_generated_dockerfile, validate_test
 from ..records import ExperimentConfig, RunRecord, SkillVersion, TestCase
 from ..runtime.pi import PiRequest, PiResult, run_pi
 from ..storage import atomic_write_json, file_hash, tree_hash
+from ..study_images import capability_for_image
 
 
 PiRunner = Callable[[PiRequest], PiResult]
@@ -214,6 +215,7 @@ def create_diversity_plan(
     diagnostic: str | None = None
     descriptions: list[dict[str, str]] | None = None
     result: PiResult | None = None
+    capability = capability_for_image(config.docker_image)
     for ordinal in (1, 2, 3):
         attempt = output / f"plan-attempt-{ordinal}"
         attempt.mkdir()
@@ -238,13 +240,10 @@ def create_diversity_plan(
             "make a required dependency unavailable without a concrete local recovery path, "
             "require unavailable credentials or services, or use sheer task size as the "
             "challenge. Do not require a huge preloaded input when a small representative "
-            "fixture exercises the same behavior. The weak agent has no Docker access and "
-            "no runtime network. Python 3, Node.js, Bash/POSIX coreutils, and Perl are "
-            "preinstalled. Go, Rust/Cargo, Ruby, jq, the TypeScript compiler, and ts-node "
-            "are absent. Use an absent tool only when the environment conditions state a "
-            "concrete local recovery that can be built entirely from preinstalled tools. "
-            "Never describe a dependency as fetchable. Bake "
-            "required dependencies and inputs into the proposed environment instead. Keep "
+            "fixture exercises the same behavior. The weak agent has no Docker access. "
+            "It may install additional packages online as root, but installation consumes "
+            "the unchanged task budget. Required dependencies may be installed by the "
+            "generated Dockerfile or by the agent when feasible within that budget. Keep "
             "environment conditions limited to pre-existing inputs and dependencies; they "
             "must not contain the requested solution or claim that it is already embedded. "
             "Keep requested artifact destinations under /workspace. Do not use /mnt/data "
@@ -256,6 +255,7 @@ def create_diversity_plan(
             "Descriptions are planning inputs, not executable tests. Do not emit property "
             "or check IDs, prompts, Dockerfiles, prose outside the array, or use tools."
             f"{correction}\n\n"
+            f"BASE IMAGE CAPABILITIES:\n{capability.text}\n\n"
             f"FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
             f"SKILL.md:\n{(skill.directory_path / 'SKILL.md').read_text(encoding='utf-8')}\n",
             encoding="utf-8",
@@ -347,6 +347,7 @@ def create_diversity_plan(
             "pi_receipt_hash": file_hash(result.receipt_path),
             "model": config.model_id,
             "temperature": 1.0,
+            "capability_manifest_hash": capability.manifest_hash,
         },
     )
     return {
@@ -390,6 +391,7 @@ def materialize_initial_test(
     diagnostic: str | None = None
     last: TestCase | None = None
     last_result: PiResult | None = None
+    capability = capability_for_image(config.docker_image)
     for replacement in (1, 2, 3):
         attempt = output / f"replacement-{replacement}"
         pi_output = attempt / "pi"
@@ -408,11 +410,10 @@ def materialize_initial_test(
             "complete fixed property catalog. The prompt and Dockerfile must not contradict "
             "the frozen environment conditions. Keep the concrete task finishable, including "
             f"verification, in at most {config.role_budgets.get('weak_agent', 4)} Pi turns "
-            f"and {config.timeouts['pi']} seconds. Python 3, Node.js, Bash/POSIX coreutils, "
-            "and Perl are preinstalled. Go, Rust/Cargo, Ruby, jq, the TypeScript compiler, "
-            "and ts-node are absent. Any required dependency must already exist "
-            "in the resulting image or have a concrete local recovery path; the task must "
-            "not depend on runtime network access. The task must meaningfully exercise the skill "
+            f"and {config.timeouts['pi']} seconds. The root task agent may install "
+            "additional packages online, but installation consumes the unchanged task "
+            "budget. Any required dependency must exist in the resulting image or be "
+            "installable within that budget. The task must meaningfully exercise the skill "
             "and remain compatible with every property. The Dockerfile may provide inputs and "
             "dependencies but must not create or test the requested solution. Put all task "
             "inputs in the image compactly: if repetitive fixture data is required, generate "
@@ -424,6 +425,7 @@ def materialize_initial_test(
             "and contain exactly 'WORKDIR /workspace'. Preserve the installed Pi runtime. "
             "Return only one JSON object with exactly prompt and dockerfile, both nonempty "
             f"strings. Do not return checks, IDs, Markdown, or use tools.{correction}\n\n"
+            f"BASE IMAGE CAPABILITIES:\n{capability.text}\n\n"
             f"FROZEN DESCRIPTION:\n{json.dumps(description, sort_keys=True)}\n\n"
             f"COMPLETE FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
             f"SKILL.md:\n{(skill.directory_path / 'SKILL.md').read_text(encoding='utf-8')}\n",
@@ -501,6 +503,7 @@ def materialize_initial_test(
                 "pi_receipt_hash": file_hash(result.receipt_path),
                 "model": config.model_id,
                 "temperature": 1.0,
+                "capability_manifest_hash": capability.manifest_hash,
             },
         )
         pending = TestCase(
@@ -974,6 +977,7 @@ def propose_test(
     atomic_write_json(selector_input / "tree.json", validated_tree)
     atomic_write_json(selector_input / "edge-index.json", edge_index)
     skill_text = (skill.directory_path / "SKILL.md").read_text(encoding="utf-8")
+    capability = capability_for_image(config.docker_image)
     selector_diagnostic: str | None = None
     selector_result: PiResult | None = None
     target_edge_id: str | None = None
@@ -1089,12 +1093,11 @@ def propose_test(
             "and prose internally consistent. Keep bug_hypothesis, mutation, and why_patchable "
             "at most 600 characters each. Request one focused artifact or behavior, not a "
             "multi-stage application. Keep the visible prompt at most 2 KiB and the complete "
-            "Dockerfile at most 8 KiB. The Dockerfile must not download or install packages or "
-            "contact external services; use only software already present in the base image "
-            "and create environment variations with local files or symlinks. Python 3, "
-            "Node.js, Bash/POSIX coreutils, and Perl are preinstalled. Go, Rust/Cargo, Ruby, "
-            "jq, the TypeScript compiler, and ts-node are absent. Every capability "
-            "required by the prompt must exist when the task container starts. The Dockerfile "
+            "Dockerfile at most 8 KiB. The Dockerfile may install additional packages "
+            "online. The root task agent may also install packages online, but all "
+            "installation consumes the unchanged task budget. Every capability required by "
+            "the prompt must exist when the task starts or be installable within that budget. "
+            "The Dockerfile "
             "must not remove, move, or disable software from the base image. If the mutation "
             "depends on a special path or local recovery route, create it explicitly in the "
             "Dockerfile. Use a quoted here-document rather than printf when creating a "
@@ -1111,6 +1114,7 @@ def propose_test(
             "be nonempty strings. Do not return check prose, check IDs, or any other keys. "
             "The entire response must start with { and end with }. Do not use Markdown fences "
             f"or tools.{correction}\n\n"
+            f"BASE IMAGE CAPABILITIES:\n{capability.text}\n\n"
             f"TARGET EDGE ID:\n{target_edge_id}\n\n"
             f"SELECTION REASON:\n{selection_reason}\n\n"
             f"ISOLATED OBSERVED BRANCH:\n{json.dumps(selected_branch, sort_keys=True)}\n\n"
@@ -1206,6 +1210,7 @@ def propose_test(
                 "pi_receipt_hash": file_hash(mutator_result.receipt_path),
                 "model": config.model_id,
                 "temperature": 1.0,
+                "capability_manifest_hash": capability.manifest_hash,
             },
         )
         proposed = TestCase(

@@ -288,19 +288,20 @@ def test_pi_agent_selects_one_observed_edge_then_returns_patchable_mutation(
     assert "local recovery route" in mutator_prompt
     assert "exact target edge" in mutator_prompt.lower()
     assert "COMPACT EDGE INDEX" not in mutator_prompt
-    assert "must not download or install" in mutator_prompt
-    assert "local files or symlinks" in mutator_prompt
-    assert "must exist when the task container starts" in mutator_prompt
+    assert "BASE IMAGE CAPABILITIES" in mutator_prompt
+    assert "may install additional packages online" in mutator_prompt
+    assert "must exist when the task starts or be installable" in mutator_prompt
     assert "must not remove, move, or disable" in mutator_prompt
     assert "must make the selected edge assumption fail" in mutator_prompt
     assert "must not reveal the recovery path" in mutator_prompt
     assert "quoted here-document" in mutator_prompt
     assert "4 pi turns and 180 seconds" in mutator_prompt.lower()
-    assert "go, rust/cargo, ruby, jq" in mutator_prompt.lower()
+    assert "python 3" in mutator_prompt.lower()
     assert "at most 600 characters" in mutator_prompt.lower()
     assert "at most 2 kib" in mutator_prompt.lower()
     assert "at most 8 kib" in mutator_prompt.lower()
     receipt = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
+    assert receipt["capability_manifest_hash"] == "fixture"
     selector_root = Path(receipt["selector_input_path"])
     assert len(json.loads((selector_root / "edge-index.json").read_text())) == 139
     selected_branch = selector_root / "selected-branch.json"

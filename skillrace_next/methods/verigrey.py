@@ -8,6 +8,7 @@ from ..pipeline.stages import validate_generated_dockerfile, validate_test
 from ..records import ExperimentConfig, SkillVersion, TestCase
 from ..runtime.pi import PiRequest, PiResult, run_pi
 from ..storage import atomic_write_json, file_hash, tree_hash
+from ..study_images import capability_for_image
 
 
 PiRunner = Callable[[PiRequest], PiResult]
@@ -216,6 +217,7 @@ def _materialize_initial_seed(
     response: dict[str, str] | None = None
     result: PiResult | None = None
     diagnostic: str | None = None
+    capability = capability_for_image(config.docker_image)
     for ordinal in (1, 2):
         attempt = output / f"proposal-attempt-{ordinal}"
         attempt.mkdir(parents=True)
@@ -239,6 +241,7 @@ def _materialize_initial_seed(
             "and contain exactly 'WORKDIR /workspace'. Preserve the installed Pi runtime. "
             "Return only one JSON object with exactly prompt and dockerfile, both nonempty "
             f"strings. Do not return checks, IDs, Markdown, or use tools.{correction}\n\n"
+            f"BASE IMAGE CAPABILITIES:\n{capability.text}\n\n"
             f"SEED FOCUS:\n{json.dumps(focus, sort_keys=True)}\n\n"
             f"COMPLETE FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
             f"SKILL.md:\n{(skill.directory_path / 'SKILL.md').read_text(encoding='utf-8')}\n",
@@ -300,6 +303,7 @@ def _materialize_initial_seed(
             "pi_receipt_hash": file_hash(result.receipt_path),
             "model": config.model_id,
             "temperature": 1.0,
+            "capability_manifest_hash": capability.manifest_hash,
         },
     )
     proposed = TestCase(
@@ -455,6 +459,7 @@ def _materialize_mutation(
     response: dict[str, str] | None = None
     result: PiResult | None = None
     diagnostic: str | None = None
+    capability = capability_for_image(config.docker_image)
     for attempt_ordinal in (1, 2):
         attempt = output / f"proposal-attempt-{attempt_ordinal}"
         attempt.mkdir(parents=True)
@@ -479,6 +484,7 @@ def _materialize_mutation(
             "FROM, use no ADD or COPY, and contain exactly 'WORKDIR /workspace'. Preserve "
             "the installed Pi runtime. Return only one JSON object with exactly prompt and "
             f"dockerfile, both nonempty strings. Do not return checks, IDs, Markdown, or use tools.{correction}\n\n"
+            f"BASE IMAGE CAPABILITIES:\n{capability.text}\n\n"
             f"SELECTED SEED ID:\n{parent['seed_id']}\n\n"
             f"SELECTED SEED PROMPT:\n{parent_prompt}\n"
             f"SELECTED SEED DOCKERFILE:\n{parent_dockerfile}\n"
@@ -555,6 +561,7 @@ def _materialize_mutation(
             "pi_receipt_hash": file_hash(result.receipt_path),
             "model": config.model_id,
             "temperature": 1.0,
+            "capability_manifest_hash": capability.manifest_hash,
         },
     )
     proposed = TestCase(

@@ -117,6 +117,9 @@ def test_random_proposal_materializes_one_independent_test(tmp_path: Path) -> No
     assert "not a substitute for skill relevance" in proposal_prompt
     assert "internally consistent" in proposal_prompt
     assert "mutually inconsistent requirements" in proposal_prompt
+    assert "BASE IMAGE CAPABILITIES" in proposal_prompt
+    assert "Python 3" in proposal_prompt
+    assert "may install additional packages online" in proposal_prompt
     assert proposed.origin_method == "random"
     assert proposed.validation_status == "pending"
     assert proposed.prompt_path.read_text(encoding="utf-8") == (
@@ -139,6 +142,7 @@ def test_random_proposal_materializes_one_independent_test(tmp_path: Path) -> No
     assert receipt["catalog_hash"] == proposed.nl_check_hash
     assert receipt["prompt_hash"] == proposed.prompt_hash
     assert receipt["environment_hash"] == proposed.environment_hash
+    assert receipt["capability_manifest_hash"] == "fixture"
 
 
 def test_random_proposal_allows_one_format_correction(tmp_path: Path) -> None:
