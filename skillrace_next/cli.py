@@ -8,6 +8,7 @@ import sys
 from .config import freeze_config, load_config
 from .records import ExperimentConfig
 from .storage import atomic_write_json
+from .study_images import build_study_images
 
 
 _LIVE_COMPONENTS = (
@@ -31,6 +32,9 @@ _LIVE_COMPONENTS = (
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m skillrace_next")
     sub = parser.add_subparsers(dest="command", required=True)
+    image_command = sub.add_parser("build-study-images")
+    image_command.add_argument("--live", action="store_true")
+    image_command.add_argument("--run-id", required=True)
     for name in ("live-smoke", "part1", "part2", "analyze"):
         command = sub.add_parser(name)
         if name == "analyze":
@@ -157,6 +161,11 @@ def run_part2_campaign(
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "build-study-images":
+        if not args.live:
+            raise ValueError("build-study-images requires explicit --live")
+        build_study_images(run_id=args.run_id)
+        return 0
     if args.command == "analyze":
         run = Path(args.run)
         source = json.loads((run / "summary.json").read_text(encoding="utf-8"))

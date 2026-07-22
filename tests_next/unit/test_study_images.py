@@ -1,10 +1,16 @@
 import json
 from pathlib import Path
+import subprocess
+from typing import Any
 
 import pytest
 
 from skillrace_next.storage import file_hash
-from skillrace_next.study_images import capability_for_image
+from skillrace_next.study_images import (
+    build_study_images,
+    capability_for_image,
+    validate_image_sources,
+)
 
 
 def test_capability_lookup_binds_the_exact_manifest(tmp_path: Path) -> None:
@@ -57,3 +63,171 @@ def test_capability_lookup_has_an_explicit_temporary_fixture_record() -> None:
     assert "Python 3" in context.text
     assert "Node.js" in context.text
     assert context.manifest_hash == "fixture"
+
+
+def write_selection_files(root: Path) -> tuple[Path, Path]:
+    part1 = root / "part1-selection.json"
+    part2 = root / "part2-selection.json"
+    part1.write_text(
+        json.dumps({"selected": [{"skill_id": "alpha"}, {"skill_id": "beta"}]})
+        + "\n",
+        encoding="utf-8",
+    )
+    part2.write_text(
+        json.dumps({"scenarios": [{"scenario_id": "gamma"}]}) + "\n",
+        encoding="utf-8",
+    )
+    return part1, part2
+
+
+def write_image_source(root: Path, part: str, context_id: str) -> None:
+    directory = root / part / context_id
+    directory.mkdir(parents=True)
+    tag = f"skillrace-next/study-{part}-{context_id}:2026-07-22"
+    (directory / "Dockerfile").write_text(
+        "FROM python:3.12.13-bookworm AS checker-python\n"
+        "RUN python -m pip install --no-cache-dir pytest==9.1.1\n"
+        "FROM skillrace/pi-runtime:0.73.1\n"
+        "COPY --from=checker-python /usr/local /usr/local\n"
+        "WORKDIR /workspace\n",
+        encoding="utf-8",
+    )
+    (directory / "capabilities.json").write_text(
+        json.dumps(
+            {
+                "schema": "skillrace-study-base-image-source/1",
+                "part": part,
+                "context_id": context_id,
+                "image_tag": tag,
+                "base_image": "skillrace/pi-runtime:0.73.1",
+                "capability_text": (
+                    "Python 3.12 and pytest are installed. The root task agent may "
+                    "install additional packages online within the unchanged task budget."
+                ),
+                "probes": [
+                    "python3 --version",
+                    "python3 -m pytest --version",
+                    "node --version",
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_validate_image_sources_requires_exact_selection_coverage(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "images"
+    part1, part2 = write_selection_files(tmp_path)
+    for part, context_id in (
+        ("part1", "alpha"),
+        ("part1", "beta"),
+        ("part2", "gamma"),
+    ):
+        write_image_source(source, part, context_id)
+
+    records = validate_image_sources(source, part1, part2)
+
+    assert [(item["part"], item["context_id"]) for item in records] == [
+        ("part1", "alpha"),
+        ("part1", "beta"),
+        ("part2", "gamma"),
+    ]
+
+    write_image_source(source, "part2", "extra")
+    with pytest.raises(ValueError, match="coverage"):
+        validate_image_sources(source, part1, part2)
+
+
+def test_validate_image_sources_rejects_task_fixture_content(tmp_path: Path) -> None:
+    source = tmp_path / "images"
+    part1, part2 = write_selection_files(tmp_path)
+    for part, context_id in (
+        ("part1", "alpha"),
+        ("part1", "beta"),
+        ("part2", "gamma"),
+    ):
+        write_image_source(source, part, context_id)
+    dockerfile = source / "part1" / "alpha" / "Dockerfile"
+    dockerfile.write_text(
+        dockerfile.read_text(encoding="utf-8")
+        + "RUN printf 'answer' > /workspace/result.txt\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="task fixture"):
+        validate_image_sources(source, part1, part2)
+
+
+def test_build_study_images_is_strictly_sequential(tmp_path: Path) -> None:
+    source = tmp_path / "images"
+    part1, part2 = write_selection_files(tmp_path)
+    for part, context_id in (
+        ("part1", "alpha"),
+        ("part1", "beta"),
+        ("part2", "gamma"),
+    ):
+        write_image_source(source, part, context_id)
+    commands: list[list[str]] = []
+
+    def runner(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        stdout = "sha256:" + str(len(commands)) if command[1:3] == ["image", "inspect"] else "ok"
+        return subprocess.CompletedProcess(command, 0, stdout + "\n", "")
+
+    manifest = build_study_images(
+        source,
+        tmp_path / "evidence",
+        "run-1",
+        part1_selection=part1,
+        part2_selection=part2,
+        command_runner=runner,
+    )
+
+    assert [command[1] for command in commands] == [
+        "build",
+        "image",
+        "run",
+        "build",
+        "image",
+        "run",
+        "build",
+        "image",
+        "run",
+    ]
+    frozen = json.loads(manifest.read_text(encoding="utf-8"))
+    assert len(frozen["images"]) == 3
+    assert all(item["image_id"].startswith("sha256:") for item in frozen["images"])
+
+
+def test_build_study_images_stops_without_manifest_after_build_failure(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "images"
+    part1, part2 = write_selection_files(tmp_path)
+    for part, context_id in (
+        ("part1", "alpha"),
+        ("part1", "beta"),
+        ("part2", "gamma"),
+    ):
+        write_image_source(source, part, context_id)
+    commands: list[list[str]] = []
+
+    def runner(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 1, "", "build failed")
+
+    with pytest.raises(RuntimeError, match="Docker build failed"):
+        build_study_images(
+            source,
+            tmp_path / "evidence",
+            "run-1",
+            part1_selection=part1,
+            part2_selection=part2,
+            command_runner=runner,
+        )
+
+    assert len(commands) == 1
+    assert not (source / "manifest.json").exists()
