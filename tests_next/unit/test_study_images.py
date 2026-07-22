@@ -7,6 +7,9 @@ import pytest
 
 from skillrace_next.storage import file_hash
 from skillrace_next.study_images import (
+    DEFAULT_SOURCE_ROOT,
+    PART1_SELECTION,
+    PART2_SELECTION,
     build_study_images,
     capability_for_image,
     validate_image_sources,
@@ -231,3 +234,35 @@ def test_build_study_images_stops_without_manifest_after_build_failure(
 
     assert len(commands) == 1
     assert not (source / "manifest.json").exists()
+
+
+def test_repository_sources_cover_all_selected_contexts_with_required_tools() -> None:
+    records = validate_image_sources(
+        DEFAULT_SOURCE_ROOT, PART1_SELECTION, PART2_SELECTION
+    )
+
+    assert len(records) == 40
+    assert len({item["image_tag"] for item in records}) == 40
+    by_context = {
+        (item["part"], item["context_id"]): " && ".join(item["probes"])
+        for item in records
+    }
+    compiler = by_context[("part1", "compiler-hardening")]
+    for command in ("gcc", "g++", "clang", "cmake", "readelf"):
+        assert command in compiler
+    for context_id in (
+        "code-refactor-fowler",
+        "condition-based-waiting",
+        "debugging-difficult-bugs",
+    ):
+        probes = by_context[("part1", context_id)]
+        assert "tsc" in probes
+        assert "ts-node" in probes
+    assert "import numpy, pandas" in by_context[("part1", "data-transform")]
+    assert "import fastapi" in by_context[("part1", "fastapi-endpoint")]
+    assert "sqlmodel" in by_context[("part1", "sqlmodel-orm")]
+    assert "import yaml" in by_context[("part1", "yaml-config")]
+    assert "g++" in by_context[("part1", "validator-agent")]
+    for context_id in ("sql-queries", "sql-query-generator"):
+        assert "sqlite3" in by_context[("part1", context_id)]
+    assert "sqlite3" in by_context[("part2", "sqlite-query")]

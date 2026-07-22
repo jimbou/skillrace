@@ -1,0 +1,18 @@
+{
+  "schema": "skillrace-study-base-image-source/1",
+  "part": "part1",
+  "context_id": "argparse-scaffolder",
+  "image_tag": "skillrace-next/study-part1-argparse-scaffolder:2026-07-22",
+  "base_image": "skillrace/pi-runtime:0.73.1",
+  "capability_text": "Python 3.12, pip, pytest 9.1.1, Node.js, npm, Bash/POSIX coreutils, Perl, and Git are installed. The root task agent may install additional packages online with apt, pip, or npm, but installation consumes the unchanged task budget.",
+  "probes": [
+    "python3 --version",
+    "python3 -m pip --version",
+    "python3 -m pytest --version",
+    "node --version",
+    "npm --version",
+    "bash --version >/dev/null",
+    "perl -e 'print $^V'",
+    "git --version"
+  ]
+}
