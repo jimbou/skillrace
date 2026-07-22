@@ -326,3 +326,11 @@ def test_repository_sources_cover_all_selected_contexts_with_required_tools() ->
         ).read_text(encoding="utf-8")
         assert "https://mirrors.aliyun.com/debian-security" in dockerfile
         assert "https://mirrors.aliyun.com/debian" in dockerfile
+
+    for context_id in ("fastapi-endpoint", "sqlmodel-orm"):
+        dockerfile = (
+            DEFAULT_SOURCE_ROOT / "part1" / context_id / "Dockerfile"
+        ).read_text(encoding="utf-8")
+        assert "--mount=type=cache,target=/root/.cache/pip" in dockerfile
+        assert "--timeout 600" in dockerfile
+        assert "--no-cache-dir" not in dockerfile
