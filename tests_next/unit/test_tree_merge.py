@@ -1,5 +1,6 @@
 from copy import deepcopy
 from dataclasses import replace
+import json
 from pathlib import Path
 
 import pytest
@@ -232,3 +233,281 @@ def test_validate_tree_rejects_invalid_variant_or_reach_status(
     mutation(tree)
     with pytest.raises(ValueError, match=error):
         validate_tree(tree)
+
+
+def run_a_episodes() -> list[dict[str, object]]:
+    return [
+        {
+            "episode_id": "a-1",
+            "start_call": 1,
+            "end_call": 2,
+            "purpose": "inspect the workspace",
+            "what_it_did": "listed files and read project configuration",
+            "outcome": "the repository structure was understood",
+            "opening_reasoning": "Inspect the project before making changes.",
+        },
+        {
+            "episode_id": "a-2",
+            "start_call": 3,
+            "end_call": 3,
+            "purpose": "run the tests",
+            "what_it_did": "executed pytest",
+            "outcome": "PASS: all tests passed",
+            "opening_reasoning": "Now establish the test baseline.",
+        },
+        {
+            "episode_id": "a-3",
+            "start_call": 4,
+            "end_call": 4,
+            "purpose": "report completion",
+            "what_it_did": "read the final status",
+            "outcome": "the successful result was reported",
+            "opening_reasoning": "The tests pass, so report the result.",
+        },
+    ]
+
+
+def run_b_episodes() -> list[dict[str, object]]:
+    return [
+        {
+            "episode_id": "b-1",
+            "start_call": 1,
+            "end_call": 1,
+            "purpose": "explore the repository",
+            "what_it_did": "used find to survey source files",
+            "outcome": "the code layout was understood",
+            "opening_reasoning": "Explore the repository before deciding what to do.",
+        },
+        {
+            "episode_id": "b-2",
+            "start_call": 2,
+            "end_call": 2,
+            "purpose": "execute pytest",
+            "what_it_did": "executed pytest -q",
+            "outcome": "FAIL: one assertion failed",
+            "opening_reasoning": "With the layout understood, execute the tests.",
+        },
+        {
+            "episode_id": "b-3",
+            "start_call": 3,
+            "end_call": 4,
+            "purpose": "repair the failing implementation",
+            "what_it_did": "edited the calculation",
+            "outcome": "the calculation was corrected",
+            "opening_reasoning": "The failure identifies a repairable calculation bug.",
+        },
+        {
+            "episode_id": "b-4",
+            "start_call": 5,
+            "end_call": 5,
+            "purpose": "execute pytest",
+            "what_it_did": "executed pytest -q",
+            "outcome": "PASS: all tests passed after repair",
+            "opening_reasoning": "Verify the repair with the same test suite.",
+        },
+    ]
+
+
+def pi_result(request: PiRequest, response: str) -> PiResult:
+    request.output_dir.mkdir(parents=True, exist_ok=True)
+    trace_path = request.output_dir / "trace.jsonl"
+    trace_path.write_text(
+        json.dumps(
+            {
+                "type": "message",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": response}],
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    receipt_path = request.output_dir / "receipt.json"
+    receipt_path.write_text('{"status":"completed"}\n', encoding="utf-8")
+    return PiResult(
+        operation_id=request.operation_id,
+        model=request.model,
+        status="completed",
+        trace_path=trace_path,
+        usage={"total_tokens": 10},
+        stderr="",
+        receipt_path=receipt_path,
+        return_code=0,
+        wall_seconds=0.1,
+        timeout_seconds=request.timeout_seconds,
+    )
+
+
+def semantic_responder(requests: list[PiRequest]):
+    def respond(request: PiRequest) -> PiResult:
+        requests.append(request)
+        prompt = request.prompt_path.read_text(encoding="utf-8")
+        payload = json.loads(prompt.split("\n\nINPUT:\n", 1)[1])
+        if ".same-purpose." in request.operation_id:
+            purposes = " ".join(
+                item["purpose"] for item in payload["episodes"]
+            ).lower()
+            same = (
+                "inspect" in purposes and "explore" in purposes
+            ) or (
+                ("run the tests" in purposes or "test suite" in purposes)
+                and "execute pytest" in purposes
+            )
+            response = {"same": same, "reason": "same sub-goal" if same else "different sub-goals"}
+        elif ".broaden-purpose." in request.operation_id:
+            purposes = " ".join(payload.values()).lower()
+            response = {
+                "purpose": (
+                    "inspect and understand the repository"
+                    if "inspect" in purposes or "explore" in purposes
+                    else "run the test suite"
+                )
+            }
+        elif ".same-approach." in request.operation_id:
+            ways = " ".join(payload["ways"]).lower()
+            response = {"same": "pytest" in ways}
+        else:
+            raise AssertionError(f"unexpected operation: {request.operation_id}")
+        return pi_result(request, json.dumps(response))
+
+    return respond
+
+
+def test_contextual_semantic_fold_merges_prefix_and_preserves_branches(
+    tmp_path: Path,
+) -> None:
+    config = replace(config_for(tmp_path), role_budgets={"tree_alignment": 4})
+    tree_a, _ = merge_episodes(
+        empty_tree(), run_a_episodes(), "run-A", [], {}, config, tmp_path / "run-a"
+    )
+    requests: list[PiRequest] = []
+    tree_b, cache = merge_episodes(
+        tree_a,
+        run_b_episodes(),
+        "run-B",
+        [{"failure_id": "failure-B", "episode_id": "b-2"}],
+        {},
+        config,
+        tmp_path / "run-b",
+        pi_runner=semantic_responder(requests),
+    )
+
+    assert tree_b["root_children"] == ["n0"]
+    assert tree_b["nodes"]["n0"]["children"] == ["n1"]
+    assert {member["run_id"] for member in tree_b["nodes"]["n0"]["members"]} == {
+        "run-A",
+        "run-B",
+    }
+    assert {member["run_id"] for member in tree_b["nodes"]["n1"]["members"]} == {
+        "run-A",
+        "run-B",
+    }
+    assert tree_b["nodes"]["n0"]["purpose"] == "inspect and understand the repository"
+    assert tree_b["nodes"]["n1"]["purpose"] == "run the test suite"
+    assert tree_b["nodes"]["n0"]["what_it_did_variants"] == [
+        {
+            "text": "listed files and read project configuration",
+            "run_ids": ["run-A"],
+        },
+        {"text": "used find to survey source files", "run_ids": ["run-B"]},
+    ]
+    assert tree_b["nodes"]["n1"]["what_it_did_variants"][0]["run_ids"] == [
+        "run-A",
+        "run-B",
+    ]
+    assert len(tree_b["nodes"]["n1"]["children"]) == 2
+    child_purposes = {
+        tree_b["nodes"][child]["purpose"]
+        for child in tree_b["nodes"]["n1"]["children"]
+    }
+    assert child_purposes == {"report completion", "repair the failing implementation"}
+    report_id = next(
+        child for child in tree_b["nodes"]["n1"]["children"]
+        if tree_b["nodes"][child]["purpose"] == "report completion"
+    )
+    repair_id = next(
+        child for child in tree_b["nodes"]["n1"]["children"]
+        if tree_b["nodes"][child]["purpose"] == "repair the failing implementation"
+    )
+    assert tree_b["nodes"]["n1"]["edges"][report_id][0]["in_outcome"] == "PASS: all tests passed"
+    assert tree_b["nodes"]["n1"]["edges"][repair_id][0] == {
+        "run_id": "run-B",
+        "in_outcome": "FAIL: one assertion failed",
+        "reasoning": "The failure identifies a repairable calculation bug.",
+    }
+    assert tree_b["nodes"]["n1"]["failure_ids"] == ["failure-B"]
+    assert cache
+    assert all(request.provider == config.provider for request in requests)
+    assert all(request.model == config.model_id for request in requests)
+    assert all(request.temperature == 0 for request in requests)
+    assert all(request.allowed_tools == () for request in requests)
+    same_prompts = [
+        request.prompt_path.read_text(encoding="utf-8")
+        for request in requests
+        if ".same-purpose." in request.operation_id
+    ]
+    assert all("PASS: all tests passed" not in prompt for prompt in same_prompts)
+    assert all("FAIL: one assertion failed" not in prompt for prompt in same_prompts)
+
+    call_count = len(requests)
+    tree_c, cache_c = merge_episodes(
+        tree_a,
+        run_b_episodes(),
+        "run-C",
+        [],
+        cache,
+        config,
+        tmp_path / "run-c",
+        pi_runner=semantic_responder(requests),
+    )
+    assert len(requests) == call_count
+    assert cache_c == cache
+    assert {member["run_id"] for member in tree_c["nodes"]["n0"]["members"]} == {
+        "run-A",
+        "run-C",
+    }
+
+
+def test_tree_judgment_allows_only_three_total_attempts(tmp_path: Path) -> None:
+    config = replace(config_for(tmp_path), role_budgets={"tree_alignment": 4})
+    tree, _ = merge_episodes(
+        empty_tree(),
+        run_a_episodes()[:1],
+        "run-A",
+        [],
+        {},
+        config,
+        tmp_path / "seed",
+    )
+    attempts: list[PiRequest] = []
+
+    def correcting_pi(request: PiRequest) -> PiResult:
+        attempts.append(request)
+        same_attempts = [
+            item for item in attempts if ".same-purpose." in item.operation_id
+        ]
+        if ".same-purpose." in request.operation_id:
+            responses = ["not-json", '{"same":true}', '{"same":true,"reason":"same"}']
+            return pi_result(request, responses[len(same_attempts) - 1])
+        if ".same-approach." in request.operation_id:
+            return pi_result(request, '{"same":true}')
+        raise AssertionError("identical purpose must not require broadening")
+
+    merged, _ = merge_episodes(
+        tree,
+        run_a_episodes()[:1],
+        "run-B",
+        [],
+        {},
+        config,
+        tmp_path / "corrected",
+        pi_runner=correcting_pi,
+    )
+
+    assert len([item for item in attempts if ".same-purpose." in item.operation_id]) == 3
+    assert len(merged["nodes"]["n0"]["members"]) == 2
+    assert "Previous response invalid" in attempts[1].prompt_path.read_text(
+        encoding="utf-8"
+    )

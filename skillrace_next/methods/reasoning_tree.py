@@ -6,10 +6,11 @@ import json
 from pathlib import Path
 import re
 from typing import Any, Callable
+import uuid
 
 from ..records import ExperimentConfig
 from ..runtime.pi import PiRequest, PiResult, run_pi
-from ..storage import atomic_write_json
+from ..storage import atomic_write_json, canonical_json_hash
 
 
 PiRunner = Callable[[PiRequest], PiResult]
@@ -52,6 +53,27 @@ _EPISODE_FIELDS = {
     "opening_reasoning",
 }
 _REACH_STATUSES = {"reached", "unreached", "reasoning_unexplored"}
+JUDGMENT_INSTRUCTIONS = {
+    "same-purpose": (
+        "Decide whether the two coding-agent episodes pursue the SAME PURPOSE or "
+        "sub-goal, even if their commands or wording differ. Purpose is primary and "
+        "actions are secondary. Outcomes are deliberately absent and must not affect "
+        "the decision. Return only one raw JSON object with exactly same (boolean) and "
+        "reason (nonempty string). Do not return prose or Markdown fences."
+    ),
+    "broaden-purpose": (
+        "Two episodes were judged to have the same purpose. Write one concise purpose "
+        "that generalizes over both without dropping either. Return only one raw JSON "
+        "object with exactly purpose (a nonempty string). Do not return prose or "
+        "Markdown fences."
+    ),
+    "same-approach": (
+        "Decide whether two episodes with the same purpose used essentially the SAME "
+        "APPROACH. Ignore wording and incidental details; different methods are not the "
+        "same. Return only one raw JSON object with exactly same (boolean). Do not "
+        "return prose or Markdown fences."
+    ),
+}
 
 
 def empty_tree() -> dict[str, Any]:
@@ -334,7 +356,8 @@ def _new_node(
 def _add_member(
     tree: dict[str, Any], node_id: str, episode: dict[str, Any], run_id: str
 ) -> None:
-    tree["nodes"][node_id]["members"].append(
+    node = tree["nodes"][node_id]
+    node["members"].append(
         {
             "run_id": run_id,
             "episode_id": episode["episode_id"],
@@ -344,6 +367,8 @@ def _add_member(
             "opening_reasoning": episode["opening_reasoning"],
         }
     )
+    if run_id not in node["runs"]:
+        node["runs"].append(run_id)
 
 
 def _link(
@@ -360,12 +385,259 @@ def _link(
         "reasoning": reasoning,
     }
     if parent_id is None:
-        tree["root_children"].append(child_id)
-        tree["root_edges"][child_id] = [transition]
+        if child_id not in tree["root_children"]:
+            tree["root_children"].append(child_id)
+        tree["root_edges"].setdefault(child_id, []).append(transition)
         return
     parent = tree["nodes"][parent_id]
-    parent["children"].append(child_id)
-    parent["edges"][child_id] = [transition]
+    if child_id not in parent["children"]:
+        parent["children"].append(child_id)
+    parent["edges"].setdefault(child_id, []).append(transition)
+
+
+def _assistant_json(trace_path: Path) -> Any:
+    responses: list[str] = []
+    for line in trace_path.read_text(encoding="utf-8").splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        message = event.get("message")
+        if not isinstance(message, dict) or message.get("role") != "assistant":
+            continue
+        content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        text = "".join(
+            block.get("text", "")
+            for block in content
+            if isinstance(block, dict)
+            and block.get("type") == "text"
+            and isinstance(block.get("text"), str)
+        )
+        if text:
+            responses.append(text.strip())
+    if not responses:
+        raise ValueError("tree judgment contains no assistant JSON")
+    try:
+        return json.loads(responses[-1])
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"assistant response is not valid JSON: {exc.msg}") from exc
+
+
+def _validate_judgment(
+    kind: str, value: Any, expected_fields: set[str]
+) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != expected_fields:
+        raise ValueError(f"{kind} response fields are invalid")
+    if kind in {"same-purpose", "same-approach"} and not isinstance(
+        value.get("same"), bool
+    ):
+        raise ValueError(f"{kind} same must be a boolean")
+    if kind == "same-purpose" and (
+        not isinstance(value.get("reason"), str) or not value["reason"].strip()
+    ):
+        raise ValueError("same-purpose reason must be nonempty")
+    if kind == "broaden-purpose" and (
+        not isinstance(value.get("purpose"), str) or not value["purpose"].strip()
+    ):
+        raise ValueError("broaden-purpose purpose must be nonempty")
+    return value
+
+
+def _cached_judgment(
+    kind: str,
+    payload: dict[str, Any],
+    expected_fields: set[str],
+    cache: dict[str, Any],
+    config: ExperimentConfig,
+    output: Path,
+    pi_runner: PiRunner,
+) -> dict[str, Any]:
+    key = kind + ":" + canonical_json_hash(payload)
+    if key in cache:
+        return _validate_judgment(kind, cache[key], expected_fields)
+    diagnostic: str | None = None
+    root = output / "judgments" / kind / key.split(":", 1)[1]
+    root.mkdir(parents=True, exist_ok=True)
+    for ordinal in (1, 2, 3):
+        attempt = root / f"attempt-{ordinal}"
+        attempt.mkdir()
+        prompt_path = attempt / "prompt.txt"
+        correction = (
+            f"\nPrevious response invalid: {diagnostic}. Return corrected raw JSON."
+            if diagnostic
+            else ""
+        )
+        prompt_path.write_text(
+            JUDGMENT_INSTRUCTIONS[kind]
+            + correction
+            + "\n\nINPUT:\n"
+            + json.dumps(payload, sort_keys=True),
+            encoding="utf-8",
+        )
+        result = pi_runner(
+            PiRequest(
+                operation_id=f"tree.{kind}.{uuid.uuid4().hex}",
+                provider=config.provider,
+                model=config.model_id,
+                prompt_path=prompt_path,
+                output_dir=attempt,
+                image=config.docker_image,
+                allowed_tools=(),
+                max_turns=config.role_budgets["tree_alignment"],
+                timeout_seconds=config.timeouts["provider"],
+                temperature=0,
+            )
+        )
+        if result.status != "completed":
+            raise RuntimeError(f"Pi tree judgment failed: {result.status}")
+        try:
+            parsed = _validate_judgment(
+                kind, _assistant_json(result.trace_path), expected_fields
+            )
+        except ValueError as error:
+            diagnostic = str(error)
+            if ordinal < 3:
+                continue
+            raise ValueError(f"three invalid {kind} responses") from error
+        cache[key] = parsed
+        atomic_write_json(
+            root / "judgment.json",
+            {
+                "kind": kind,
+                "cache_key": key,
+                "result": parsed,
+                "pi_receipt_path": str(result.receipt_path),
+            },
+        )
+        return parsed
+    raise RuntimeError("tree judgment loop did not return")
+
+
+def _judgment(
+    kind: str,
+    payload: dict[str, Any],
+    expected_fields: set[str],
+    cache: dict[str, Any],
+    config: ExperimentConfig,
+    output: Path,
+    pi_runner: PiRunner,
+    stats: dict[str, int],
+) -> dict[str, Any]:
+    key = kind + ":" + canonical_json_hash(payload)
+    if key in cache:
+        stats["cache_hits"] += 1
+    else:
+        stats["judgments"] += 1
+    return _cached_judgment(
+        kind, payload, expected_fields, cache, config, output, pi_runner
+    )
+
+
+def _same_purpose(
+    episode: dict[str, Any],
+    node: dict[str, Any],
+    cache: dict[str, Any],
+    config: ExperimentConfig,
+    output: Path,
+    pi_runner: PiRunner,
+    stats: dict[str, int],
+) -> bool:
+    compared = [
+        {"purpose": episode["purpose"], "actions": episode["what_it_did"]},
+        {
+            "purpose": node["purpose"],
+            "actions": " | ".join(
+                variant["text"] for variant in node["what_it_did_variants"]
+            )[:500],
+        },
+    ]
+    compared.sort(key=lambda item: json.dumps(item, sort_keys=True))
+    return _judgment(
+        "same-purpose",
+        {"episodes": compared},
+        {"same", "reason"},
+        cache,
+        config,
+        output,
+        pi_runner,
+        stats,
+    )["same"]
+
+
+def _broaden_purpose(
+    current: str,
+    new: str,
+    cache: dict[str, Any],
+    config: ExperimentConfig,
+    output: Path,
+    pi_runner: PiRunner,
+    stats: dict[str, int],
+) -> str:
+    if current.strip() == new.strip():
+        return current
+    return _judgment(
+        "broaden-purpose",
+        {"current_purpose": current, "new_purpose": new},
+        {"purpose"},
+        cache,
+        config,
+        output,
+        pi_runner,
+        stats,
+    )["purpose"].strip()
+
+
+def _same_approach(
+    left: str,
+    right: str,
+    cache: dict[str, Any],
+    config: ExperimentConfig,
+    output: Path,
+    pi_runner: PiRunner,
+    stats: dict[str, int],
+) -> bool:
+    return _judgment(
+        "same-approach",
+        {"ways": sorted([left.strip(), right.strip()])},
+        {"same"},
+        cache,
+        config,
+        output,
+        pi_runner,
+        stats,
+    )["same"]
+
+
+def _merge_variant(
+    node: dict[str, Any],
+    episode: dict[str, Any],
+    run_id: str,
+    cache: dict[str, Any],
+    config: ExperimentConfig,
+    output: Path,
+    pi_runner: PiRunner,
+    stats: dict[str, int],
+) -> None:
+    for variant in node["what_it_did_variants"]:
+        if _same_approach(
+            episode["what_it_did"],
+            variant["text"],
+            cache,
+            config,
+            output,
+            pi_runner,
+            stats,
+        ):
+            if run_id not in variant["run_ids"]:
+                variant["run_ids"].append(run_id)
+            return
+    node["what_it_did_variants"].append(
+        {"text": episode["what_it_did"], "run_ids": [run_id]}
+    )
 
 
 def merge_episodes(
@@ -380,8 +652,7 @@ def merge_episodes(
     run_meta: dict[str, str] | None = None,
     pi_runner: PiRunner = run_pi,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Fold one episode line and return the validated tree and unchanged cache."""
-    del config, pi_runner
+    """Fold one episode line and return the validated tree and updated cache."""
     merged = validate_tree(tree)
     if not isinstance(merge_cache, dict):
         raise ValueError("tree merge cache must be an object")
@@ -412,16 +683,63 @@ def merge_episodes(
             raise ValueError("failure link is invalid")
         failures_by_episode[failure["episode_id"]].append(failure["failure_id"])
     merged["runs"][run_id] = dict(metadata)
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
     parent_id: str | None = None
     previous_outcome: str | None = None
     created = 0
+    merged_count = 0
+    stats = {"judgments": 0, "cache_hits": 0}
     for episode in line:
-        node_id = _new_node(merged, episode, run_id)
-        created += 1
-        _add_member(merged, node_id, episode, run_id)
-        merged["nodes"][node_id]["failure_ids"] = list(
-            dict.fromkeys(failures_by_episode[episode["episode_id"]])
+        children = (
+            merged["root_children"]
+            if parent_id is None
+            else merged["nodes"][parent_id]["children"]
         )
+        node_id: str | None = None
+        for child_id in children:
+            if _same_purpose(
+                episode,
+                merged["nodes"][child_id],
+                cache,
+                config,
+                output,
+                pi_runner,
+                stats,
+            ):
+                node_id = child_id
+                break
+        if node_id is None:
+            node_id = _new_node(merged, episode, run_id)
+            created += 1
+        else:
+            merged_count += 1
+            node = merged["nodes"][node_id]
+            _add_member(merged, node_id, episode, run_id)
+            node["purpose"] = _broaden_purpose(
+                node["purpose"],
+                episode["purpose"],
+                cache,
+                config,
+                output,
+                pi_runner,
+                stats,
+            )
+            _merge_variant(
+                node,
+                episode,
+                run_id,
+                cache,
+                config,
+                output,
+                pi_runner,
+                stats,
+            )
+        if not merged["nodes"][node_id]["members"]:
+            _add_member(merged, node_id, episode, run_id)
+        for failure_id in failures_by_episode[episode["episode_id"]]:
+            if failure_id not in merged["nodes"][node_id]["failure_ids"]:
+                merged["nodes"][node_id]["failure_ids"].append(failure_id)
         _link(
             merged,
             parent_id,
@@ -433,8 +751,6 @@ def merge_episodes(
         parent_id = node_id
         previous_outcome = episode["outcome"]
     validated = validate_tree(merged)
-    output = Path(output_dir)
-    output.mkdir(parents=True, exist_ok=True)
     atomic_write_json(output / "tree.json", validated)
     atomic_write_json(output / "tree-merge-cache.json", cache)
     atomic_write_json(
@@ -444,8 +760,29 @@ def merge_episodes(
             "run_id": run_id,
             "node_count": len(validated["nodes"]),
             "created_node_count": created,
-            "judgment_count": 0,
-            "cache_hit_count": 0,
+            "merged_episode_count": merged_count,
+            "branch_count": (
+                int(len(validated["root_children"]) > 1)
+                + sum(
+                    1
+                    for node in validated["nodes"].values()
+                    if len(node["children"]) > 1
+                )
+            ),
+            "transition_count": (
+                sum(len(items) for items in validated["root_edges"].values())
+                + sum(
+                    len(items)
+                    for node in validated["nodes"].values()
+                    for items in node["edges"].values()
+                )
+            ),
+            "judgment_count": stats["judgments"],
+            "cache_hit_count": stats["cache_hits"],
+            "judgment_evidence_paths": [
+                str(path)
+                for path in sorted((output / "judgments").glob("**/judgment.json"))
+            ] if (output / "judgments").is_dir() else [],
         },
     )
     return validated, cache

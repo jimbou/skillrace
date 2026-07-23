@@ -306,6 +306,9 @@ def test_create_episodes_corrects_json_then_partition_and_stops_on_success(
     assert episodes[0]["start_call"] == 1
     assert "not valid JSON" in requests[1].prompt_path.read_text(encoding="utf-8")
     assert "gap/overlap" in requests[2].prompt_path.read_text(encoding="utf-8")
+    assert requests[1].prompt_path.read_text(encoding="utf-8").rstrip().endswith(
+        "The first response character must be { and the last must be }."
+    )
 
 
 def test_create_episodes_rejects_three_invalid_responses(tmp_path: Path) -> None:

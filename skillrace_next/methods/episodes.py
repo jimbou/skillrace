@@ -360,7 +360,10 @@ def _episode_prompt(
         "===== WORKED EXAMPLE OUTPUT =====\n"
         f"{example_output.rstrip()}\n\n"
         "===== TRACE TO SEGMENT =====\n"
-        f"{rendered.rstrip()}\n"
+        f"{rendered.rstrip()}\n\n"
+        "FINAL RESPONSE REQUIREMENT: Return the JSON object directly. Do not use a "
+        "Markdown code fence and do not add analysis or an explanation. "
+        "The first response character must be { and the last must be }.\n"
     )
 
 
