@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from skillrace_next.methods import reasoning_tree
 from skillrace_next.pipeline import campaigns
 from skillrace_next.storage import file_hash, tree_hash
 from tests_next.unit.test_random_method import skill_version
@@ -140,50 +141,8 @@ def test_random_thirty_call_budget_reuses_only_the_complete_catalog(
                 "phase": "branch",
                 "execution_count": 10,
                 "plan": {},
-                "tree": {
-                    "schema": "skillrace-reasoning-tree/1",
-                    "nodes": [
-                        {
-                            "node_id": "root",
-                            "purpose": "root",
-                            "outcome": "root",
-                            "member_run_ids": [],
-                            "member_episode_ids": [],
-                            "reach_status": "reached",
-                            "failure_ids": [],
-                        },
-                        {
-                            "node_id": "source",
-                            "purpose": "inspect the artifact",
-                            "outcome": "artifact found",
-                            "member_run_ids": ["run-1"],
-                            "member_episode_ids": ["episode-1"],
-                            "reach_status": "reached",
-                            "failure_ids": [],
-                        },
-                        {
-                            "node_id": "target",
-                            "purpose": "exercise write validation",
-                            "outcome": "validation completed",
-                            "member_run_ids": ["run-1"],
-                            "member_episode_ids": ["episode-2"],
-                            "reach_status": "reached",
-                            "failure_ids": [],
-                        },
-                    ],
-                    "edges": [
-                        {
-                            "source_node_id": "root",
-                            "target_node_id": "source",
-                            "reason": "inspect the artifact",
-                        },
-                        {
-                            "source_node_id": "source",
-                            "target_node_id": "target",
-                            "reason": "target validation",
-                        }
-                    ],
-                },
+                "tree": reasoning_tree.empty_tree(),
+                "tree_merge_cache": {},
                 "current_selection": None,
                 "observations": [],
             },
@@ -418,6 +377,8 @@ def test_campaign_uses_ten_frozen_skillrace_descriptions_before_tree_selection(
     assert state["phase"] == "initial_seeds"
     assert state["execution_count"] == 0
     assert state["plan"] == plan
+    assert state["tree"] == reasoning_tree.empty_tree()
+    assert state["tree_merge_cache"] == {}
     assert state["current_selection"] == {
         "phase": "initial_seed",
         "seed_index": 1,
@@ -437,42 +398,6 @@ def test_campaign_uses_ten_frozen_skillrace_descriptions_before_tree_selection(
     state["current_selection"] = None
     state["execution_count"] = 10
     state["phase"] = "branch"
-    state["tree"]["nodes"].extend(
-        [
-            {
-                "node_id": "observed-source",
-                "purpose": "Inspect the artifact workflow",
-                "outcome": "The workflow was inspected",
-                "member_run_ids": ["run-1"],
-                "member_episode_ids": ["episode-1"],
-                "reach_status": "reached",
-                "failure_ids": [],
-            },
-            {
-                "node_id": "observed-target",
-                "purpose": "Execute the artifact workflow",
-                "outcome": "The workflow was executed",
-                "member_run_ids": ["run-1"],
-                "member_episode_ids": ["episode-2"],
-                "reach_status": "reached",
-                "failure_ids": [],
-            },
-        ]
-    )
-    state["tree"]["edges"].extend(
-        [
-            {
-                "source_node_id": "root",
-                "target_node_id": "observed-source",
-                "reason": "Inspect the workflow",
-            },
-            {
-                "source_node_id": "observed-source",
-                "target_node_id": "observed-target",
-                "reason": "Assume the ordinary artifact path",
-            },
-        ]
-    )
     branch_case = campaigns._select_test(
         "skillrace", state, skill, properties, config, tmp_path / "selection-11"
     )
@@ -491,7 +416,8 @@ def test_tenth_skillrace_observation_updates_tree_then_enables_branch_phase(
         "phase": "initial_seeds",
         "execution_count": 9,
         "plan": {"plan_hash": "plan-hash"},
-        "tree": campaigns._root_tree(),
+        "tree": reasoning_tree.empty_tree(),
+        "tree_merge_cache": {"prior-key": {"same": True, "reason": "cached"}},
         "current_selection": {
             "phase": "initial_seed",
             "seed_index": 10,
@@ -500,42 +426,41 @@ def test_tenth_skillrace_observation_updates_tree_then_enables_branch_phase(
         },
         "observations": [],
     }
-    record = SimpleNamespace(run_id="run-10")
-    merged = campaigns._root_tree()
-    merged["nodes"].append(
-        {
-            "node_id": "branch-10",
-            "purpose": "A branch from the tenth seed",
-            "outcome": "The branch remains unexplored",
-            "member_run_ids": [],
-            "member_episode_ids": [],
-            "reach_status": "unreached",
-            "failure_ids": [],
-        }
+    record = SimpleNamespace(
+        run_id="run-10",
+        trace_path=tmp_path / "trace.jsonl",
+        artifact_path=tmp_path / "artifact",
     )
-    merged["edges"].append(
-        {
-            "source_node_id": "root",
-            "target_node_id": "branch-10",
-            "reason": "Tenth seed exposed a branch",
-        }
-    )
+    merged = {**reasoning_tree.empty_tree(), "next_id": 1}
+    merged_cache = {
+        **state["tree_merge_cache"],
+        "new-key": {"same": False, "reason": "new judgment"},
+    }
+    observed: dict[str, object] = {}
     monkeypatch.setattr(
         campaigns.episode_method,
         "create_episodes",
-        lambda *args: ([{"episode_id": "episode-10"}], tmp_path / "receipt.json"),
+        lambda *args: (
+            [{"episode_id": "episode-9"}, {"episode_id": "episode-10"}],
+            tmp_path / "receipt.json",
+        ),
     )
-    monkeypatch.setattr(
-        campaigns.skillrace_method,
-        "merge_episodes",
-        lambda *args: merged,
-    )
+
+    def fake_merge(*args, **kwargs):
+        observed["args"] = args
+        observed["kwargs"] = kwargs
+        return merged, merged_cache
+
+    monkeypatch.setattr(campaigns.tree_method, "merge_episodes", fake_merge)
 
     updated = campaigns._updated_state(
         "skillrace",
         state,
         record,
-        [],
+        [
+            {"check_id": "P1-C1", "status": "fail"},
+            {"check_id": "P2-C1", "status": "pass"},
+        ],
         replace(config_for(tmp_path), iteration_budget=30),
         tmp_path / "update",
     )
@@ -543,6 +468,7 @@ def test_tenth_skillrace_observation_updates_tree_then_enables_branch_phase(
     assert updated["execution_count"] == 10
     assert updated["phase"] == "branch"
     assert updated["tree"] == merged
+    assert updated["tree_merge_cache"] == merged_cache
     assert updated["current_selection"] is None
     assert updated["observations"] == [
         {
@@ -552,9 +478,22 @@ def test_tenth_skillrace_observation_updates_tree_then_enables_branch_phase(
             "seed_id": "seed-10",
             "test_id": "test-10",
             "run_id": "run-10",
-            "episode_ids": ["episode-10"],
+            "episode_ids": ["episode-9", "episode-10"],
         }
     ]
+    assert observed["args"][0] == state["tree"]
+    assert observed["args"][1][1]["episode_id"] == "episode-10"
+    assert observed["args"][2] == "run-10"
+    assert observed["args"][3] == [
+        {"failure_id": "P1-C1", "episode_id": "episode-10"}
+    ]
+    assert observed["args"][4] == state["tree_merge_cache"]
+    assert observed["args"][6] == tmp_path / "update" / "tree"
+    assert observed["kwargs"]["run_meta"] == {
+        "trace_path": str(record.trace_path),
+        "artifact_path": str(record.artifact_path),
+    }
+    json.dumps(updated)
 
 
 def test_part2_campaign_opens_hidden_records_only_when_loop_requests_heldout(

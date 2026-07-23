@@ -8,7 +8,8 @@ import uuid
 
 import pytest
 
-from skillrace_next.methods.skillrace import create_episodes, merge_episodes
+from skillrace_next.methods.episodes import create_episodes
+from skillrace_next.methods.reasoning_tree import empty_tree, merge_episodes
 from skillrace_next.methods.verigrey import normalize_tool_sequence, update_state as update_verigrey
 from skillrace_next.pipeline.part1 import run_part1
 from skillrace_next.pipeline.stages import run_agent, validate_test
@@ -23,24 +24,6 @@ from tests_next.live.test_tree_merge_live import live_config
 pytestmark = pytest.mark.live
 
 
-def root_tree():
-    return {
-        "schema": "skillrace-reasoning-tree/1",
-        "nodes": [
-            {
-                "node_id": "root",
-                "purpose": "root",
-                "outcome": "root",
-                "member_run_ids": [],
-                "member_episode_ids": [],
-                "reach_status": "reached",
-                "failure_ids": [],
-            }
-        ],
-        "edges": [],
-    }
-
-
 @pytest.mark.parametrize("model", ["deepseek-v4-flash", "qwen3.6-flash"])
 def test_tiny_real_part1_runs_each_method_once_before_any_repair(
     model: str, live_evidence_root: Path,
@@ -51,18 +34,24 @@ def test_tiny_real_part1_runs_each_method_once_before_any_repair(
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     evidence = live_evidence_root / "part1" / model / run_id
     evidence.mkdir(parents=True)
+    base_config = live_config(evidence, model)
     config = replace(
-        live_config(
-            evidence,
-            {"weak_agent": 4, "segmenter": 4, "tree_alignment": 4, "patcher": 6},
-        ),
+        base_config,
         experiment_id="tiny-real-part1",
         methods=("random", "verigrey", "skillrace"),
         iteration_budget=1,
         network_policy="host",
         provider="lab",
         model_id=model,
+        role_budgets={
+            "weak_agent": 4,
+            "segmenter": 4,
+            "tree_alignment": 4,
+            "patcher": 6,
+        },
     )
+    assert config.model_id == model
+    assert config.role_budgets["weak_agent"] == 4
     skill_dir = evidence / "s0"
     skill_dir.mkdir()
     (skill_dir / "SKILL.md").write_text(
@@ -103,7 +92,17 @@ def test_tiny_real_part1_runs_each_method_once_before_any_repair(
             [{"property_id": "P1", "description": "result.txt contains exactly PART1_LIVE_OK."}],
         )
         proposal = case / "proposal.json"
-        atomic_write_json(proposal, {"method": method, "source": "tiny live fixture"})
+        atomic_write_json(
+            proposal,
+            {
+                "schema": "skillrace-generated-test-proposal/1",
+                "method": method,
+                "source": "tiny live fixture",
+                "catalog_hash": file_hash(checks),
+                "prompt_hash": file_hash(prompt),
+                "environment_hash": tree_hash(environment),
+            },
+        )
         pending = CaseRecord(
             test_id=f"tiny-{method}",
             prompt_path=prompt,
@@ -190,13 +189,24 @@ def test_tiny_real_part1_runs_each_method_once_before_any_repair(
             updated["observed_run_ids"] = [record.run_id]
             return updated
         episodes, receipt = create_episodes(record, config, Path(output) / "episodes")
-        tree = merge_episodes(
-            root_tree(), episodes, record.run_id, [], config, Path(output) / "tree"
+        tree, merge_cache = merge_episodes(
+            empty_tree(),
+            episodes,
+            record.run_id,
+            [],
+            {},
+            config,
+            Path(output) / "tree",
+            run_meta={
+                "trace_path": str(record.trace_path),
+                "artifact_path": str(record.artifact_path),
+            },
         )
         return {
             "observed_run_ids": [record.run_id],
             "episodes": episodes,
             "tree": tree,
+            "tree_merge_cache": merge_cache,
             "episode_receipt_path": str(receipt),
         }
 
@@ -228,6 +238,10 @@ def test_tiny_real_part1_runs_each_method_once_before_any_repair(
     for method in config.methods:
         state = json.loads((evidence / "campaign" / "methods" / method / "state.json").read_text())
         assert len(state["observed_run_ids"]) == 1
+        if method == "skillrace":
+            assert state["episodes"]
+            assert state["tree"]["schema"] == "behavior-tree/2"
+            assert isinstance(state["tree_merge_cache"], dict)
     for path in evidence.rglob("*"):
         if path.is_file():
             assert secret not in path.read_text(encoding="utf-8", errors="replace")

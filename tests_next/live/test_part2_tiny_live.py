@@ -9,7 +9,8 @@ import uuid
 
 import pytest
 
-from skillrace_next.methods.skillrace import create_episodes, merge_episodes
+from skillrace_next.methods.episodes import create_episodes
+from skillrace_next.methods.reasoning_tree import empty_tree, merge_episodes
 from skillrace_next.methods.verigrey import normalize_tool_sequence, update_state as update_verigrey
 from skillrace_next.pipeline.part2 import run_part2
 from skillrace_next.pipeline.stages import (
@@ -30,24 +31,6 @@ from tests_next.live.test_tree_merge_live import live_config
 pytestmark = pytest.mark.live
 
 
-def root_tree() -> dict[str, object]:
-    return {
-        "schema": "skillrace-reasoning-tree/1",
-        "nodes": [
-            {
-                "node_id": "root",
-                "purpose": "root",
-                "outcome": "root",
-                "member_run_ids": [],
-                "member_episode_ids": [],
-                "reach_status": "reached",
-                "failure_ids": [],
-            }
-        ],
-        "edges": [],
-    }
-
-
 def make_case(
     evidence: Path,
     config,
@@ -64,8 +47,13 @@ def make_case(
     (environment / "values.txt").write_text(
         "".join(f"{value}\n" for value in values), encoding="utf-8"
     )
+    values_text = "".join(f"{value}\n" for value in values)
     (environment / "Dockerfile").write_text(
-        f"FROM {config.docker_image}\nCOPY values.txt /input/values.txt\nWORKDIR /workspace\n",
+        f"FROM {config.docker_image}\n"
+        "RUN mkdir -p /input && cat > /input/values.txt <<'VALUES_EOF'\n"
+        f"{values_text}"
+        "VALUES_EOF\n"
+        "WORKDIR /workspace\n",
         encoding="utf-8",
     )
     atomic_write_json(environment / "sanity.json", {"status": "pass"})
@@ -85,7 +73,17 @@ def make_case(
     )
     atomic_write_json(checks, [{"property_id": "P1", "description": description}])
     proposal = case / "proposal.json"
-    atomic_write_json(proposal, {"source": "predefined Part II fixture", "method": method})
+    atomic_write_json(
+        proposal,
+        {
+            "schema": "skillrace-generated-test-proposal/1",
+            "source": "predefined Part II fixture",
+            "method": method,
+            "catalog_hash": file_hash(checks),
+            "prompt_hash": file_hash(prompt),
+            "environment_hash": tree_hash(environment),
+        },
+    )
     pending = CaseRecord(
         test_id=name,
         prompt_path=prompt,
@@ -195,17 +193,9 @@ def test_tiny_real_part2_records_real_transitions_and_discards_rejected_patch(
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     evidence = live_evidence_root / "part2" / model / run_id
     evidence.mkdir(parents=True)
+    base_config = live_config(evidence, model)
     config = replace(
-        live_config(
-            evidence,
-            {
-                "skill_generator": 6,
-                "weak_agent": 4,
-                "patcher": 10,
-                "segmenter": 4,
-                "tree_alignment": 4,
-            },
-        ),
+        base_config,
         experiment_id="tiny-real-part2",
         part="part2",
         methods=("random", "verigrey", "skillrace"),
@@ -214,13 +204,22 @@ def test_tiny_real_part2_records_real_transitions_and_discards_rejected_patch(
         network_policy="host",
         provider="lab",
         model_id=model,
+        role_budgets={
+            "skill_generator": 6,
+            "weak_agent": 4,
+            "patcher": 10,
+            "segmenter": 4,
+            "tree_alignment": 4,
+        },
         timeouts={
-            **live_config(evidence, {}).timeouts,
+            **base_config.timeouts,
             "provider": 240,
             "pi": 240,
             "patch": 240,
         },
     )
+    assert config.model_id == model
+    assert config.role_budgets["skill_generator"] == 6
     image_id = subprocess.run(
         ["docker", "image", "inspect", "--format", "{{.Id}}", config.docker_image],
         check=True,
@@ -322,18 +321,33 @@ def test_tiny_real_part2_records_real_transitions_and_discards_rejected_patch(
             for item in checked["results"]
             if item["status"] == "fail"
         ]
-        tree = merge_episodes(
-            state.get("tree", root_tree()),
+        tree, merge_cache = merge_episodes(
+            state.get("tree", empty_tree()),
             episodes,
             record.run_id,
             failures,
+            state.get("tree_merge_cache", {}),
             config,
             Path(output) / "tree",
+            run_meta={
+                "trace_path": str(record.trace_path),
+                "artifact_path": str(record.artifact_path),
+            },
+        )
+        branch = next(
+            node
+            for node in tree["nodes"].values()
+            if any(
+                member["run_id"] == record.run_id
+                and member["episode_id"] == episodes[-1]["episode_id"]
+                for member in node["members"]
+            )
         )
         return {
             "episodes": episodes,
             "tree": tree,
-            "branch": tree["nodes"][-1],
+            "tree_merge_cache": merge_cache,
+            "branch": branch,
         }
 
     def patch(method, state, current, test, run, checked, output):
@@ -457,6 +471,12 @@ def test_tiny_real_part2_records_real_transitions_and_discards_rejected_patch(
     assert result["final_skills"]["random"]["version_id"] == carried_version
     assert result["final_skills"]["verigrey"]["version_id"] == "S0"
     assert result["final_skills"]["skillrace"]["version_id"] == "S0"
+    skillrace_state = json.loads(
+        (evidence / "campaign" / "methods" / "skillrace" / "state.json").read_text()
+    )
+    assert skillrace_state["episodes"]
+    assert skillrace_state["tree"]["schema"] == "behavior-tree/2"
+    assert isinstance(skillrace_state["tree_merge_cache"], dict)
     assert len(result["steps"]) == 6
     assert len(result["heldout_evaluations"]) == 4
     assert [row["method"] for row in result["heldout_evaluations"]] == [

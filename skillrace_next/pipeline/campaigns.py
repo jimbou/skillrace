@@ -6,6 +6,7 @@ from typing import Any
 
 from ..methods import random as random_method
 from ..methods import episodes as episode_method
+from ..methods import reasoning_tree as tree_method
 from ..methods import skillrace as skillrace_method
 from ..methods import verigrey as verigrey_method
 from ..records import CheckBundle, CheckResults, ExperimentConfig, RunRecord, SkillVersion, TestCase
@@ -25,25 +26,6 @@ from .stages import (
     validate_nl_checks,
     validate_test,
 )
-
-
-def _root_tree() -> dict[str, Any]:
-    return {
-        "schema": "skillrace-reasoning-tree/1",
-        "nodes": [
-            {
-                "node_id": "root",
-                "purpose": "root",
-                "outcome": "root",
-                "member_run_ids": [],
-                "member_episode_ids": [],
-                "reach_status": "reached",
-                "failure_ids": [],
-            }
-        ],
-        "edges": [],
-    }
-
 
 def _case(value: TestCase) -> dict[str, Any]:
     return {
@@ -112,7 +94,8 @@ def _select_test(
                     "phase": "initial_seeds",
                     "execution_count": 0,
                     "plan": plan,
-                    "tree": _root_tree(),
+                    "tree": tree_method.empty_tree(),
+                    "tree_merge_cache": {},
                     "current_selection": None,
                     "observations": [],
                 }
@@ -275,13 +258,18 @@ def _updated_state(
         for item in results
         if item.get("status") == "fail"
     ]
-    tree = skillrace_method.merge_episodes(
-        state.get("tree", _root_tree()),
+    tree, merge_cache = tree_method.merge_episodes(
+        state["tree"],
         episodes,
         record.run_id,
         failures,
+        state["tree_merge_cache"],
         config,
         output / "tree",
+        run_meta={
+            "trace_path": str(record.trace_path),
+            "artifact_path": str(record.artifact_path),
+        },
     )
     execution_count = state["execution_count"] + 1
     observation = {
@@ -305,6 +293,7 @@ def _updated_state(
         "phase": "branch" if execution_count >= 10 else "initial_seeds",
         "execution_count": execution_count,
         "tree": tree,
+        "tree_merge_cache": merge_cache,
         "current_selection": None,
         "observations": [*state["observations"], observation],
     }
