@@ -1,6 +1,6 @@
 # Current Status and Known Issues
 
-Date: 2026-07-21
+Date: 2026-07-23
 
 ## Executive status
 
@@ -640,13 +640,41 @@ final two-model gate. Legacy-import and forbidden-architecture searches were rev
 ### Resolved: observed-edge SkillRACE selection and mutation
 
 Post-seed SkillRACE no longer depends on synthetic `unreached` nodes. The host creates a
-compact stable-ID index from real observed episode transitions. One fresh tool-free Pi
-call selects a promising edge, the host isolates its branch deterministically, and a
-second fresh tool-free Pi call generates the mutation from only that branch and the fixed
-catalog. Long-tree live contracts passed with both `lab/deepseek-v4-flash` and
-`lab/qwen3.6-flash`. Manual inspection confirmed that both selected the only meaningful
-helper-path edge, made its fixed-path assumption fail, preserved a feasible local recovery
-route, did not leak that route in the visible prompt, and produced Docker-valid tasks.
+failure-first stable-ID index from real observed episode transitions. One fresh tool-free
+Pi call selects a promising edge, the host saves its exact root-to-edge branch, and a
+second fresh tool-free Pi call receives a compact semantic projection of that branch. The
+projection preserves every path purpose and unique reasoning/outcome while replacing
+repeated per-run rows with counts; the long-tree mutation prompt fell from about 129k to
+about 13k input tokens. Manual inspection confirmed that both models selected the only
+meaningful helper-path edge, placed the helper outside default `PATH`, preserved a local
+recovery route, kept the visible task blind, and produced Docker-valid tasks.
+
+### Resolved: grounded episodes and contextual tree merge
+
+The legacy-compatible episode behavior now projects only real tool calls/results, applies
+the soft target formula and owned worked example, partitions every call, and attaches
+verbatim opening reasoning. The authoritative tree is `behavior-tree/2`: contextual
+child-only semantic purpose merging excludes outcomes from judgments while preserving
+exact outcomes, variants, members, failures, and per-run transitions. Judgment cache is
+part of SkillRACE campaign state. Tiny Part I and Part II campaigns persist this state
+directly.
+
+Fresh 2026-07-23 evidence passed for both model tracks:
+
+- episode creation: `out/live-contracts/episode-creator/deepseek-v4-flash/20260723T063946Z-5f7a4253/`
+  and `out/live-contracts/episode-creator/qwen3.6-flash/20260723T063953Z-a5fa4727/`;
+- tree merge/cache: `out/live-contracts/tree-merger/deepseek-v4-flash/20260723T064007Z-c8ca4253/`
+  and `out/live-contracts/tree-merger/qwen3.6-flash/20260723T064130Z-ec87d177/`;
+- edge selector/mutator: `out/live-contracts/skillrace-edge-selector/deepseek-v4-flash/20260723T064307Z-09084038/`
+  and `out/live-contracts/skillrace-edge-selector/qwen3.6-flash/20260723T064426Z-86697ea1/`;
+- tiny Part I: `out/live-contracts/part1/deepseek-v4-flash/20260723T061049Z-5e2bab21/`
+  and `out/live-contracts/part1/qwen3.6-flash/20260723T061729Z-8d56f9e0/`; and
+- tiny Part II: `out/live-contracts/part2/deepseek-v4-flash/20260723T062322Z-8dcf424d/`
+  and `out/live-contracts/part2/qwen3.6-flash/20260723T062916Z-b1abbdeb/`.
+
+The complete offline suite passed 245 tests. Exact active-key scans of these fresh roots
+were clean, and no owned Docker container remained. These are component/campaign contract
+results, not the full 30-test study.
 
 ## Recorded lower-priority decisions
 

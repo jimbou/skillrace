@@ -37,8 +37,8 @@ Useful focused commands:
   tests_next/integration/test_heldout_isolation.py
 ```
 
-The 2026-07-20 runtime-image cycle had 159 passing unit/integration tests. This count
-records that run; rerun the command after future code changes.
+The 2026-07-23 contextual episode/tree cycle had 245 passing unit/integration tests. This
+count records that run; rerun the command after future code changes.
 
 ### Generic Pi runtime image
 
@@ -119,6 +119,20 @@ The inspected passing evidence is
 | Skill generation | Same-track Pi creates and isolates one S0 |
 | Patcher | Same-track Pi edits only `SKILL.md` from real failure evidence |
 | Exact replay | Fresh weak-agent run with the exact saved scripts and acceptance rule |
+
+The 2026-07-23 contextual episode/tree gates passed independently for both
+`deepseek-v4-flash` and `qwen3.6-flash`. Fresh inspected roots are:
+
+```text
+out/live-contracts/episode-creator/<model>/20260723T*/
+out/live-contracts/tree-merger/<model>/20260723T*/
+out/live-contracts/skillrace-edge-selector/<model>/20260723T*/
+out/live-contracts/part1/<model>/20260723T*/
+out/live-contracts/part2/<model>/20260723T*/
+```
+
+The exact successful run IDs are recorded in `CURRENT_STATUS.md`. The full 30-test study
+has not been run.
 
 The checker contract must use Codex, not the cheap provider model. The patcher contract
 must use the cheap track model, not Codex.

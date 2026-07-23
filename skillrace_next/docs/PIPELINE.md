@@ -23,7 +23,10 @@ them into `skillrace_next/` and without renaming the new package to `skillrace`.
 | `verification/executor.py` | Authoritative checker execution with `docker exec` |
 | `methods/random.py` | Independent property-based test proposal |
 | `methods/verigrey.py` | Tool-sequence normalization, coverage state, novelty-guided proposal |
-| `methods/skillrace.py` | Episode extraction, reasoning tree merge/alignment, branch proposal |
+| `methods/episodes.py` | Grounded trace projection and target-guided Pi episode creation |
+| `methods/reasoning_tree.py` | `behavior-tree/2` validation and cached contextual prefix merge |
+| `methods/branch_view.py` | Stable observed-edge index and root-to-edge branch projection |
+| `methods/skillrace.py` | Diversity seeds plus observed-edge selection and mutation |
 | `pipeline/stages.py` | Concrete generation, validation, task, patch, replay, and acceptance stages |
 | `pipeline/part1.py` | Immutable-S0 discovery loop and grouping |
 | `pipeline/part2.py` | Cumulative-Si improvement loop and held-out evaluation |
@@ -298,33 +301,43 @@ Its campaign state contains:
 ### SkillRACE
 
 SkillRACE first segments the actual agent trace into ordered, non-overlapping episodes.
-Episode boundaries must use real trace event IDs and collectively cover every relevant
-assistant thinking/tool-call event and tool-result event. Diversity planning, initial-test
-materialization, episode creation, ambiguous tree alignment, edge selection, and branch
-mutation each permit at most three total model calls. Every correction call receives the
-exact validation diagnostic. A valid edge selection is retained while an invalid mutation
-is corrected; the selector is not rerun. Weak-agent execution is never retried by these
-format and validation loops.
+The deterministic projection includes only actual assistant tool calls and their matched
+tool results; text-only narration is excluded. Calls are globally numbered and retain
+their source event IDs. The soft target is
+`max(1, round(N / (3.0 + N / 50.0)))` for `N > 0`. Same-track Pi at temperature `0`
+receives that target, the flat trace, and the owned worked example. Its raw spans must
+partition every call without gaps or overlaps. The host then attaches stable episode IDs
+and the opening reasoning verbatim. `purpose` and `what_it_did` summarize the sub-goal and
+actions; `outcome` must be grounded only in observed tool results.
 
-The tree stores nodes with purpose, outcome, member run/episode IDs, reach state, and
-failure IDs. Exact purpose/outcome matches merge deterministically. If placement is
-ambiguous, one batched same-track Pi call selects an existing parent for the complete
-episode chain. Edges store the reason for moving to the next episode.
+The sole tree record is `behavior-tree/2`. It stores complete run metadata, contextual
+child nodes, purpose/action variants, exact episode members, per-run reasoning
+transitions, reach status, and failure IDs. Each new episode is compared only with the
+current parent's children. Same-purpose judgments deliberately exclude outcomes; matched
+nodes may broaden their purpose and merge a semantically equivalent action variant.
+Different outcomes remain exact member evidence rather than preventing a valid merge.
+All same-purpose, broaden-purpose, and same-approach judgments use same-track Pi at
+temperature `0` and are persisted in `tree_merge_cache` for deterministic reuse.
 
 After the ten frozen seed executions, proposal selection works only from observed
 episode-to-episode reasoning edges. The host writes a compact edge index with a stable ID,
-source purpose, reasoning, target purpose/outcome, observation count, and failure count for
-each edge. A fresh tool-free same-track Pi call sees that compact index, the current skill,
-and the complete fixed property catalog and returns one exact edge ID plus its selection
-rationale.
+source/target purpose, unique opening reasoning, unique preceding outcomes, transition
+count, and failure count for each edge. Failed edges sort first, then stable edge ID. A
+fresh tool-free same-track Pi call sees that compact index, the current skill, and the
+complete fixed property catalog and returns one exact edge ID plus its rationale.
 
 The host validates the ID and deterministically isolates the root-to-edge branch from the
-saved tree. A second fresh tool-free Pi call sees only that isolated branch, selection
-rationale, current skill, and fixed properties. It mutates the selected assumption and
-returns one prompt and Dockerfile. The mutation must make the assumption fail while keeping
-a local recovery route, must not reveal that route in the visible prompt, and must remain
-solvable within the unchanged budget. Before the full study, each selected Part I skill and
-Part II scenario receives one frozen base image with a small context-appropriate tool set.
-Its immutable image ID and capability context are supplied to test generation. Generated
-environments use only that pinned software and local files or symlinks. Exact edge reach is
-diagnostic; any genuine fixed-property failure remains useful.
+saved tree. The exact branch, including per-run evidence, remains on disk. The second
+tool-free Pi call receives a compact semantic projection containing every path purpose,
+unique reasoning/outcomes, failures, and counts without repeated run rows. It mutates the
+selected assumption and returns one prompt and Dockerfile. The selector has three total
+attempts; the mutator has one initial attempt plus three diagnostic corrections, without
+rerunning the selector.
+
+The mutation must make the assumption fail while keeping a local recovery route, must not
+reveal the hidden path or discovery method in the visible prompt, and must remain solvable
+within the unchanged budget. An executable-location mutation places the helper outside
+default `PATH` with no symlink or `PATH` addition, so the bare command cannot bypass the
+targeted bug. Deterministic validation rejects disclosure, malformed records, and Docker
+build failures. Exact edge reach is diagnostic; a genuine fixed-property failure remains
+useful.
