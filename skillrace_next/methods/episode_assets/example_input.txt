@@ -1,6 +1,6 @@
 ### SIMPLIFIED TRACE — run run-EXAMPLE0001 | skill build-python-cli
 ### PROMPT: The CLI `report.py` should print a regional sales table but currently crashes. Get `python report.py` working. Do not change report.py's intended behavior.
-### tool_calls=20  target_episodes≈6  (D=3+N/50=3.40)
+### tool_calls=20  soft_target_episodes=10
 
 Tool Call 1 — bash
   reasoning: Before changing anything I should run the CLI to see exactly how it fails, and glance at its imports.

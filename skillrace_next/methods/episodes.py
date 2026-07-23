@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from math import ceil
 from pathlib import Path
 from typing import Any, Callable
 import uuid
@@ -33,7 +34,10 @@ def target_episode_count(tool_call_count: int) -> int:
         raise ValueError("tool call count must not be negative")
     if tool_call_count == 0:
         return 0
-    return max(1, round(tool_call_count / (3.0 + tool_call_count / 50.0)))
+    return min(
+        tool_call_count,
+        min(20, 8 + ceil(max(0, tool_call_count - 8) / 8)),
+    )
 
 
 def _truncate(text: str, head: int = HEAD_LINES, tail: int = TAIL_LINES) -> str:
@@ -340,15 +344,24 @@ def _episode_prompt(
     return (
         "Split one coding-agent run into episodes. The input is a FLAT, globally "
         "numbered list of actual tool calls. An episode is a contiguous run of calls "
-        "pursuing one sub-goal. Start a new episode at a CONTINGENT decision, pivot, "
-        "or discovery specific to the task—not at every generic phase. Group consecutive "
-        "reasoning shifts that still serve the same sub-goal. A boundary may only start "
-        "at a tool call with a reasoning line.\n\n"
-        "For each episode, purpose names the sub-goal, what_it_did summarizes the actions, "
-        "and outcome states the observed result. Derive outcome ONLY from tool results "
-        "shown in the trace, never from the agent's reasoning or claims. The episodes must "
-        "partition every tool call in order with no gap or overlap. The first starts at 1 "
-        "and the final episode ends at the final call. The target is soft: decisions decide.\n\n"
+        "pursuing one concrete hypothesis, repair, or validation objective. Start a new "
+        "episode at each CONTINGENT decision, pivot, new observed failure, changed "
+        "hypothesis, distinct repair, or new validation target. Group adjacent reads, "
+        "commands, edits, and diffs only when they all pursue the same precise attempt. "
+        "A boundary may only start at a tool call with a reasoning line.\n\n"
+        "For each episode, purpose must name the exact component, artifact, symbol, bug, "
+        "or validation target. what_it_did must identify the relevant command, file, "
+        "symbol, investigation, or code change. outcome must state the concrete observed "
+        "result, including the exact error or failed assertion, whether a repair fixed "
+        "it, the next failure revealed, or the validation evidence. Derive outcome ONLY "
+        "from tool results shown in the trace, never from the agent's reasoning or claims. "
+        "A generic lifecycle phase such as 'implementation', 'debugging', 'run tests', "
+        "or 'final verification' is invalid when the trace provides a more specific "
+        "technical objective. Before responding, internally reject and rewrite every "
+        "vague record so it is understandable without rereading the full trace.\n\n"
+        "The episodes must partition every tool call in order with no gap or overlap. "
+        "The first starts at 1 and the final episode ends at the final call. The target "
+        "is soft: concrete reasoning attempts decide.\n\n"
         "Return exactly one raw JSON object with the sole field episodes. Its value must be "
         "an array. Every item must contain exactly start_call, end_call, purpose, "
         "what_it_did, and outcome. Do not return prose, Markdown fences, JSONL, IDs, or "

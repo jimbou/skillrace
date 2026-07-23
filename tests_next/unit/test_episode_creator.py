@@ -40,10 +40,22 @@ def valid_raw_episodes() -> list[dict[str, object]]:
     ]
 
 
-def test_target_episode_count_matches_legacy_table() -> None:
-    assert [
-        target_episode_count(n) for n in (0, 5, 6, 9, 10, 20, 45, 60, 100)
-    ] == [0, 2, 2, 3, 3, 6, 12, 14, 20]
+@pytest.mark.parametrize(
+    ("calls", "target"),
+    [
+        (0, 0),
+        (1, 1),
+        (5, 5),
+        (8, 8),
+        (9, 9),
+        (20, 10),
+        (50, 14),
+        (100, 20),
+        (200, 20),
+    ],
+)
+def test_target_episode_count_is_adaptive(calls: int, target: int) -> None:
+    assert target_episode_count(calls) == target
 
 
 def test_target_episode_count_rejects_negative_counts() -> None:
@@ -259,15 +271,36 @@ def test_create_episodes_uses_target_example_temperature_zero_and_evidence(
     assert request.allowed_tools == ()
     assert request.mounts == ()
     prompt = request.prompt_path.read_text(encoding="utf-8")
-    assert "target episode count: 1" in prompt
+    assert "target episode count: 2" in prompt
     assert "WORKED EXAMPLE" in prompt
     assert "CONTINGENT" in prompt
     assert "ONLY from tool results" in prompt
+    assert "exact component, artifact, symbol, bug, or validation target" in prompt
+    assert "generic lifecycle phase" in prompt
+    assert "new observed failure" in prompt
+    example = json.loads(
+        Path(
+            "skillrace_next/methods/episode_assets/example_output.json"
+        ).read_text(encoding="utf-8")
+    )["episodes"]
+    assert len(example) == 10
+    assert [episode["start_call"] for episode in example] == [
+        1,
+        3,
+        5,
+        7,
+        8,
+        10,
+        12,
+        14,
+        15,
+        18,
+    ]
     assert episodes == assemble_episodes(two_step_raw_split(), project_trace(TRACE)[1])
     creation = json.loads((output / "episode-creation.json").read_text())
     assert creation["schema"] == "skillrace-episode-creation/2"
     assert creation["tool_call_count"] == 2
-    assert creation["target_episode_count"] == 1
+    assert creation["target_episode_count"] == 2
     assert Path(creation["rendered_trace_path"]).is_file()
     assert receipt == request.output_dir / "receipt.json"
 
