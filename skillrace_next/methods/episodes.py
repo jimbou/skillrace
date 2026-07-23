@@ -318,6 +318,11 @@ def _assistant_json(trace_path: Path) -> Any:
             responses.append(text.strip())
     if not responses:
         raise ValueError("episode response contains no assistant JSON")
+    if responses[-1].lstrip().startswith("```"):
+        raise ValueError(
+            "assistant response uses a Markdown code fence; remove the opening and "
+            "closing fence lines and return the JSON object directly"
+        )
     try:
         return json.loads(responses[-1])
     except json.JSONDecodeError as exc:

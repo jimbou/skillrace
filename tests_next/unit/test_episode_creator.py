@@ -345,6 +345,30 @@ def test_create_episodes_corrects_json_then_partition_and_stops_on_success(
     )
 
 
+def test_create_episodes_gives_a_specific_markdown_fence_correction(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+    raw = json.dumps({"episodes": two_step_raw_split()})
+    responses = [f"```json\n{raw}\n```", raw]
+
+    def correcting_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        return fake_result(request, responses[len(requests) - 1])
+
+    create_episodes(
+        run_record(tmp_path),
+        episode_config(tmp_path),
+        tmp_path / "episodes",
+        correcting_pi,
+    )
+
+    assert len(requests) == 2
+    correction = requests[1].prompt_path.read_text(encoding="utf-8")
+    assert "Markdown code fence" in correction
+    assert "remove the opening and closing fence lines" in correction
+
+
 def test_create_episodes_rejects_three_invalid_responses(tmp_path: Path) -> None:
     calls = 0
 
