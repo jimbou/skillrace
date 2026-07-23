@@ -1,283 +1,234 @@
+from copy import deepcopy
 from dataclasses import replace
-import json
 from pathlib import Path
 
 import pytest
 
-from skillrace_next.methods.skillrace import (
+from skillrace_next.methods.reasoning_tree import (
+    empty_tree,
     merge_episodes,
+    validate_tree,
 )
 from skillrace_next.runtime.pi import PiRequest, PiResult
-from tests_next.unit.test_episode_creator import valid_episodes
 from tests_next.unit.test_test_cases import config_for
 
 
-def root_tree() -> dict[str, object]:
-    return {
-        "schema": "skillrace-reasoning-tree/1",
-        "nodes": [
-            {
-                "node_id": "root",
-                "purpose": "root",
-                "outcome": "root",
-                "member_run_ids": [],
-                "member_episode_ids": [],
-                "reach_status": "reached",
-                "failure_ids": [],
-            }
-        ],
-        "edges": [],
-    }
-
-
-def existing_branch_tree() -> dict[str, object]:
-    tree = root_tree()
-    tree["nodes"].append(
+def episodes_for_run() -> list[dict[str, object]]:
+    return [
         {
-            "node_id": "alternative",
-            "purpose": "Try an alternative workflow",
-            "outcome": "Alternative was not reached",
-            "member_run_ids": [],
-            "member_episode_ids": [],
-            "reach_status": "unreached",
-            "failure_ids": [],
-        }
-    )
-    tree["edges"].append(
+            "episode_id": "episode-1",
+            "start_call": 1,
+            "end_call": 2,
+            "purpose": "inspect the workspace",
+            "what_it_did": "listed files and read the configuration",
+            "outcome": "the configuration was found",
+            "opening_reasoning": "First inspect the available project files.",
+        },
         {
-            "source_node_id": "root",
-            "target_node_id": "alternative",
-            "reason": "An alternative workflow may exist",
-        }
-    )
-    return tree
-
-
-def test_deterministic_new_chain_uses_no_alignment_call(tmp_path: Path) -> None:
-    def forbidden_pi(request: PiRequest) -> PiResult:
-        raise AssertionError("deterministic placement must not call Pi")
-
-    merged = merge_episodes(
-        root_tree(),
-        valid_episodes(),
-        "run-1",
-        [{"failure_id": "failure-1", "episode_id": "episode-2"}],
-        replace(config_for(tmp_path), role_budgets={"tree_alignment": 4}),
-        tmp_path / "merge",
-        forbidden_pi,
-    )
-
-    assert len(merged["nodes"]) == 3
-    assert len(merged["edges"]) == 2
-    created = [node for node in merged["nodes"] if node["node_id"] != "root"]
-    assert created[0]["member_run_ids"] == ["run-1"]
-    assert created[1]["failure_ids"] == ["failure-1"]
-    assert all(edge["reason"] for edge in merged["edges"])
-
-
-def test_exact_existing_nodes_gain_membership_without_losing_other_branch(
-    tmp_path: Path,
-) -> None:
-    tree = existing_branch_tree()
-    episodes = valid_episodes()
-    tree["nodes"].extend(
-        [
-            {
-                "node_id": f"existing-{index}",
-                "purpose": episode["purpose"],
-                "outcome": episode["outcome"],
-                "member_run_ids": ["older-run"],
-                "member_episode_ids": [f"older-{index}"],
-                "reach_status": "reached",
-                "failure_ids": [],
-            }
-            for index, episode in enumerate(episodes, 1)
-        ]
-    )
-    tree["edges"].extend(
-        [
-            {
-                "source_node_id": "alternative",
-                "target_node_id": "existing-1",
-                "reason": "write path",
-            },
-            {
-                "source_node_id": "existing-1",
-                "target_node_id": "existing-2",
-                "reason": episodes[0]["reason_for_next"],
-            },
-        ]
-    )
-
-    merged = merge_episodes(
-        tree,
-        episodes,
-        "run-1",
-        [],
-        replace(config_for(tmp_path), role_budgets={"tree_alignment": 4}),
-        tmp_path / "merge",
-        lambda request: (_ for _ in ()).throw(AssertionError("no Pi call expected")),
-    )
-
-    assert next(node for node in merged["nodes"] if node["node_id"] == "alternative") == tree["nodes"][1]
-    exact = next(node for node in merged["nodes"] if node["node_id"] == "existing-1")
-    assert exact["member_run_ids"] == ["older-run", "run-1"]
-    assert exact["member_episode_ids"] == ["older-1", "episode-1"]
-    assert tree["nodes"][2]["member_run_ids"] == ["older-run"]
-    assert not any(
-        edge["source_node_id"] == "root"
-        and edge["target_node_id"] == "existing-1"
-        for edge in merged["edges"]
-    )
-
-
-def test_ambiguous_first_placement_uses_one_batched_alignment_call(
-    tmp_path: Path,
-) -> None:
-    calls: list[PiRequest] = []
-
-    def alignment_pi(request: PiRequest) -> PiResult:
-        calls.append(request)
-        request.output_dir.mkdir(parents=True, exist_ok=True)
-        trace = request.output_dir / "trace.jsonl"
-        trace.write_text(
-            json.dumps(
-                {
-                    "type": "message",
-                    "id": "alignment-response",
-                    "message": {
-                        "role": "assistant",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": json.dumps(
-                                    {"parent_node_id": "alternative"}
-                                ),
-                            }
-                        ],
-                    },
-                }
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        receipt = request.output_dir / "receipt.json"
-        receipt.write_text("{}\n", encoding="utf-8")
-        return PiResult(
-            operation_id=request.operation_id,
-            model=request.model,
-            status="completed",
-            trace_path=trace,
-            usage={},
-            stderr="",
-            receipt_path=receipt,
-            return_code=0,
-            wall_seconds=0.1,
-            timeout_seconds=request.timeout_seconds,
-        )
-
-    merged = merge_episodes(
-        existing_branch_tree(),
-        valid_episodes(),
-        "run-ambiguous",
-        [],
-        replace(config_for(tmp_path), role_budgets={"tree_alignment": 4}),
-        tmp_path / "merge",
-        alignment_pi,
-    )
-
-    assert len(calls) == 1
-    assert calls[0].model == "deepseek-v3.2"
-    assert "Do not use Markdown fences" in calls[0].prompt_path.read_text(
-        encoding="utf-8"
-    )
-    first_created = next(
-        node for node in merged["nodes"] if "episode-1" in node["member_episode_ids"]
-    )
-    assert any(
-        edge["source_node_id"] == "alternative"
-        and edge["target_node_id"] == first_created["node_id"]
-        for edge in merged["edges"]
-    )
-
-
-def test_ambiguous_alignment_allows_two_format_corrections(tmp_path: Path) -> None:
-    calls: list[PiRequest] = []
-    responses = [
-        "The chain is a top-level alternative.\n\n"
-        "```json\n{\"parent_node_id\": \"root\"}\n```",
-        '{"parent_node_id":"unknown"}',
-        '{"parent_node_id":"root"}',
+            "episode_id": "episode-2",
+            "start_call": 3,
+            "end_call": 4,
+            "purpose": "run the tests",
+            "what_it_did": "executed pytest",
+            "outcome": "the tests failed on one assertion",
+            "opening_reasoning": "The project is understood, so run its tests.",
+        },
     ]
 
-    def alignment_pi(request: PiRequest) -> PiResult:
-        calls.append(request)
-        request.output_dir.mkdir(parents=True, exist_ok=True)
-        trace = request.output_dir / "trace.jsonl"
-        trace.write_text(
-            json.dumps(
-                {
-                    "type": "message",
-                    "message": {
-                        "role": "assistant",
-                        "content": [{"type": "text", "text": responses.pop(0)}],
-                    },
-                }
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        receipt = request.output_dir / "receipt.json"
-        receipt.write_text("{}\n", encoding="utf-8")
-        return PiResult(
-            operation_id=request.operation_id,
-            model=request.model,
-            status="completed",
-            trace_path=trace,
-            usage={},
-            stderr="",
-            receipt_path=receipt,
-            return_code=0,
-            wall_seconds=0.1,
-            timeout_seconds=request.timeout_seconds,
-        )
 
-    merged = merge_episodes(
-        existing_branch_tree(),
-        valid_episodes(),
-        "run-corrected",
-        [],
+def tree_with_one_run(tmp_path: Path) -> dict[str, object]:
+    merged, cache = merge_episodes(
+        empty_tree(),
+        episodes_for_run(),
+        "run-1",
+        [{"failure_id": "failure-1", "episode_id": "episode-2"}],
+        {},
         replace(config_for(tmp_path), role_budgets={"tree_alignment": 4}),
         tmp_path / "merge",
-        alignment_pi,
+        run_meta={"trace_path": "runs/run-1/trace.jsonl"},
+        pi_runner=lambda request: (_ for _ in ()).throw(
+            AssertionError("first-run placement must not call Pi")
+        ),
     )
-
-    assert len(calls) == 3
-    assert "previous response was invalid" in calls[1].prompt_path.read_text(
-        encoding="utf-8"
-    )
-    assert "unknown parent" in calls[2].prompt_path.read_text(encoding="utf-8")
-    first_created = next(
-        node for node in merged["nodes"] if "episode-1" in node["member_episode_ids"]
-    )
-    assert any(
-        edge["source_node_id"] == "root"
-        and edge["target_node_id"] == first_created["node_id"]
-        for edge in merged["edges"]
-    )
+    assert cache == {}
+    return merged
 
 
-def test_duplicate_episode_membership_is_rejected(tmp_path: Path) -> None:
-    tree = root_tree()
-    tree["nodes"][0]["member_run_ids"] = ["run-1"]
-    tree["nodes"][0]["member_episode_ids"] = ["episode-1"]
+def test_empty_tree_is_exact_behavior_tree_record() -> None:
+    assert empty_tree() == {
+        "schema": "behavior-tree/2",
+        "runs": {},
+        "next_id": 0,
+        "root_children": [],
+        "root_edges": {},
+        "nodes": {},
+    }
+    assert validate_tree(empty_tree()) == empty_tree()
 
-    with pytest.raises(ValueError, match="duplicate membership"):
+
+def test_deterministic_first_run_creates_grounded_chain_without_pi(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+
+    def forbidden_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        raise AssertionError("deterministic placement must not call Pi")
+
+    episodes = episodes_for_run()
+    merged, cache = merge_episodes(
+        empty_tree(),
+        episodes,
+        "run-1",
+        [{"failure_id": "failure-1", "episode_id": "episode-2"}],
+        {},
+        replace(config_for(tmp_path), role_budgets={"tree_alignment": 4}),
+        tmp_path / "merge",
+        run_meta={"trace_path": "runs/run-1/trace.jsonl"},
+        pi_runner=forbidden_pi,
+    )
+
+    assert requests == []
+    assert cache == {}
+    assert merged["runs"] == {
+        "run-1": {"trace_path": "runs/run-1/trace.jsonl"}
+    }
+    assert merged["next_id"] == 2
+    assert merged["root_children"] == ["n0"]
+    assert merged["nodes"]["n0"]["children"] == ["n1"]
+    assert merged["nodes"]["n0"]["members"] == [
+        {
+            "run_id": "run-1",
+            "episode_id": "episode-1",
+            "purpose": episodes[0]["purpose"],
+            "what_it_did": episodes[0]["what_it_did"],
+            "outcome": episodes[0]["outcome"],
+            "opening_reasoning": episodes[0]["opening_reasoning"],
+        }
+    ]
+    assert merged["root_edges"]["n0"] == [
+        {
+            "run_id": "run-1",
+            "in_outcome": None,
+            "reasoning": episodes[0]["opening_reasoning"],
+        }
+    ]
+    assert merged["nodes"]["n0"]["edges"]["n1"] == [
+        {
+            "run_id": "run-1",
+            "in_outcome": episodes[0]["outcome"],
+            "reasoning": episodes[1]["opening_reasoning"],
+        }
+    ]
+    assert merged["nodes"]["n1"]["failure_ids"] == ["failure-1"]
+    assert merged["nodes"]["n0"]["what_it_did_variants"] == [
+        {"text": episodes[0]["what_it_did"], "run_ids": ["run-1"]}
+    ]
+    assert validate_tree(merged) == merged
+
+
+def test_merge_rejects_invalid_failure_link(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="failure link"):
         merge_episodes(
-            tree,
-            valid_episodes(),
+            empty_tree(),
+            episodes_for_run(),
             "run-1",
-            [],
+            [{"failure_id": "failure-1", "episode_id": "unknown"}],
+            {},
             replace(config_for(tmp_path), role_budgets={"tree_alignment": 4}),
             tmp_path / "merge",
         )
+
+
+def test_validate_tree_rejects_cycle(tmp_path: Path) -> None:
+    tree = tree_with_one_run(tmp_path)
+    tree["nodes"]["n1"]["children"] = ["n0"]
+    tree["nodes"]["n1"]["edges"] = {
+        "n0": [
+            {
+                "run_id": "run-1",
+                "in_outcome": "the tests failed on one assertion",
+                "reasoning": "Revisit the inspection.",
+            }
+        ]
+    }
+    with pytest.raises(ValueError, match="cycle"):
+        validate_tree(tree)
+
+
+def test_validate_tree_rejects_unreachable_node(tmp_path: Path) -> None:
+    tree = tree_with_one_run(tmp_path)
+    tree["runs"]["run-2"] = {}
+    tree["nodes"]["n2"] = {
+        "id": "n2",
+        "purpose": "orphaned work",
+        "what_it_did_variants": [{"text": "did work", "run_ids": ["run-2"]}],
+        "runs": ["run-2"],
+        "members": [
+            {
+                "run_id": "run-2",
+                "episode_id": "episode-1",
+                "purpose": "orphaned work",
+                "what_it_did": "did work",
+                "outcome": "work completed",
+                "opening_reasoning": "Do isolated work.",
+            }
+        ],
+        "children": [],
+        "edges": {},
+        "reach_status": "reached",
+        "failure_ids": [],
+    }
+    tree["next_id"] = 3
+    with pytest.raises(ValueError, match="unreachable"):
+        validate_tree(tree)
+
+
+def test_validate_tree_rejects_unknown_child(tmp_path: Path) -> None:
+    tree = tree_with_one_run(tmp_path)
+    tree["nodes"]["n1"]["children"] = ["missing"]
+    tree["nodes"]["n1"]["edges"] = {"missing": []}
+    with pytest.raises(ValueError, match="unknown child"):
+        validate_tree(tree)
+
+
+def test_validate_tree_rejects_duplicate_membership(tmp_path: Path) -> None:
+    tree = tree_with_one_run(tmp_path)
+    tree["nodes"]["n1"]["members"].append(
+        deepcopy(tree["nodes"]["n0"]["members"][0])
+    )
+    with pytest.raises(ValueError, match="duplicate membership"):
+        validate_tree(tree)
+
+
+def test_validate_tree_rejects_malformed_transition(tmp_path: Path) -> None:
+    tree = tree_with_one_run(tmp_path)
+    del tree["root_edges"]["n0"][0]["reasoning"]
+    with pytest.raises(ValueError, match="transition"):
+        validate_tree(tree)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "error"),
+    [
+        (
+            lambda tree: tree["nodes"]["n0"]["what_it_did_variants"][0].__setitem__(
+                "run_ids", []
+            ),
+            "variant",
+        ),
+        (
+            lambda tree: tree["nodes"]["n0"].__setitem__(
+                "reach_status", "speculative"
+            ),
+            "reach status",
+        ),
+    ],
+)
+def test_validate_tree_rejects_invalid_variant_or_reach_status(
+    tmp_path: Path, mutation, error: str
+) -> None:
+    tree = tree_with_one_run(tmp_path)
+    mutation(tree)
+    with pytest.raises(ValueError, match=error):
+        validate_tree(tree)
