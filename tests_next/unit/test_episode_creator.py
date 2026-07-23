@@ -278,6 +278,7 @@ def test_create_episodes_uses_target_example_temperature_zero_and_evidence(
     assert "exact component, artifact, symbol, bug, or validation target" in prompt
     assert "generic lifecycle phase" in prompt
     assert "new observed failure" in prompt
+    assert "inside that episode's start_call through end_call span" in prompt
     example = json.loads(
         Path(
             "skillrace_next/methods/episode_assets/example_output.json"
