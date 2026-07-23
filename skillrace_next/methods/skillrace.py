@@ -4,7 +4,7 @@ import re
 from typing import Any, Callable
 import uuid
 
-from .branch_view import build_edge_index, isolate_branch
+from .branch_view import build_edge_index, compact_branch_for_prompt, isolate_branch
 from .reasoning_tree import validate_tree
 from ..pipeline.stages import validate_generated_dockerfile, validate_test
 from ..records import ExperimentConfig, SkillVersion, TestCase
@@ -505,6 +505,8 @@ def propose_test(
             "Act as the SkillRACE edge selector. Choose exactly one real observed reasoning "
             "edge from the COMPACT EDGE INDEX below. Prefer the edge whose assumption has the "
             "best chance of exposing a genuine, patchable skill failure under the fixed checks. "
+            "previous_outcomes are observations immediately before the displayed reasoning "
+            "edge; use them as guard evidence, not as the target node's identity. "
             "The resulting task must remain achievable within the unchanged agent budget when "
             "the skill gives the right guidance; do not select sheer difficulty, impossible "
             "requirements, unavailable credentials, or an environment condition without a "
@@ -561,6 +563,7 @@ def propose_test(
 
     selected_branch = isolate_branch(validated_tree, target_edge_id)
     atomic_write_json(selector_input / "selected-branch.json", selected_branch)
+    prompt_branch = compact_branch_for_prompt(selected_branch)
     selector_input_hash = tree_hash(selector_input)
 
     response_fields = {
@@ -572,7 +575,7 @@ def propose_test(
     }
     mutator_diagnostic: str | None = None
     last: TestCase | None = None
-    for ordinal in (1, 2, 3):
+    for ordinal in (1, 2, 3, 4):
         mutator_output = output / f"mutator-attempt-{ordinal}"
         mutator_output.mkdir()
         mutator_prompt = mutator_output / "prompt.txt"
@@ -626,9 +629,19 @@ def propose_test(
             f"BASE IMAGE CAPABILITIES:\n{capability.text}\n\n"
             f"TARGET EDGE ID:\n{target_edge_id}\n\n"
             f"SELECTION REASON:\n{selection_reason}\n\n"
-            f"ISOLATED OBSERVED BRANCH:\n{json.dumps(selected_branch, sort_keys=True)}\n\n"
+            f"ISOLATED OBSERVED BRANCH:\n{json.dumps(prompt_branch, sort_keys=True)}\n\n"
             f"FIXED PROPERTIES:\n{json.dumps(properties, sort_keys=True)}\n\n"
-            f"SKILL.md:\n{skill_text}\n",
+            f"SKILL.md:\n{skill_text}\n\n"
+            "FINAL EXECUTABLE-MUTATION RULE: If the selected bug is an executable "
+            "location assumption, install the helper outside the default PATH (for "
+            "example under /opt), add no PATH entry or symlink, and ensure the bare "
+            "command must fail. The hidden helper must remain locally discoverable.\n"
+            "FINAL BLIND-TASK RULE: The visible prompt must not tell the weak agent "
+            "to find, locate, discover, search for, or inspect the hidden tool or its "
+            "path. It may name the available capability and required artifact only.\n"
+            "FINAL RESPONSE RULE: Return exactly one valid JSON object. The first "
+            "character must be { and the last character must be }. No Markdown "
+            "fences, no trailing comma, no commentary.\n",
             encoding="utf-8",
         )
         mutator_result = pi_runner(
@@ -674,15 +687,34 @@ def propose_test(
                 raise ValueError(
                     "visible prompt reveals the mutation's recovery path"
                 )
+            visible_prompt = response["prompt"].lower()
+            reveals_discovery_method = (
+                re.search(
+                    r"\b(?:find|locate|discover|search for)\b.{0,100}"
+                    r"\b(?:executable|binary|tool|utility)\b",
+                    visible_prompt,
+                    re.DOTALL,
+                )
+                or re.search(
+                    r"\bdo not assume\b.{0,80}\b(?:standard )?path\b",
+                    visible_prompt,
+                    re.DOTALL,
+                )
+                or re.search(r"\buse\s+(?:the\s+)?(?:find|which)\b", visible_prompt)
+            )
+            if reveals_discovery_method:
+                raise ValueError(
+                    "visible prompt reveals the mutation's recovery method"
+                )
             prompt = response["prompt"]
             dockerfile = validate_generated_dockerfile(
                 response["dockerfile"], config.docker_image
             )
         except (json.JSONDecodeError, OSError, ValueError) as error:
             mutator_diagnostic = str(error)
-            if ordinal < 3:
+            if ordinal < 4:
                 continue
-            raise ValueError("three invalid SkillRACE proposal responses") from error
+            raise ValueError("four invalid SkillRACE proposal responses") from error
 
         test_id = "skillrace-" + uuid.uuid4().hex
         case = output / test_id

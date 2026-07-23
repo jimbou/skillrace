@@ -12,6 +12,7 @@ from skillrace_next.methods.skillrace import build_edge_index, propose_test
 from skillrace_next.records import SkillVersion
 from skillrace_next.storage import atomic_write_json, tree_hash
 from tests_next.live.test_tree_merge_live import live_config
+from tests_next.unit.test_edge_selector import long_observed_tree
 
 
 pytestmark = pytest.mark.live
@@ -27,63 +28,6 @@ PROPERTIES = [
         "description": "The agent verifies the artifact's observable behavior before finishing.",
     },
 ]
-
-
-def long_observed_tree() -> dict[str, object]:
-    nodes: list[dict[str, object]] = [
-        {
-            "node_id": "root",
-            "purpose": "root",
-            "outcome": "root",
-            "member_run_ids": [],
-            "member_episode_ids": [],
-            "reach_status": "reached",
-            "failure_ids": [],
-        }
-    ]
-    edges: list[dict[str, str]] = []
-    for run_index in range(30):
-        previous = "root"
-        for episode_index in range(5):
-            node_id = f"run-{run_index:02d}-episode-{episode_index}"
-            special = run_index == 17 and episode_index == 3
-            nodes.append(
-                {
-                    "node_id": node_id,
-                    "purpose": (
-                        "Invoke the local report helper to verify the artifact"
-                        if special
-                        else f"Run {run_index} development episode {episode_index}"
-                    ),
-                    "outcome": (
-                        "The report helper existed only at "
-                        "/opt/report-tools/bin/reportgen; discovery consumed most of the budget"
-                        if special
-                        else "The observed development step completed"
-                    ),
-                    "member_run_ids": [f"run-{run_index:02d}"],
-                    "member_episode_ids": [f"episode-{run_index:02d}-{episode_index}"],
-                    "reach_status": "reached",
-                    "failure_ids": [],
-                }
-            )
-            edges.append(
-                {
-                    "source_node_id": previous,
-                    "target_node_id": node_id,
-                    "reason": (
-                        "Assume the report helper is at /usr/bin/reportgen and invoke that fixed path"
-                        if special
-                        else f"Continue the observed workflow at step {episode_index}"
-                    ),
-                }
-            )
-            previous = node_id
-    return {
-        "schema": "skillrace-reasoning-tree/1",
-        "nodes": nodes,
-        "edges": edges,
-    }
 
 
 @pytest.mark.parametrize("model", ["deepseek-v4-flash", "qwen3.6-flash"])
@@ -117,12 +61,11 @@ def test_real_pi_selects_and_mutates_one_edge_from_a_long_tree(
         receipt_path=skill_receipt,
     )
     config = replace(
-        live_config(evidence, {"proposer": 8}),
-        provider="lab",
-        model_id=model,
+        live_config(evidence, model),
+        role_budgets={"proposer": 8},
         output_root=evidence,
         timeouts={
-            **live_config(evidence, {"proposer": 8}).timeouts,
+            **live_config(evidence, model).timeouts,
             "provider": 600,
             "docker": 600,
         },
@@ -132,7 +75,7 @@ def test_real_pi_selects_and_mutates_one_edge_from_a_long_tree(
 
     proposed = propose_test(tree, skill, PROPERTIES, config)
 
-    assert len(build_edge_index(tree)) == 120
+    assert len(build_edge_index(tree)) == 139
     assert proposed.validation_status == "valid"
     receipt = json.loads(proposed.proposal_receipt.read_text(encoding="utf-8"))
     edge_ids = {item["edge_id"] for item in build_edge_index(tree)}
@@ -145,17 +88,37 @@ def test_real_pi_selects_and_mutates_one_edge_from_a_long_tree(
         (selector_input / "selected-branch.json").read_text(encoding="utf-8")
     )
     assert selected_branch["target_edge"]["edge_id"] == receipt["target_edge_id"]
-    assert "report helper" in selected_branch["target_edge"]["reasoning"]
+    assert selected_branch["target_edge"]["failures"] == 1
+    assert selected_branch["target_edge"]["reasoning"]
+    assert selected_branch["target_edge"]["previous_outcomes"]
     dockerfile = (
         proposed.environment_directory / "Dockerfile"
     ).read_text(encoding="utf-8")
-    helper_paths = set(
-        re.findall(r"/(?:usr|opt)(?:/[A-Za-z0-9._-]+)+/reportgen", dockerfile)
-    )
-    assert helper_paths
-    assert "/usr/bin/reportgen" not in dockerfile
+    hidden_paths = {
+        path
+        for path in re.findall(
+            r"/(?:usr|opt)(?:/[A-Za-z0-9._-]+)+", dockerfile
+        )
+        if path.startswith("/opt/")
+    }
+    assert hidden_paths
     visible_prompt = proposed.prompt_path.read_text(encoding="utf-8")
-    assert not [path for path in helper_paths if path in visible_prompt]
+    assert not [path for path in hidden_paths if path in visible_prompt]
+    lowered_prompt = visible_prompt.lower()
+    assert not re.search(
+        r"\b(?:find|locate|discover|search for)\b.{0,100}"
+        r"\b(?:executable|binary|tool|utility)\b",
+        lowered_prompt,
+        re.DOTALL,
+    )
+    assert not re.search(
+        r"\bdo not assume\b.{0,80}\b(?:standard )?path\b",
+        lowered_prompt,
+        re.DOTALL,
+    )
+    assert not re.search(
+        r"\buse\s+(?:the\s+)?(?:find|which)\b", lowered_prompt
+    )
     assert receipt["selection_reason"].strip()
     for key in ("selector_pi_receipt_path", "pi_receipt_path"):
         pi_receipt_path = Path(receipt[key])

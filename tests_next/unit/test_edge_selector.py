@@ -22,52 +22,67 @@ def edge_id(source: str, target: str) -> str:
 
 
 def long_observed_tree(length: int = 140) -> dict[str, object]:
-    nodes: list[dict[str, object]] = [
-        {
-            "node_id": "root",
-            "purpose": "root",
-            "outcome": "root",
-            "member_run_ids": [],
-            "member_episode_ids": [],
-            "reach_status": "reached",
-            "failure_ids": [],
-        }
-    ]
-    edges: list[dict[str, str]] = []
-    previous = "root"
+    run_ids = [f"run-{index:02d}" for index in range(30)]
+    nodes: dict[str, dict[str, object]] = {}
     for index in range(length):
-        node_id = f"node-{index:03d}"
-        nodes.append(
-            {
-                "node_id": node_id,
-                "purpose": f"Perform observed development episode {index}",
-                "outcome": (
-                    "The tool existed only at /opt/tool/bin/tool and required discovery"
-                    if index == 91
-                    else f"Observed episode {index} completed"
-                ),
-                "member_run_ids": [f"run-{index // 5:02d}"],
-                "member_episode_ids": [f"episode-{index:03d}"],
-                "reach_status": "reached",
-                "failure_ids": ["failure-path-assumption"] if index == 91 else [],
-            }
+        node_id = f"n{index}"
+        outcome = (
+            "The tool existed only at /opt/tool/bin/tool and required discovery"
+            if index == 91
+            else f"Observed episode {index} completed"
         )
-        edges.append(
+        child_id = f"n{index + 1}" if index + 1 < length else None
+        transitions = [
             {
-                "source_node_id": previous,
-                "target_node_id": node_id,
-                "reason": (
+                "run_id": run_id,
+                "in_outcome": outcome,
+                "reasoning": (
                     "Assume the required executable is at /usr/bin/tool"
-                    if index == 91
-                    else f"Continue through observed transition {index}"
+                    if index + 1 == 91
+                    else f"Continue through observed transition {index + 1}"
                 ),
             }
-        )
-        previous = node_id
+            for run_id in run_ids
+        ]
+        nodes[node_id] = {
+            "id": node_id,
+            "purpose": f"Perform observed development episode {index}",
+            "what_it_did_variants": [
+                {"text": f"Used observed approach {index}", "run_ids": run_ids}
+            ],
+            "runs": run_ids,
+            "members": [
+                {
+                    "run_id": run_id,
+                    "episode_id": f"episode-{index:03d}",
+                    "purpose": f"Perform observed development episode {index}",
+                    "what_it_did": f"Used observed approach {index}",
+                    "outcome": outcome,
+                    "opening_reasoning": f"Open observed episode {index}",
+                }
+                for run_id in run_ids
+            ],
+            "children": [child_id] if child_id else [],
+            "edges": {child_id: transitions} if child_id else {},
+            "reach_status": "reached",
+            "failure_ids": ["failure-path-assumption"] if index == 91 else [],
+        }
     return {
-        "schema": "skillrace-reasoning-tree/1",
+        "schema": "behavior-tree/2",
+        "runs": {run_id: {} for run_id in run_ids},
+        "next_id": length,
+        "root_children": ["n0"],
+        "root_edges": {
+            "n0": [
+                {
+                    "run_id": run_id,
+                    "in_outcome": None,
+                    "reasoning": "Enter the observed run.",
+                }
+                for run_id in run_ids
+            ]
+        },
         "nodes": nodes,
-        "edges": edges,
     }
 
 
@@ -151,7 +166,7 @@ def test_compact_index_and_branch_isolation_cover_a_long_observed_tree() -> None
     tree = long_observed_tree()
 
     index = skillrace.build_edge_index(tree)
-    selected = edge_id("node-090", "node-091")
+    selected = edge_id("n90", "n91")
     branch = skillrace.isolate_branch(tree, selected)
 
     assert len(index) == 139
@@ -160,15 +175,17 @@ def test_compact_index_and_branch_isolation_cover_a_long_observed_tree() -> None
         "source",
         "reasoning",
         "target",
-        "outcome",
-        "observations",
+        "previous_outcomes",
+        "transitions",
         "failures",
     }
+    assert index[0]["edge_id"] == selected
     assert next(item for item in index if item["edge_id"] == selected)["failures"] == 1
     assert branch["target_edge"]["edge_id"] == selected
-    assert branch["path"][0]["node_id"] == "root"
-    assert branch["path"][-1]["node_id"] == "node-091"
-    assert len(branch["path"]) == 93
+    assert branch["path"][0]["node_id"] == "n0"
+    assert branch["path"][-1]["node_id"] == "n91"
+    assert len(branch["path"]) == 92
+    assert branch["reasoning_edges"][-1]["transitions"][0]["in_outcome"]
     assert len(json.dumps(index)) < len(json.dumps(tree))
 
 
@@ -176,7 +193,7 @@ def test_pi_agent_selects_one_observed_edge_then_returns_patchable_mutation(
     tmp_path: Path,
 ) -> None:
     tree = long_observed_tree()
-    selected = edge_id("node-090", "node-091")
+    selected = edge_id("n90", "n91")
     requests: list[PiRequest] = []
 
     def proposal_pi(request: PiRequest) -> PiResult:
@@ -284,6 +301,10 @@ def test_pi_agent_selects_one_observed_edge_then_returns_patchable_mutation(
     assert mutator_request.mounts == ()
     mutator_prompt = mutator_request.prompt_path.read_text(encoding="utf-8")
     assert "ISOLATED OBSERVED BRANCH" in mutator_prompt
+    assert '"schema": "skillrace-branch-prompt/1"' in mutator_prompt
+    assert '"path_node_count": 92' in mutator_prompt
+    assert '"run_id"' not in mutator_prompt
+    assert len(mutator_prompt.encode("utf-8")) < 40 * 1024
     assert selected in mutator_prompt
     assert "local recovery route" in mutator_prompt
     assert "exact target edge" in mutator_prompt.lower()
@@ -294,6 +315,14 @@ def test_pi_agent_selects_one_observed_edge_then_returns_patchable_mutation(
     assert "must not remove, move, or disable" in mutator_prompt
     assert "must make the selected edge assumption fail" in mutator_prompt
     assert "must not reveal the recovery path" in mutator_prompt
+    assert (
+        "must not tell the weak agent to find, locate, discover, search for, or inspect"
+        in mutator_prompt.lower()
+    )
+    assert (
+        "install the helper outside the default path" in mutator_prompt.lower()
+    )
+    assert "bare command must fail" in mutator_prompt.lower()
     assert "quoted here-document" in mutator_prompt
     assert "4 pi turns and 180 seconds" in mutator_prompt.lower()
     assert "python 3" in mutator_prompt.lower()
@@ -320,7 +349,7 @@ def test_edge_selector_allows_two_corrections_without_rerunning_mutator(
     tmp_path: Path,
 ) -> None:
     tree = long_observed_tree()
-    selected = edge_id("node-090", "node-091")
+    selected = edge_id("n90", "n91")
     requests: list[PiRequest] = []
     selector_responses = [
         "not json",
@@ -373,7 +402,7 @@ def test_mutator_allows_two_structural_corrections_without_rerunning_selector(
     tmp_path: Path,
 ) -> None:
     tree = long_observed_tree()
-    selected = edge_id("node-090", "node-091")
+    selected = edge_id("n90", "n91")
     requests: list[PiRequest] = []
     invalid_with_inner_fences = {
         **valid_mutation(),
@@ -428,7 +457,7 @@ def test_mutator_allows_two_structural_corrections_without_rerunning_selector(
 
 def test_mutator_corrects_failed_generated_test_validation(tmp_path: Path) -> None:
     tree = long_observed_tree()
-    selected = edge_id("node-090", "node-091")
+    selected = edge_id("n90", "n91")
     requests: list[PiRequest] = []
     validation_calls = 0
 
@@ -449,11 +478,11 @@ def test_mutator_corrects_failed_generated_test_validation(tmp_path: Path) -> No
         validation_calls += 1
         return replace(
             case,
-            validation_status="valid" if validation_calls == 3 else "invalid_test",
+            validation_status="valid" if validation_calls == 4 else "invalid_test",
             validation_diagnostic=(
-                "validated" if validation_calls == 3 else "Docker build failed"
+                "validated" if validation_calls == 4 else "Docker build failed"
             ),
-            container_image_id=("sha256:fixture" if validation_calls == 3 else ""),
+            container_image_id=("sha256:fixture" if validation_calls == 4 else ""),
         )
 
     proposed = skillrace.propose_test(
@@ -466,15 +495,18 @@ def test_mutator_corrects_failed_generated_test_validation(tmp_path: Path) -> No
     )
 
     assert proposed.validation_status == "valid"
-    assert validation_calls == 3
+    assert validation_calls == 4
     selector_requests = [item for item in requests if ".select." in item.operation_id]
     mutator_requests = [item for item in requests if ".mutate." in item.operation_id]
     assert len(selector_requests) == 1
-    assert len(mutator_requests) == 3
+    assert len(mutator_requests) == 4
     assert "Docker build failed" in mutator_requests[1].prompt_path.read_text(
         encoding="utf-8"
     )
     assert "Docker build failed" in mutator_requests[2].prompt_path.read_text(
+        encoding="utf-8"
+    )
+    assert "Docker build failed" in mutator_requests[3].prompt_path.read_text(
         encoding="utf-8"
     )
 
@@ -483,7 +515,7 @@ def test_mutator_corrects_a_visible_prompt_that_reveals_the_recovery_path(
     tmp_path: Path,
 ) -> None:
     tree = long_observed_tree()
-    selected = edge_id("node-090", "node-091")
+    selected = edge_id("n90", "n91")
     requests: list[PiRequest] = []
     revealed = {
         **valid_mutation(),
@@ -526,9 +558,60 @@ def test_mutator_corrects_a_visible_prompt_that_reveals_the_recovery_path(
     )
 
 
+def test_mutator_corrects_a_visible_prompt_that_reveals_discovery_method(
+    tmp_path: Path,
+) -> None:
+    tree = long_observed_tree()
+    selected = edge_id("n90", "n91")
+    requests: list[PiRequest] = []
+    revealed = {
+        **valid_mutation(),
+        "mutation": "Place calc at a nonstandard location outside PATH.",
+        "prompt": (
+            "Find the calc executable anywhere on the filesystem. Do not assume a "
+            "standard path. Use it to create /workspace/result.txt."
+        ),
+    }
+    responses = [revealed, valid_mutation()]
+
+    def proposal_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        response = (
+            {
+                "target_edge_id": selected,
+                "selection_reason": "A recoverable path assumption.",
+            }
+            if ".select." in request.operation_id
+            else responses.pop(0)
+        )
+        return pi_result(request, json.dumps(response))
+
+    proposed = skillrace.propose_test(
+        tree,
+        fixture_skill(tmp_path),
+        PROPERTIES,
+        replace(config_for(tmp_path), role_budgets={"proposer": 6}),
+        pi_runner=proposal_pi,
+        validator=valid_case,
+    )
+
+    assert proposed.validation_status == "valid"
+    mutator_requests = [item for item in requests if ".mutate." in item.operation_id]
+    assert len(mutator_requests) == 2
+    assert "visible prompt reveals the mutation's recovery method" in (
+        mutator_requests[1].prompt_path.read_text(encoding="utf-8")
+    )
+    for request in mutator_requests:
+        assert request.prompt_path.read_text(encoding="utf-8").rstrip().endswith(
+            "FINAL RESPONSE RULE: Return exactly one valid JSON object. The first "
+            "character must be { and the last character must be }. No Markdown "
+            "fences, no trailing comma, no commentary."
+        )
+
+
 def test_mutator_corrects_an_oversized_response(tmp_path: Path) -> None:
     tree = long_observed_tree()
-    selected = edge_id("node-090", "node-091")
+    selected = edge_id("n90", "n91")
     requests: list[PiRequest] = []
     responses = [
         {**valid_mutation(), "bug_hypothesis": "x" * 601},
