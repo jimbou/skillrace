@@ -55,22 +55,34 @@ _EPISODE_FIELDS = {
 _REACH_STATUSES = {"reached", "unreached", "reasoning_unexplored"}
 JUDGMENT_INSTRUCTIONS = {
     "same-purpose": (
-        "Decide whether the two coding-agent episodes pursue the SAME PURPOSE or "
-        "sub-goal, even if their commands or wording differ. Purpose is primary and "
-        "actions are secondary. Outcomes are deliberately absent and must not affect "
-        "the decision. Return only one raw JSON object with exactly same (boolean) and "
-        "reason (nonempty string). Do not return prose or Markdown fences."
-    ),
-    "broaden-purpose": (
-        "Two episodes were judged to have the same purpose. Write one concise purpose "
-        "that generalizes over both without dropping either. Return only one raw JSON "
-        "object with exactly purpose (a nonempty string). Do not return prose or "
+        "Decide whether the two coding-agent episodes pursue the same concrete component "
+        "and technical objective. Purpose is primary and actions clarify its scope. "
+        "Different features, bugs, repairs, or validation targets are not the same. A "
+        "narrow subset is not the same as an episode containing materially additional "
+        "work. Return false when the only common label would be a generic lifecycle "
+        "phase, language, skill, tool sequence, or workflow such as implementing, "
+        "debugging, testing, or creating and verifying a file. Outcomes are deliberately "
+        "absent and must not affect the decision. Return only one raw JSON object with "
+        "exactly same (boolean) and reason (nonempty string). Do not return prose or "
         "Markdown fences."
     ),
+    "broaden-purpose": (
+        "Two episodes were provisionally judged to have the same purpose. Admit the "
+        "merge only if one concise purpose remains concrete and truthfully describes "
+        "both without adding work absent from either. It may remove incidental wording "
+        "or filenames but must retain the shared component, behavior, bug, repair, or "
+        "validation target. Reject generic labels such as implementing functionality, "
+        "debugging, running tests, or creating and verifying a file. Return only one raw "
+        "JSON object with exactly mergeable (boolean), purpose (a nonempty string when "
+        "mergeable is true, otherwise null), and reason (nonempty string). Do not return "
+        "prose or Markdown fences."
+    ),
     "same-approach": (
-        "Decide whether two episodes with the same purpose used essentially the SAME "
-        "APPROACH. Ignore wording and incidental details; different methods are not the "
-        "same. Return only one raw JSON object with exactly same (boolean). Do not "
+        "Decide whether two episodes with the same concrete purpose used essentially "
+        "the same actual technical method. Ignore only incidental wording. Sharing a "
+        "language, skill, tool, test workflow, or generic action sequence is insufficient; "
+        "different algorithms, fixes, or investigation strategies are different "
+        "approaches. Return only one raw JSON object with exactly same (boolean). Do not "
         "return prose or Markdown fences."
     ),
 }
@@ -440,10 +452,18 @@ def _validate_judgment(
         not isinstance(value.get("reason"), str) or not value["reason"].strip()
     ):
         raise ValueError("same-purpose reason must be nonempty")
-    if kind == "broaden-purpose" and (
-        not isinstance(value.get("purpose"), str) or not value["purpose"].strip()
-    ):
-        raise ValueError("broaden-purpose purpose must be nonempty")
+    if kind == "broaden-purpose":
+        mergeable = value.get("mergeable")
+        purpose = value.get("purpose")
+        reason = value.get("reason")
+        if not isinstance(mergeable, bool):
+            raise ValueError("broaden-purpose mergeable must be a boolean")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("broaden-purpose reason must be nonempty")
+        if mergeable and (not isinstance(purpose, str) or not purpose.strip()):
+            raise ValueError("broaden-purpose admitted purpose must be nonempty")
+        if not mergeable and purpose is not None:
+            raise ValueError("broaden-purpose rejected purpose must be null")
     return value
 
 
@@ -558,7 +578,7 @@ def _same_purpose(
     compared.sort(key=lambda item: json.dumps(item, sort_keys=True))
     return _judgment(
         "same-purpose",
-        {"episodes": compared},
+        {"criteria": "concrete-purpose-v2", "episodes": compared},
         {"same", "reason"},
         cache,
         config,
@@ -576,19 +596,26 @@ def _broaden_purpose(
     output: Path,
     pi_runner: PiRunner,
     stats: dict[str, int],
-) -> str:
+) -> str | None:
     if current.strip() == new.strip():
         return current
-    return _judgment(
+    judgment = _judgment(
         "broaden-purpose",
-        {"current_purpose": current, "new_purpose": new},
-        {"purpose"},
+        {
+            "criteria": "conservative-purpose-v2",
+            "current_purpose": current,
+            "new_purpose": new,
+        },
+        {"mergeable", "purpose", "reason"},
         cache,
         config,
         output,
         pi_runner,
         stats,
-    )["purpose"].strip()
+    )
+    if not judgment["mergeable"]:
+        return None
+    return judgment["purpose"].strip()
 
 
 def _same_approach(
@@ -602,7 +629,10 @@ def _same_approach(
 ) -> bool:
     return _judgment(
         "same-approach",
-        {"ways": sorted([left.strip(), right.strip()])},
+        {
+            "criteria": "concrete-approach-v2",
+            "ways": sorted([left.strip(), right.strip()]),
+        },
         {"same"},
         cache,
         config,
@@ -697,6 +727,7 @@ def merge_episodes(
             else merged["nodes"][parent_id]["children"]
         )
         node_id: str | None = None
+        admitted_purpose: str | None = None
         for child_id in children:
             if _same_purpose(
                 episode,
@@ -707,24 +738,30 @@ def merge_episodes(
                 pi_runner,
                 stats,
             ):
+                candidate_purpose = _broaden_purpose(
+                    merged["nodes"][child_id]["purpose"],
+                    episode["purpose"],
+                    cache,
+                    config,
+                    output,
+                    pi_runner,
+                    stats,
+                )
+                if candidate_purpose is None:
+                    continue
                 node_id = child_id
+                admitted_purpose = candidate_purpose
                 break
         if node_id is None:
             node_id = _new_node(merged, episode, run_id)
             created += 1
         else:
+            if admitted_purpose is None:
+                raise RuntimeError("admitted tree merge has no concrete purpose")
             merged_count += 1
             node = merged["nodes"][node_id]
             _add_member(merged, node_id, episode, run_id)
-            node["purpose"] = _broaden_purpose(
-                node["purpose"],
-                episode["purpose"],
-                cache,
-                config,
-                output,
-                pi_runner,
-                stats,
-            )
+            node["purpose"] = admitted_purpose
             _merge_variant(
                 node,
                 episode,

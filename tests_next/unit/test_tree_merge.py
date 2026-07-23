@@ -359,11 +359,13 @@ def semantic_responder(requests: list[PiRequest]):
         elif ".broaden-purpose." in request.operation_id:
             purposes = " ".join(payload.values()).lower()
             response = {
+                "mergeable": True,
                 "purpose": (
                     "inspect and understand the repository"
                     if "inspect" in purposes or "explore" in purposes
                     else "run the test suite"
-                )
+                ),
+                "reason": "both episodes retain one concrete shared objective",
             }
         elif ".same-approach." in request.operation_id:
             ways = " ".join(payload["ways"]).lower()
@@ -373,6 +375,173 @@ def semantic_responder(requests: list[PiRequest]):
         return pi_result(request, json.dumps(response))
 
     return respond
+
+
+def one_episode(
+    purpose: str,
+    what_it_did: str,
+    *,
+    episode_id: str = "episode-1",
+) -> list[dict[str, object]]:
+    return [
+        {
+            "episode_id": episode_id,
+            "start_call": 1,
+            "end_call": 1,
+            "purpose": purpose,
+            "what_it_did": what_it_did,
+            "outcome": "the attempted work produced an observed result",
+            "opening_reasoning": f"Start the concrete task: {purpose}.",
+        }
+    ]
+
+
+def test_broad_purpose_is_rejected_and_creates_a_separate_root(
+    tmp_path: Path,
+) -> None:
+    config = replace(config_for(tmp_path), role_budgets={"tree_alignment": 4})
+    tree, _ = merge_episodes(
+        empty_tree(),
+        one_episode(
+            "implement deepClone with focused tests",
+            "wrote deepClone.js and deepClone.test.js",
+        ),
+        "run-deep-clone",
+        [],
+        {},
+        config,
+        tmp_path / "seed",
+    )
+    requests: list[PiRequest] = []
+
+    def rejecting_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        if ".same-purpose." in request.operation_id:
+            return pi_result(
+                request,
+                json.dumps(
+                    {
+                        "same": True,
+                        "reason": "Both broadly implement JavaScript features with tests.",
+                    }
+                ),
+            )
+        if ".broaden-purpose." in request.operation_id:
+            return pi_result(
+                request,
+                json.dumps(
+                    {
+                        "mergeable": False,
+                        "purpose": None,
+                        "reason": (
+                            "The common label would only be 'implement functionality "
+                            "and tests'."
+                        ),
+                    }
+                ),
+            )
+        raise AssertionError(f"unexpected judgment: {request.operation_id}")
+
+    merged, _ = merge_episodes(
+        tree,
+        one_episode(
+            "implement findMissingNumber with focused tests",
+            "wrote missing.js and missing.test.js",
+        ),
+        "run-missing-number",
+        [],
+        {},
+        config,
+        tmp_path / "reject",
+        pi_runner=rejecting_pi,
+    )
+
+    assert merged["root_children"] == ["n0", "n1"]
+    assert merged["nodes"]["n0"]["runs"] == ["run-deep-clone"]
+    assert merged["nodes"]["n1"]["runs"] == ["run-missing-number"]
+    assert not any(".same-approach." in item.operation_id for item in requests)
+
+
+def test_concrete_purpose_broadening_admits_merge_and_preserves_detail(
+    tmp_path: Path,
+) -> None:
+    config = replace(config_for(tmp_path), role_budgets={"tree_alignment": 4})
+    tree, _ = merge_episodes(
+        empty_tree(),
+        one_episode(
+            "repair primitive object-property recursion in deepClone",
+            "added a typeof guard before recursively cloning object properties",
+        ),
+        "run-object-guard-a",
+        [],
+        {},
+        config,
+        tmp_path / "seed",
+    )
+    requests: list[PiRequest] = []
+
+    def admitting_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        if ".same-purpose." in request.operation_id:
+            return pi_result(
+                request,
+                json.dumps(
+                    {
+                        "same": True,
+                        "reason": (
+                            "Both repair primitive values encountered during "
+                            "deepClone object recursion."
+                        ),
+                    }
+                ),
+            )
+        if ".broaden-purpose." in request.operation_id:
+            return pi_result(
+                request,
+                json.dumps(
+                    {
+                        "mergeable": True,
+                        "purpose": "repair primitive handling in deepClone recursion",
+                        "reason": (
+                            "Both episodes repair the same recursive "
+                            "primitive-handling defect."
+                        ),
+                    }
+                ),
+            )
+        if ".same-approach." in request.operation_id:
+            return pi_result(request, '{"same":true}')
+        raise AssertionError(f"unexpected judgment: {request.operation_id}")
+
+    merged, _ = merge_episodes(
+        tree,
+        one_episode(
+            "fix primitive values during deepClone object recursion",
+            "guarded non-object property values before the recursive call",
+        ),
+        "run-object-guard-b",
+        [],
+        {},
+        config,
+        tmp_path / "admit",
+        pi_runner=admitting_pi,
+    )
+
+    assert merged["root_children"] == ["n0"]
+    assert merged["nodes"]["n0"]["purpose"] == (
+        "repair primitive handling in deepClone recursion"
+    )
+    assert merged["nodes"]["n0"]["runs"] == [
+        "run-object-guard-a",
+        "run-object-guard-b",
+    ]
+    prompts = "\n".join(
+        request.prompt_path.read_text(encoding="utf-8") for request in requests
+    )
+    assert "same concrete component" in prompts
+    assert "subset" in prompts
+    assert "generic lifecycle" in prompts
+    assert "actual technical method" in prompts
 
 
 def test_contextual_semantic_fold_merges_prefix_and_preserves_branches(
