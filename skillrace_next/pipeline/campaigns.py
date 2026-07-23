@@ -5,6 +5,7 @@ import shutil
 from typing import Any
 
 from ..methods import random as random_method
+from ..methods import episodes as episode_method
 from ..methods import skillrace as skillrace_method
 from ..methods import verigrey as verigrey_method
 from ..records import CheckBundle, CheckResults, ExperimentConfig, RunRecord, SkillVersion, TestCase
@@ -263,7 +264,7 @@ def _updated_state(
     selection = state.get("current_selection")
     if not isinstance(selection, dict):
         raise ValueError("SkillRACE execution has no current selection")
-    episodes, _ = skillrace_method.create_episodes(
+    episodes, _ = episode_method.create_episodes(
         record, config, output / "episodes"
     )
     failures = [

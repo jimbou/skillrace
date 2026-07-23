@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+import uuid
+
+from ..records import ExperimentConfig, RunRecord
+from ..runtime.pi import PiRequest, PiResult, run_pi
+from ..storage import atomic_write_json
 
 
 RAW_EPISODE_FIELDS = {
@@ -17,6 +22,8 @@ RAW_EPISODE_FIELDS = {
 EPISODE_FIELDS = RAW_EPISODE_FIELDS | {"episode_id", "opening_reasoning"}
 HEAD_LINES = 15
 TAIL_LINES = 5
+PiRunner = Callable[[PiRequest], PiResult]
+_ASSET_DIRECTORY = Path(__file__).with_name("episode_assets")
 
 
 def target_episode_count(tool_call_count: int) -> int:
@@ -279,3 +286,143 @@ def validate_episodes(
     if episodes != expected:
         raise ValueError("episode IDs or opening reasoning differ from the trace")
     return episodes
+
+
+def _assistant_json(trace_path: Path) -> Any:
+    responses: list[str] = []
+    for line in trace_path.read_text(encoding="utf-8").splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        message = event.get("message")
+        if not isinstance(message, dict) or message.get("role") != "assistant":
+            continue
+        content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        text = "".join(
+            block.get("text", "")
+            for block in content
+            if isinstance(block, dict)
+            and block.get("type") == "text"
+            and isinstance(block.get("text"), str)
+        )
+        if text:
+            responses.append(text.strip())
+    if not responses:
+        raise ValueError("episode response contains no assistant JSON")
+    try:
+        return json.loads(responses[-1])
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"assistant response is not valid JSON: {exc.msg}") from exc
+
+
+def _episode_prompt(
+    rendered: str,
+    target: int,
+    diagnostic: str | None,
+) -> str:
+    example_input = (_ASSET_DIRECTORY / "example_input.txt").read_text(
+        encoding="utf-8"
+    )
+    example_output = (_ASSET_DIRECTORY / "example_output.json").read_text(
+        encoding="utf-8"
+    )
+    correction = (
+        "\nYour previous response was invalid: "
+        f"{diagnostic}. Return one corrected raw JSON object only.\n"
+        if diagnostic
+        else ""
+    )
+    return (
+        "Split one coding-agent run into episodes. The input is a FLAT, globally "
+        "numbered list of actual tool calls. An episode is a contiguous run of calls "
+        "pursuing one sub-goal. Start a new episode at a CONTINGENT decision, pivot, "
+        "or discovery specific to the task—not at every generic phase. Group consecutive "
+        "reasoning shifts that still serve the same sub-goal. A boundary may only start "
+        "at a tool call with a reasoning line.\n\n"
+        "For each episode, purpose names the sub-goal, what_it_did summarizes the actions, "
+        "and outcome states the observed result. Derive outcome ONLY from tool results "
+        "shown in the trace, never from the agent's reasoning or claims. The episodes must "
+        "partition every tool call in order with no gap or overlap. The first starts at 1 "
+        "and the final episode ends at the final call. The target is soft: decisions decide.\n\n"
+        "Return exactly one raw JSON object with the sole field episodes. Its value must be "
+        "an array. Every item must contain exactly start_call, end_call, purpose, "
+        "what_it_did, and outcome. Do not return prose, Markdown fences, JSONL, IDs, or "
+        "opening_reasoning. Reason internally and validate the partition before responding.\n"
+        f"This trace's target episode count: {target}."
+        f"{correction}\n"
+        "===== WORKED EXAMPLE INPUT =====\n"
+        f"{example_input.rstrip()}\n\n"
+        "===== WORKED EXAMPLE OUTPUT =====\n"
+        f"{example_output.rstrip()}\n\n"
+        "===== TRACE TO SEGMENT =====\n"
+        f"{rendered.rstrip()}\n"
+    )
+
+
+def create_episodes(
+    run: RunRecord,
+    config: ExperimentConfig,
+    output_dir: str | Path,
+    pi_runner: PiRunner = run_pi,
+) -> tuple[list[dict[str, Any]], Path]:
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    rendered, calls = project_trace(run.trace_path)
+    rendered_path = output / "simplified-trace.txt"
+    rendered_path.write_text(rendered, encoding="utf-8")
+    target = target_episode_count(len(calls))
+    diagnostic: str | None = None
+    for ordinal in (1, 2, 3):
+        attempt = output / f"episode-attempt-{ordinal}"
+        attempt.mkdir()
+        prompt_path = attempt / "prompt.txt"
+        prompt_path.write_text(
+            _episode_prompt(rendered, target, diagnostic), encoding="utf-8"
+        )
+        result = pi_runner(
+            PiRequest(
+                operation_id=f"episodes.{run.run_id}.{uuid.uuid4().hex}",
+                provider=config.provider,
+                model=config.model_id,
+                prompt_path=prompt_path,
+                output_dir=attempt,
+                image=config.docker_image,
+                allowed_tools=(),
+                max_turns=config.role_budgets["segmenter"],
+                timeout_seconds=config.timeouts["provider"],
+                temperature=0,
+            )
+        )
+        if result.status != "completed":
+            raise RuntimeError(f"Pi episode creation failed: {result.status}")
+        try:
+            response = _assistant_json(result.trace_path)
+            if not isinstance(response, dict) or set(response) != {"episodes"}:
+                raise ValueError("episode response must contain only episodes")
+            raw = validate_raw_episodes(response["episodes"], calls)
+            episodes = assemble_episodes(raw, calls)
+        except ValueError as error:
+            diagnostic = str(error)
+            if ordinal < 3:
+                continue
+            raise ValueError("three invalid episode responses") from error
+        atomic_write_json(output / "episodes.json", episodes)
+        atomic_write_json(
+            output / "episode-creation.json",
+            {
+                "schema": "skillrace-episode-creation/2",
+                "run_id": run.run_id,
+                "tool_call_count": len(calls),
+                "target_episode_count": target,
+                "rendered_trace_path": str(rendered_path),
+                "episode_count": len(episodes),
+                "pi_receipt_path": str(result.receipt_path),
+            },
+        )
+        return episodes, result.receipt_path
+    raise ValueError("three invalid episode responses")

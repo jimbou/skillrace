@@ -7,84 +7,115 @@ import uuid
 
 import pytest
 
-from skillrace_next.methods.skillrace import create_episodes, validate_episodes
+from skillrace_next.methods.episodes import (
+    create_episodes,
+    project_trace,
+    target_episode_count,
+    validate_episodes,
+)
 from skillrace_next.records import ExperimentConfig, RunRecord
-from skillrace_next.storage import atomic_write_json, tree_hash
+from skillrace_next.storage import atomic_write_json, file_hash
 
 
 pytestmark = pytest.mark.live
 
 
-def latest_real_task_run() -> Path:
-    root = Path("out/live-contracts/task-runner")
-    for candidate in sorted(root.iterdir(), reverse=True) if root.is_dir() else []:
-        receipt_path = candidate / "runtime" / "exec.json"
-        trace_path = candidate / "runtime" / "trace.jsonl"
-        if not receipt_path.is_file() or not trace_path.is_file():
-            continue
-        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-        if receipt.get("exit_code") == 0 and receipt.get("model") == "deepseek-v3.2":
-            return candidate
-    pytest.fail("a successful real Yunwu task trace is required")
+def unique_run_id() -> str:
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
 
 
-def test_real_yunwu_segments_saved_agent_trace_into_grounded_episodes(
-    live_evidence_root: Path,
-) -> None:
-    secret = os.environ.get("yunwu_key")
-    if not secret:
-        pytest.skip("yunwu_key is required for the live episode contract")
-    source = latest_real_task_run()
-    source_receipt = json.loads(
-        (source / "runtime" / "exec.json").read_text(encoding="utf-8")
-    )
-    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
-    evidence = live_evidence_root / "episode-creator" / run_id
-    input_dir = evidence / "input"
-    input_dir.mkdir(parents=True)
-    trace_path = input_dir / "trace.jsonl"
+def latest_same_track_traces(model: str, count: int) -> list[Path]:
+    model_root = Path("out/live-contracts/skillrace-ten-seed") / model
+    campaigns = sorted(
+        (path for path in model_root.iterdir() if path.is_dir()), reverse=True
+    ) if model_root.is_dir() else []
+    for campaign in campaigns:
+        candidates: list[Path] = []
+        run_directories = sorted(
+            (path for path in (campaign / "runs").iterdir() if path.is_dir()),
+            reverse=True,
+        ) if (campaign / "runs").is_dir() else []
+        for run_directory in run_directories:
+            execution = run_directory / "execution"
+            record_path = execution / "run.json"
+            receipt_path = execution / "runtime" / "provider.json"
+            trace_path = execution / "runtime" / "trace.jsonl"
+            if not all(path.is_file() for path in (record_path, receipt_path, trace_path)):
+                continue
+            record = json.loads(record_path.read_text(encoding="utf-8"))
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            if (
+                record.get("termination_status") == "completed"
+                and record.get("model_id") == model
+                and receipt.get("provider") == "lab"
+                and receipt.get("model") == model
+            ):
+                candidates.append(execution)
+        if len(candidates) >= count:
+            return candidates[:count]
+    pytest.fail(f"{count} completed same-campaign weak traces are required for {model}")
+
+
+def copy_trace_and_source_receipt(source: Path, evidence: Path) -> Path:
+    input_directory = evidence / "input"
+    input_directory.mkdir(parents=True)
+    trace_path = input_directory / "trace.jsonl"
+    receipt_path = input_directory / "source-provider.json"
+    run_path = input_directory / "source-run.json"
     shutil.copy2(source / "runtime" / "trace.jsonl", trace_path)
+    shutil.copy2(source / "runtime" / "provider.json", receipt_path)
+    shutil.copy2(source / "run.json", run_path)
     atomic_write_json(
         evidence / "source.json",
         {
-            "schema": "skillrace-live-episode-source/1",
-            "source_task_run": str(source),
-            "model": source_receipt["model"],
-            "image_id": source_receipt["image_id"],
-            "trace_hash": tree_hash(input_dir),
+            "schema": "skillrace-live-episode-source/2",
+            "source_execution": str(source),
+            "trace_hash": file_hash(trace_path),
+            "provider_receipt_hash": file_hash(receipt_path),
+            "run_record_hash": file_hash(run_path),
         },
     )
-    run = RunRecord(
-        run_id=f"episode-source-{source.name}",
-        test_id="live-file-creation",
-        skill_id="live-exact-marker",
-        skill_version_id="S0",
-        method="skillrace",
-        model_id="deepseek-v3.2",
-        budget=4,
-        container_id=source_receipt["container_id"],
-        image_id=source_receipt["image_id"],
-        started_at="2026-07-17T00:00:00Z",
-        ended_at="2026-07-17T00:00:01Z",
-        termination_status="completed",
-        artifact_path=source / "artifact",
-        artifact_hash=tree_hash(source / "artifact"),
+    return trace_path
+
+
+def run_record_from_saved_trace(
+    source: Path, trace_path: Path, model: str
+) -> RunRecord:
+    value = json.loads((source / "run.json").read_text(encoding="utf-8"))
+    return RunRecord(
+        run_id=value["run_id"],
+        test_id=value["test_id"],
+        skill_id=value["skill_id"],
+        skill_version_id=value["skill_version_id"],
+        method=value["method"],
+        model_id=model,
+        budget=value["budget"],
+        container_id=value["container_id"],
+        image_id=value["image_id"],
+        started_at=value["started_at"],
+        ended_at=value["ended_at"],
+        termination_status=value["termination_status"],
+        artifact_path=Path(value["artifact_path"]),
+        artifact_hash=value["artifact_hash"],
         trace_path=trace_path,
-        tool_log_path=source / "runtime" / "tool_outputs.jsonl",
-        stdout_path=source / "runtime" / "stdout.txt",
-        stderr_path=source / "runtime" / "stderr.txt",
-        provider_receipt_paths=(source / "runtime" / "exec.json",),
-        cost_totals={},
+        tool_log_path=Path(value["tool_log_path"]),
+        stdout_path=Path(value["stdout_path"]),
+        stderr_path=Path(value["stderr_path"]),
+        provider_receipt_paths=(source / "runtime" / "provider.json",),
+        cost_totals=dict(value["cost_totals"]),
     )
-    config = ExperimentConfig(
-        experiment_id="live-episode-creator",
+
+
+def live_config(evidence: Path, model: str) -> ExperimentConfig:
+    return ExperimentConfig(
+        experiment_id=f"live-episode-{model}",
         part="part1",
         methods=("skillrace",),
         replicate_count=1,
-        provider="yunwu",
-        model_id="deepseek-v3.2",
+        provider="lab",
+        model_id=model,
         pi_version="0.73.1",
-        role_budgets={"segmenter": 4},
+        role_budgets={"segmenter": 8},
         verifier_backend="codex",
         verifier_command=("codex", "exec"),
         verifier_model="gpt-5.6-terra",
@@ -93,8 +124,8 @@ def test_real_yunwu_segments_saved_agent_trace_into_grounded_episodes(
         resource_limits={"cpus": "1", "memory_mb": 512},
         network_policy="host",
         timeouts={
-            "provider": 60,
-            "pi": 180,
+            "provider": 600,
+            "pi": 600,
             "docker": 180,
             "codex": 300,
             "check": 60,
@@ -108,15 +139,36 @@ def test_real_yunwu_segments_saved_agent_trace_into_grounded_episodes(
         heldout_repetitions=1,
     )
 
-    episodes, receipt_path = create_episodes(run, config, evidence / "episodes")
 
+@pytest.mark.parametrize("model", ["deepseek-v4-flash", "qwen3.6-flash"])
+@pytest.mark.parametrize("source_index", [0, 1])
+def test_real_pi_segments_same_track_weak_agent_trace(
+    model: str, source_index: int, live_evidence_root: Path
+) -> None:
+    secret = os.environ.get("LAB_KEY_UNLIMITED")
+    if not secret:
+        pytest.fail("LAB_KEY_UNLIMITED is required for the live episode contract")
+    source = latest_same_track_traces(model, count=2)[source_index]
+    evidence = live_evidence_root / "episode-creator" / model / unique_run_id()
+    trace_path = copy_trace_and_source_receipt(source, evidence)
+    run = run_record_from_saved_trace(source, trace_path, model)
+
+    episodes, receipt_path = create_episodes(
+        run, live_config(evidence, model), evidence / "episodes"
+    )
+
+    _, calls = project_trace(trace_path)
+    assert 0 < len(episodes) <= 2 * target_episode_count(len(calls))
     assert validate_episodes(episodes, trace_path) == episodes
-    assert episodes
-    assert all(episode["purpose"].strip() for episode in episodes)
     assert all(episode["outcome"].strip() for episode in episodes)
+    assert all(
+        episode["opening_reasoning"]
+        == calls[episode["start_call"] - 1]["reasoning"]
+        for episode in episodes
+    )
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-    assert receipt["provider"] == "yunwu"
-    assert receipt["model"] == "deepseek-v3.2"
+    assert receipt["provider"] == "lab"
+    assert receipt["model"] == model
     assert receipt["status"] == "completed"
     assert receipt["usage"]["total_tokens"] > 0
     for path in evidence.rglob("*"):

@@ -1,17 +1,24 @@
+from dataclasses import replace
+import json
 from pathlib import Path
 
 import pytest
 
 from skillrace_next.methods.episodes import (
     assemble_episodes,
+    create_episodes,
     project_trace,
     target_episode_count,
     validate_episodes,
     validate_raw_episodes,
 )
+from skillrace_next.records import RunRecord
+from skillrace_next.runtime.pi import PiRequest, PiResult
+from tests_next.unit.test_test_cases import config_for
 
 
 MULTI_TRACE = Path("tests_next/fixtures/traces/multi-call-and-narration.jsonl")
+TRACE = Path("tests_next/fixtures/traces/two-step.jsonl")
 
 
 def valid_raw_episodes() -> list[dict[str, object]]:
@@ -148,3 +155,185 @@ def test_validate_episodes_rejects_changed_id_or_reasoning() -> None:
 
     with pytest.raises(ValueError, match="opening reasoning"):
         validate_episodes(episodes, MULTI_TRACE)
+
+
+def run_record(tmp_path: Path) -> RunRecord:
+    return RunRecord(
+        run_id="run-episodes",
+        test_id="test-1",
+        skill_id="skill-1",
+        skill_version_id="S0",
+        method="skillrace",
+        model_id="deepseek-v3.2",
+        budget=4,
+        container_id="container-1",
+        image_id="sha256:image",
+        started_at="2026-07-17T00:00:00Z",
+        ended_at="2026-07-17T00:00:01Z",
+        termination_status="completed",
+        artifact_path=tmp_path / "artifact",
+        artifact_hash="artifact-hash",
+        trace_path=TRACE,
+        tool_log_path=tmp_path / "tool.jsonl",
+        stdout_path=tmp_path / "stdout.txt",
+        stderr_path=tmp_path / "stderr.txt",
+        provider_receipt_paths=(),
+        cost_totals={},
+    )
+
+
+def two_step_raw_split() -> list[dict[str, object]]:
+    return [
+        {
+            "start_call": 1,
+            "end_call": 2,
+            "purpose": "create and verify the requested file",
+            "what_it_did": "wrote result.txt and read it back",
+            "outcome": "the write succeeded and the read returned ok",
+        }
+    ]
+
+
+def fake_result(request: PiRequest, response: str, status: str = "completed") -> PiResult:
+    request.output_dir.mkdir(parents=True, exist_ok=True)
+    trace = request.output_dir / "trace.jsonl"
+    trace.write_text(
+        json.dumps(
+            {
+                "type": "message",
+                "id": "response",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": response}],
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    receipt = request.output_dir / "receipt.json"
+    receipt.write_text(
+        json.dumps({"status": status, "model": request.model}) + "\n",
+        encoding="utf-8",
+    )
+    return PiResult(
+        operation_id=request.operation_id,
+        model=request.model,
+        status=status,
+        trace_path=trace,
+        usage={"total_tokens": 10},
+        stderr="",
+        receipt_path=receipt,
+        return_code=0 if status == "completed" else 1,
+        wall_seconds=0.1,
+        timeout_seconds=request.timeout_seconds,
+    )
+
+
+def episode_config(tmp_path: Path):
+    return replace(
+        config_for(tmp_path),
+        role_budgets={"segmenter": 4},
+    )
+
+
+def test_create_episodes_uses_target_example_temperature_zero_and_evidence(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+
+    def fake_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        return fake_result(request, json.dumps({"episodes": two_step_raw_split()}))
+
+    output = tmp_path / "episodes"
+    config = episode_config(tmp_path)
+    episodes, receipt = create_episodes(
+        run_record(tmp_path), config, output, fake_pi
+    )
+
+    request = requests[0]
+    assert request.provider == config.provider
+    assert request.model == config.model_id
+    assert request.temperature == 0
+    assert request.allowed_tools == ()
+    assert request.mounts == ()
+    prompt = request.prompt_path.read_text(encoding="utf-8")
+    assert "target episode count: 1" in prompt
+    assert "WORKED EXAMPLE" in prompt
+    assert "CONTINGENT" in prompt
+    assert "ONLY from tool results" in prompt
+    assert episodes == assemble_episodes(two_step_raw_split(), project_trace(TRACE)[1])
+    creation = json.loads((output / "episode-creation.json").read_text())
+    assert creation["schema"] == "skillrace-episode-creation/2"
+    assert creation["tool_call_count"] == 2
+    assert creation["target_episode_count"] == 1
+    assert Path(creation["rendered_trace_path"]).is_file()
+    assert receipt == request.output_dir / "receipt.json"
+
+
+def test_create_episodes_corrects_json_then_partition_and_stops_on_success(
+    tmp_path: Path,
+) -> None:
+    requests: list[PiRequest] = []
+    responses = [
+        "not-json",
+        json.dumps(
+            {
+                "episodes": [
+                    {
+                        **two_step_raw_split()[0],
+                        "start_call": 2,
+                    }
+                ]
+            }
+        ),
+        json.dumps({"episodes": two_step_raw_split()}),
+    ]
+
+    def correcting_pi(request: PiRequest) -> PiResult:
+        requests.append(request)
+        return fake_result(request, responses[len(requests) - 1])
+
+    episodes, _ = create_episodes(
+        run_record(tmp_path),
+        episode_config(tmp_path),
+        tmp_path / "episodes",
+        correcting_pi,
+    )
+
+    assert len(requests) == 3
+    assert episodes[0]["start_call"] == 1
+    assert "not valid JSON" in requests[1].prompt_path.read_text(encoding="utf-8")
+    assert "gap/overlap" in requests[2].prompt_path.read_text(encoding="utf-8")
+
+
+def test_create_episodes_rejects_three_invalid_responses(tmp_path: Path) -> None:
+    calls = 0
+
+    def invalid_pi(request: PiRequest) -> PiResult:
+        nonlocal calls
+        calls += 1
+        return fake_result(request, "not-json")
+
+    with pytest.raises(ValueError, match="three invalid"):
+        create_episodes(
+            run_record(tmp_path),
+            episode_config(tmp_path),
+            tmp_path / "episodes",
+            invalid_pi,
+        )
+    assert calls == 3
+
+
+def test_create_episodes_propagates_provider_status(tmp_path: Path) -> None:
+    def failed_pi(request: PiRequest) -> PiResult:
+        return fake_result(request, "", status="provider_error")
+
+    with pytest.raises(RuntimeError, match="provider_error"):
+        create_episodes(
+            run_record(tmp_path),
+            episode_config(tmp_path),
+            tmp_path / "episodes",
+            failed_pi,
+        )

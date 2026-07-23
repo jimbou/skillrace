@@ -521,7 +521,7 @@ def test_tenth_skillrace_observation_updates_tree_then_enables_branch_phase(
         }
     )
     monkeypatch.setattr(
-        campaigns.skillrace_method,
+        campaigns.episode_method,
         "create_episodes",
         lambda *args: ([{"episode_id": "episode-10"}], tmp_path / "receipt.json"),
     )

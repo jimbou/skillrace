@@ -1,0 +1,46 @@
+{
+  "episodes": [
+    {
+      "start_call": 1,
+      "end_call": 2,
+      "purpose": "reproduce the failure and check the imports",
+      "what_it_did": "ran the CLI and printed report.py's import header",
+      "outcome": "report.py crashes immediately at 'import yaml' with ModuleNotFoundError: No module named 'yaml'; it also imports requests and tabulate"
+    },
+    {
+      "start_call": 3,
+      "end_call": 6,
+      "purpose": "survey which dependencies are already available vs missing",
+      "what_it_did": "read requirements.txt and probed each dependency with pip list and import checks",
+      "outcome": "requests (2.31.0) and tabulate (0.9.0) are already installed; PyYAML is the only missing dependency"
+    },
+    {
+      "start_call": 7,
+      "end_call": 9,
+      "purpose": "install the one missing dependency and re-run",
+      "what_it_did": "pip-installed pyyaml, confirmed the import, and re-ran the CLI",
+      "outcome": "PyYAML 6.0.2 installed and importable; the import error is gone, but report.py now fails later with FileNotFoundError: data.yaml"
+    },
+    {
+      "start_call": 10,
+      "end_call": 13,
+      "purpose": "diagnose the missing data file",
+      "what_it_did": "listed the data files present, grepped the loader, and read report.py and data.json",
+      "outcome": "data.yaml does not exist but data.json (same 'sales' shape) is present; report.py's load_data is hard-wired to read data.yaml via yaml.safe_load"
+    },
+    {
+      "start_call": 14,
+      "end_call": 17,
+      "purpose": "bridge the data gap from what's available",
+      "what_it_did": "converted the available data.json into data.yaml with PyYAML, then re-ran and spot-checked the output",
+      "outcome": "data.yaml written from data.json; report.py now runs and prints the regional sales table (North/South/West with units and revenue)"
+    },
+    {
+      "start_call": 18,
+      "end_call": 20,
+      "purpose": "verify the run and confirm report.py was left unchanged",
+      "what_it_did": "re-ran the CLI and checked git status and the report.py diff",
+      "outcome": "the report prints correctly; git shows only data.yaml added (untracked) and report.py's diff is empty, satisfying the 'do not change report.py' constraint"
+    }
+  ]
+}
