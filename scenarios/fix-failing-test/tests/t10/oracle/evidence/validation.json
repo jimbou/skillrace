@@ -2,10 +2,10 @@
   "schema": "skillrace-oracle-evidence/1",
   "test_id": "fix-failing-test/t10",
   "state": "validated",
-  "contract_identity_sha256": "5fb63954f6b7f0a36d6e32ac630b6e7af83baa9c580a6950dd717515ddda433c",
+  "contract_identity_sha256": "e79143a9ec6084a608560280a609ebfabd2a7c24b2db54824b5fcfea0d17c0b3",
   "reason": "Docker reference and negative oracle audit passed",
-  "validated_at": "2026-07-12T00:11:27.941101+00:00",
-  "image_digest": "sha256:3ed906065664129c1e55d70a65971dd56f3648691a7f2c68e11842009cc2a465",
+  "validated_at": "2026-07-12T17:35:35.983214+00:00",
+  "image_digest": "sha256:4b1feedd10192c5676c2440b714428c1de022824014119fd7e29c409cba92711",
   "docker_version": "29.6.1",
   "reference": {
     "passed": true,
@@ -18,7 +18,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.309427,
+        "duration_seconds": 0.261498,
         "script_sha256": "d7757fd82f8ab5385ed3ed32e3c63e64e142319b8d55b02c945c18a4f37d77c0",
         "isolation": "fresh-container-per-criterion"
       },
@@ -29,7 +29,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok: protected test content and harness are unchanged (VCS HEAD cannot bypass hashes)",
-        "duration_seconds": 0.137325,
+        "duration_seconds": 0.107018,
         "script_sha256": "1b5572f853e70b335a054a78be749007fa6a8ae7edbe7d5a3ba0d4a4d8951afe",
         "isolation": "fresh-container-per-criterion"
       }
@@ -44,8 +44,8 @@
           "/check/oracle/suite-passes.sh"
         ],
         "exit_code": 1,
-        "final_output_line": "1 failed, 1 passed in 0.02s",
-        "duration_seconds": 0.255823,
+        "final_output_line": "1 failed, 1 passed in 0.01s",
+        "duration_seconds": 0.273825,
         "script_sha256": "d7757fd82f8ab5385ed3ed32e3c63e64e142319b8d55b02c945c18a4f37d77c0",
         "isolation": "fresh-container-per-criterion"
       },
@@ -56,7 +56,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok: protected test content and harness are unchanged (VCS HEAD cannot bypass hashes)",
-        "duration_seconds": 0.1314,
+        "duration_seconds": 0.097576,
         "script_sha256": "1b5572f853e70b335a054a78be749007fa6a8ae7edbe7d5a3ba0d4a4d8951afe",
         "isolation": "fresh-container-per-criterion"
       }
@@ -72,8 +72,8 @@
             "/check/oracle/suite-passes.sh"
           ],
           "exit_code": 1,
-          "final_output_line": "1 error in 0.03s",
-          "duration_seconds": 0.284967,
+          "final_output_line": "1 error in 0.04s",
+          "duration_seconds": 0.289787,
           "script_sha256": "d7757fd82f8ab5385ed3ed32e3c63e64e142319b8d55b02c945c18a4f37d77c0",
           "isolation": "fresh-container-per-criterion"
         },
@@ -84,7 +84,7 @@
           ],
           "exit_code": 0,
           "final_output_line": "ok: protected test content and harness are unchanged (VCS HEAD cannot bypass hashes)",
-          "duration_seconds": 0.132703,
+          "duration_seconds": 0.098952,
           "script_sha256": "1b5572f853e70b335a054a78be749007fa6a8ae7edbe7d5a3ba0d4a4d8951afe",
           "isolation": "fresh-container-per-criterion"
         }
@@ -104,7 +104,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "1 passed in 0.00s",
-          "duration_seconds": 0.234105,
+          "duration_seconds": 0.252706,
           "script_sha256": "d7757fd82f8ab5385ed3ed32e3c63e64e142319b8d55b02c945c18a4f37d77c0",
           "isolation": "fresh-container-per-criterion"
         },
@@ -115,7 +115,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "FAIL content changed: test_safe.py",
-          "duration_seconds": 0.100797,
+          "duration_seconds": 0.09745,
           "script_sha256": "1b5572f853e70b335a054a78be749007fa6a8ae7edbe7d5a3ba0d4a4d8951afe",
           "isolation": "fresh-container-per-criterion"
         }
@@ -135,7 +135,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "1 failed, 1 passed in 0.01s",
-          "duration_seconds": 0.292083,
+          "duration_seconds": 0.279529,
           "script_sha256": "d7757fd82f8ab5385ed3ed32e3c63e64e142319b8d55b02c945c18a4f37d77c0",
           "isolation": "fresh-container-per-criterion"
         },
@@ -146,7 +146,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "FAIL pytest package shadow added: pytest",
-          "duration_seconds": 0.139551,
+          "duration_seconds": 0.099793,
           "script_sha256": "1b5572f853e70b335a054a78be749007fa6a8ae7edbe7d5a3ba0d4a4d8951afe",
           "isolation": "fresh-container-per-criterion"
         }

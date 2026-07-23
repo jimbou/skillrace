@@ -2,11 +2,11 @@
 # SkillRACE pi-base — shared across ALL skills (environments.md, D-ENV-3).
 # Built once; per-skill bases do `FROM skillrace/pi-base`.
 #
-# node:20-bookworm-slim matches the host-verified runtime (pi 0.62 on node 20.20.1).
+# node:20-bookworm-slim is shared by both model-frozen Pi 0.73.1 tracks.
 FROM node:20-bookworm-slim
 
 LABEL org.opencontainers.image.title="skillrace-pi-base" \
-      org.opencontainers.image.description="Shared Pi agent base for SkillRACE runs (CloseAI-ready)" \
+      org.opencontainers.image.description="Shared Pi agent base for SkillRACE runs (Yunwu-ready)" \
       org.opencontainers.image.source="skillrace/images/pi-base"
 
 RUN apt-get update \
@@ -16,7 +16,7 @@ RUN apt-get update \
 # Package + version as a build ARG so we can bump the version OR migrate scope
 # (@mariozechner -> @earendil-works, per the npm deprecation notice) WITHOUT editing
 # this file:  docker build --build-arg PI_PKG=@earendil-works/pi-coding-agent@<v> …
-ARG PI_PKG=@mariozechner/pi-coding-agent@0.62.0
+ARG PI_PKG=@mariozechner/pi-coding-agent@0.73.1
 
 # - BuildKit cache mount keeps the npm cache across rebuilds → fast version bumps
 #   (the first build is still ~11 min; later bumps reuse cached tarballs).
@@ -25,9 +25,15 @@ RUN --mount=type=cache,target=/root/.npm \
     npm install -g --ignore-scripts --loglevel=error "$PI_PKG" \
  && pi --version
 
-# Bake a closeai-only models.json. The API key is NEVER baked — it is injected at
-# run time via `-e CLOSE_API_KEY`; models.json references the BARE env-var name.
-COPY models.closeai.json /root/.pi/agent/models.json
+# Each experiment track gets a distinct image whose catalog exposes exactly its one
+# selected model. The API key is NEVER baked: models.json references the bare
+# `yunwu_key` environment-variable name and the secret is injected only at run time.
+ARG TRACK_MODEL=glm-4.5-flash
+ARG MODEL_CONFIG=models.yunwu.glm-4.5-flash.json
+COPY ${MODEL_CONFIG} /root/.pi/agent/models.json
+RUN TRACK_MODEL="$TRACK_MODEL" node -e 'const fs=require("fs"); const cfg=JSON.parse(fs.readFileSync("/root/.pi/agent/models.json","utf8")); const models=cfg.providers?.yunwu?.models??[]; if(models.length!==1||models[0].id!==process.env.TRACK_MODEL)process.exit(2); if(cfg.providers.yunwu.apiKey!=="yunwu_key")process.exit(3)'
+
+LABEL org.skillrace.track.model="${TRACK_MODEL}"
 
 # Mount points used by the Runner:
 #   /skills    — the skill under test (read-only)

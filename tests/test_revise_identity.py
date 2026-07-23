@@ -76,8 +76,8 @@ def test_revision_records_full_identity_and_preserves_raw_response(tmp_path):
             "content": "```markdown\n# Revised skill\nDo the safe thing.\n```",
             "id": "fixture-revision-call",
             "usage": {"prompt_tokens": 123, "completion_tokens": 17},
-            "cost_usd": 0.004,
-            "model": "qwen3.6-flash",
+            "cost_provider_credits": 0.004,
+            "model": "glm-4.5-flash",
         }
 
     output = tmp_path / "revision"
@@ -103,11 +103,11 @@ def test_revision_records_full_identity_and_preserves_raw_response(tmp_path):
         "revised_skill_hash",
         "input_tokens",
         "output_tokens",
-        "cost_usd",
+        "cost_provider_credits",
     ):
         assert field in saved
     assert saved == record
-    assert calls[0][1]["model"] == "qwen3.6-flash"
+    assert calls[0][1]["model"] == "glm-4.5-flash"
     assert calls[0][1]["temperature"] == 0.0
     assert calls[0][1]["max_tokens"] == FROZEN_REVISION_CONFIG["max_tokens"]
     assert {path.relative_to(package).as_posix() for path in package.rglob("*")} == {
@@ -149,9 +149,9 @@ def test_revision_rejects_implicit_unjournaled_chat_fixture(tmp_path):
             tmp_path / "revision",
             chat_fn=lambda *_args, **_kwargs: {
                 "content": "# Revised\n",
-                "model": "qwen3.6-flash",
+                "model": "glm-4.5-flash",
                 "usage": {"prompt_tokens": 1, "completion_tokens": 1},
-                "cost_usd": 0.1,
+                "cost_provider_credits": 0.1,
             },
         )
 
@@ -167,10 +167,10 @@ def test_revision_binds_durable_start_identity_to_terminal_receipt(tmp_path):
         calls.append(settings)
         return {
             "content": "# Revised\n",
-            "model": "qwen3.6-flash",
+            "model": "glm-4.5-flash",
             "id": "raw-revision-provider-id",
             "usage": {"prompt_tokens": 8, "completion_tokens": 3},
-            "cost_usd": 0.02,
+            "cost_provider_credits": 0.02,
         }
 
     output = tmp_path / "random"
@@ -235,10 +235,10 @@ def test_revision_validation_rejects_rehashed_wrong_billing_status(tmp_path):
         chat_fn=nonproduction_chat_fixture(
             lambda *_args, **_kwargs: {
                 "content": "# Revised\n",
-                "model": "qwen3.6-flash",
+                "model": "glm-4.5-flash",
                 "id": "fixture-billing-check",
                 "usage": {"prompt_tokens": 8, "completion_tokens": 3},
-                "cost_usd": 0.02,
+                "cost_provider_credits": 0.02,
             }
         ),
     )
@@ -268,10 +268,10 @@ def test_revision_validation_rejects_changed_frozen_system_prompt(tmp_path):
         chat_fn=nonproduction_chat_fixture(
             lambda *_args, **_kwargs: {
                 "content": "# Revised\n",
-                "model": "qwen3.6-flash",
+                "model": "glm-4.5-flash",
                 "id": "fixture-prompt-check",
                 "usage": {"prompt_tokens": 8, "completion_tokens": 3},
-                "cost_usd": 0.02,
+                "cost_provider_credits": 0.02,
             }
         ),
     )
@@ -299,7 +299,7 @@ def test_revision_artifact_copies_exact_durable_closeai_terminal_receipt(
     (skill / "SKILL.md").write_text("# Base\n", encoding="utf-8")
     envelope = build_feedback_envelope(_campaign("random", "p"), 3600)
     ledger = tmp_path / "model-calls.jsonl"
-    monkeypatch.setenv("CLOSE_API_KEY", "fixture-secret")
+    monkeypatch.setenv("yunwu_key", "fixture-secret")
     monkeypatch.setenv("SKILLRACE_LEDGER", str(ledger))
 
     class ProviderResponse(io.BytesIO):
@@ -314,7 +314,7 @@ def test_revision_artifact_copies_exact_durable_closeai_terminal_receipt(
 
     provider_value = {
         "id": "revision-response-1",
-        "model": "qwen3.6-flash",
+        "model": "glm-4.5-flash",
         "choices": [{"message": {"content": "# Revised\n"}}],
         "usage": {
             "prompt_tokens": 8,

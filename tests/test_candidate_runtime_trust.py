@@ -32,12 +32,43 @@ def test_generated_tail_policy_accepts_workspace_setup_without_runtime_control()
     assert validate_generated_tail(SAFE_TAIL) == SAFE_TAIL
 
 
+def test_generated_tail_policy_allows_a_workspace_script_with_env_shebang():
+    tail = """RUN cat > /workspace/tool.py <<'PY'
+#!/usr/bin/env python3
+print('ready')
+PY
+"""
+
+    assert validate_generated_tail(tail) == tail
+
+
 def test_realizer_and_repair_prompts_explain_the_shared_runtime_boundary():
     for prompt in (REALIZER_SYS, REPAIR_SYS):
         assert "ENTRYPOINT" in prompt
         assert "/skills" in prompt
         assert "/root/.pi" in prompt
         assert "PATH" in prompt
+
+
+def test_realizer_does_not_invite_forbidden_or_unavailable_dockerfile_inputs():
+    assert "or COPY/ENV/WORKDIR" not in REALIZER_SYS
+    assert "Use RUN heredocs" in REALIZER_SYS
+    assert "code snippets in skill.md or readme files are documentation" in REALIZER_SYS.lower()
+
+
+def test_build_repair_requires_a_complete_minimal_replacement_tail():
+    prompt = REPAIR_SYS.lower()
+    assert "complete replacement tail" in prompt
+    assert "preserve every working" in prompt
+    assert "smallest necessary correction" in prompt
+
+
+def test_realizer_distinguishes_commands_from_modules_and_requires_live_sanity():
+    prompt = REALIZER_SYS.lower()
+    assert "python3 and pip are command names" in prompt
+    assert "pandas and jsonschema are python modules" in prompt
+    assert "must actually execute successfully" in prompt
+    assert "exit 0 in the initial image" in prompt
 
 
 def test_saved_candidate_containerfile_must_have_one_declared_base_and_same_policy():

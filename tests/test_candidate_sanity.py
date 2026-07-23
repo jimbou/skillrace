@@ -136,7 +136,7 @@ def test_realizer_has_one_shared_four_part_output_including_sanity(monkeypatch):
             "content": json.dumps(
                 {"prompt": "fix it", "tail": "RUN true", "sanity": VALID}
             ),
-            "cost_usd": 0.25,
+            "cost_provider_credits": 0.25,
         },
     )
 

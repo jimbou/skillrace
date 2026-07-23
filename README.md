@@ -30,9 +30,13 @@ how SkillRACE uses Pi is documented exhaustively (with citations and open questi
 in **[docs/pi-integration.md](./docs/pi-integration.md)**.
 
 > **The core pipeline is implemented, but no headline RQ1 or RQ3 result has been
-> run.** The protocol and dataset manifest remain draft, the headline RQ1
-> confirmed-defect analysis is unfinished, and paid CloseAI calls are currently
-> balance-blocked. Read the complete experimental contract in
+> run.** The 30-skill selection is complete, but the two track protocols and dataset
+> manifest remain draft. Images and draft schedules are audited; generated-checker
+> semantic validity, the bounded cross-method/model pilot, final model choice, and
+> identity promotion remain. Guided per-failure repair, independent replay, and verified
+> analysis are live-validated, but the latest diagnostic exposed invalid generated
+> checkers and counted zero confirmed defects. Read the exact stopping record in
+> **[docs/2026-07-14-session-handoff.md](./docs/2026-07-14-session-handoff.md)** and the complete contract in
 > **[docs/evaluation-reviewer-guide.md](./docs/evaluation-reviewer-guide.md)** and the
 > candid built/unfinished ledger in
 > **[docs/implementation-status.md](./docs/implementation-status.md)**.
@@ -85,11 +89,16 @@ small fast model); **one** — running the agent under test — is expensive. So
 agent runs only on inputs already *validated*, and do everything else with cheap
 models or code.
 
-**One frozen model throughout.** `qwen3.6-flash` is used for the agent under test and
-every model-driven role (generation, segmentation, summarization, merge, guard
-extraction, SBE compilation, and revision). This avoids a costly model matrix and
-prevents one method from receiving a stronger model. Every call is journaled under the
-same pricing and retry policy.
+**Two complete model-frozen tracks.** The current draft protocols name
+`glm-4.5-flash` and `deepseek-v4-flash`; the final two models will be hardcoded before
+headline execution after capability, rate, and bounded-pilot evidence. Within either
+track, that one model is
+used for the agent under test and every model-driven role (generation, segmentation,
+summarization, merge, guard extraction, SBE compilation, patching, and revision). Results,
+defects, schedules, and provider-credit costs are reported separately by model and never
+pooled. This gives a cross-model robustness replication without letting any method receive
+a stronger model inside a comparison. Every call is journaled under its track's dated
+pricing and retry policy.
 
 ---
 
@@ -178,23 +187,24 @@ not required for a discovered defect to count.
 python -m skillrace.loop \
   --skill fix-failing-test \
   --skill-dir skills/fix-failing-test \
-  --base skillrace/fix-failing-test:base \
+  --base skillrace/fix-failing-test:base-glm-4.5-flash \
   --props skills/fix-failing-test/properties.json \
   --method skillrace \
-  --protocol experiments/protocols/issta-main.draft.json \
+  --protocol experiments/protocols/issta-main.glm-4.5-flash.draft.json \
   --out out/campaign/skillrace/fix-failing-test
 ```
 
 Use `--method random` or `--method greybox` for the two baselines. The reviewed
-protocol owns the 30/10 allocation, qwen3.6-flash model, fixed L1 granularity,
+track protocol owns the 30/10 allocation, one model for every role, fixed L1 granularity,
 attempt cap, and seed-generator settings; the production CLI intentionally exposes no
 silent headline override. `scripts/run_suite.sh` runs exactly Random,
 VeriGrey-inspired L1, and SkillRACE once per requested skill under that protocol.
 
 The checked-in main protocol is deliberately still `draft`: headline execution and
 `run_suite.sh` fail closed until Task 8 freezes it as the exact approved
-`skillrace-issta-main-v1` contract. For a small non-headline pilot, use
-`--protocol experiments/protocols/pilot.json --development-only`; those artifacts
+two model-specific contracts. For a small non-headline pilot, use either
+`--protocol experiments/protocols/pilot.glm-4.5-flash.json --development-only` or the
+matching DeepSeek pilot protocol; those artifacts
 remain visibly separate from headline results.
 
 Outputs land under `out/<method>/<skill>/`: numbered run directories `000/ 001/ …`
@@ -262,7 +272,7 @@ docs/
 # (planned, per the build plan)
 skillrace/                          # Python package: one module per component + loop
 schemas/                            # JSON Schemas for every contract
-images/Dockerfile.pi-base           # shared pi-base (official Dockerfile.pi + pi-agent-budget)
+images/pi-base/Dockerfile.pi-base   # pinned Pi 0.73.1 runtime; one model catalog per track
 skills/<name>/                      # SKILL.md + scripts, Containerfile.base (FROM pi-base),
                                     #   seeds/*.json (each a Containerfile), properties/
 tests/fixtures/                     # golden traces, labeled merge pairs, recorded model responses
@@ -288,14 +298,13 @@ documented fallback; **OQ-1/2/6 are resolved by design**, the rest are confirmed
   accept the agent runs at Pi's default and set `model.temperature=null`. **Components
   2–6 bypass Pi and set temperature 0 directly**, which is where the determinism/
   caching guarantees live; run determinism is the tex's empirically-reported number.
-- **OQ-2 (step cap) — resolved by design.** Dropped in favour of a **wall-clock
-  timeout** + optional `pi-agent-budget` token cap (D-RUN-1); no custom extension.
-- **OQ-6 (cost) — resolved by design.** `pi-agent-budget` extension does cost
-  tracking + the optional hard cap.
-- **OQ-4 (thinking capture)** is the only OQ still affecting *correctness* (reasoning
-  is the segmentation/guard signal) — run with `thinkingLevel:"medium"`, degrade to
-  `text` if a provider redacts thinking. **OQ-3/5** (session linearization, `--skill`
-  scoping) have fallbacks and are confirmed in Milestone 0.
+- **OQ-2 (termination) — resolved.** There is no step, turn, token, or dollar cap.
+  Every agent execution has the same frozen wall-clock timeout; started timeouts count.
+- **OQ-6 (cost) — resolved.** Pi session usage plus the dated Yunwu rate card produces
+  provider-credit receipts. Yunwu credits are not represented as USD.
+- **OQ-3/4/5 — resolved by probes and tests.** Pi 0.73.1 preserves thinking and
+  multi-turn tool history for both selected models; session linearization and trusted
+  skill scoping are covered by the runner tests.
 
 Design choices made where the tex underspecifies an implementation detail are
 recorded as **Decisions** (`D-TRACE-*`, `D-PI-*`, `D-ENV-*`, `D-RUN-*`, `D-TREE-*`)

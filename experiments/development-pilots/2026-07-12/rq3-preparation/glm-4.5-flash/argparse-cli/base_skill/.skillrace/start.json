@@ -1,0 +1,15 @@
+{
+  "schema": "skillrace-base-generation-start/2",
+  "scenario_id": "argparse-cli",
+  "purpose_hash": "b9866b7e21b33e378ffce438edabf00709a1fc79d468799dadd53872081cb633",
+  "system_prompt_hash": "8d84898f25be802314f09c0bec3c6dfeed541467cc3a32070e05ded9e435a9a9",
+  "user_prompt_hash": "ef034fffcf742cbbef82914507fc336db9d512571c7cc690101a26e8a0cf3c31",
+  "model_config": {
+    "model": "glm-4.5-flash",
+    "temperature": 0.0,
+    "reasoning": true,
+    "max_tokens": 4000,
+    "prompt_version": "skillrace-rq3-base-generation/1"
+  },
+  "operation_id": "rq3.base.8efc742ceb6c8904ae8036793bdba7550e844257075ad0783a59607be48d1d58"
+}

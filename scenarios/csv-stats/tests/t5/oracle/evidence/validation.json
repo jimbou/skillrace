@@ -2,10 +2,10 @@
   "schema": "skillrace-oracle-evidence/1",
   "test_id": "csv-stats/t5",
   "state": "validated",
-  "contract_identity_sha256": "f96f7b4a85824aa10297d00a730d5400a8f761109666d31eae42ef23641a8470",
+  "contract_identity_sha256": "0633e7843d48b7df445cb6549101555421a23d5eb5ef42bffef3a5a2807d608b",
   "reason": "Docker reference and negative oracle audit passed",
-  "validated_at": "2026-07-12T00:10:56.264726+00:00",
-  "image_digest": "sha256:11e8894d14e5707b55c179d820b03f0258016256a663ff34f19967225cb924ca",
+  "validated_at": "2026-07-12T17:35:11.941125+00:00",
+  "image_digest": "sha256:5265e27738ffd1312e58a4027e1e11979ca0d6f6c41be6396dcf7938af2c5629",
   "docker_version": "29.6.1",
   "reference": {
     "passed": true,
@@ -18,7 +18,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.129943,
+        "duration_seconds": 0.110935,
         "script_sha256": "a94bb9d36061c7e4760e7d5f86bae5482a80e75eec486fcd09fc326cc7f2935d",
         "isolation": "fresh-container-per-criterion"
       },
@@ -29,7 +29,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.14039,
+        "duration_seconds": 0.098088,
         "script_sha256": "32cb4b2e37255c980a08bd085b475c830e06aa8ea7138a3c38d60af9df44b78a",
         "isolation": "fresh-container-per-criterion"
       },
@@ -40,7 +40,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.137415,
+        "duration_seconds": 0.09213,
         "script_sha256": "08bd6771b3f3e40f3a783d75bc924625f2af31054860235b535bffbea3cfff34",
         "isolation": "fresh-container-per-criterion"
       }
@@ -56,7 +56,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "FAIL stats.py missing",
-        "duration_seconds": 0.090086,
+        "duration_seconds": 0.069543,
         "script_sha256": "a94bb9d36061c7e4760e7d5f86bae5482a80e75eec486fcd09fc326cc7f2935d",
         "isolation": "fresh-container-per-criterion"
       },
@@ -67,7 +67,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "FAIL stats.py missing",
-        "duration_seconds": 0.079181,
+        "duration_seconds": 0.069924,
         "script_sha256": "32cb4b2e37255c980a08bd085b475c830e06aa8ea7138a3c38d60af9df44b78a",
         "isolation": "fresh-container-per-criterion"
       },
@@ -78,7 +78,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "FAIL stats.py missing",
-        "duration_seconds": 0.099621,
+        "duration_seconds": 0.086186,
         "script_sha256": "08bd6771b3f3e40f3a783d75bc924625f2af31054860235b535bffbea3cfff34",
         "isolation": "fresh-container-per-criterion"
       }
@@ -95,7 +95,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "RuntimeError: negative implementation",
-          "duration_seconds": 0.103875,
+          "duration_seconds": 0.078711,
           "script_sha256": "a94bb9d36061c7e4760e7d5f86bae5482a80e75eec486fcd09fc326cc7f2935d",
           "isolation": "fresh-container-per-criterion"
         },
@@ -106,7 +106,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "RuntimeError: negative implementation",
-          "duration_seconds": 0.104311,
+          "duration_seconds": 0.077454,
           "script_sha256": "32cb4b2e37255c980a08bd085b475c830e06aa8ea7138a3c38d60af9df44b78a",
           "isolation": "fresh-container-per-criterion"
         },
@@ -117,7 +117,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "RuntimeError: negative implementation",
-          "duration_seconds": 0.119016,
+          "duration_seconds": 0.068253,
           "script_sha256": "08bd6771b3f3e40f3a783d75bc924625f2af31054860235b535bffbea3cfff34",
           "isolation": "fresh-container-per-criterion"
         }

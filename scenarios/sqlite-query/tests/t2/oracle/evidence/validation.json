@@ -2,10 +2,10 @@
   "schema": "skillrace-oracle-evidence/1",
   "test_id": "sqlite-query/t2",
   "state": "validated",
-  "contract_identity_sha256": "7bfc8a2af532d99f78846cd3202a98a3390a79d6f42801865f8ff4ab7c2d577f",
+  "contract_identity_sha256": "4b28a0e61a1444a2331faf3109b75384db2f3ce2c243f6560b05505dd4b4607c",
   "reason": "Docker reference and negative oracle audit passed",
-  "validated_at": "2026-07-12T00:15:14.956595+00:00",
-  "image_digest": "sha256:b79704d1157b06ee4c42ae8c031341fbdc2508328b56b0ebff1d19b85e8a1aea",
+  "validated_at": "2026-07-12T17:36:16.809058+00:00",
+  "image_digest": "sha256:2e6ef5435cb2b3e514924d7f4c4195266cd4794a0384f1a4d260fcbeaa8f22b7",
   "docker_version": "29.6.1",
   "reference": {
     "passed": true,
@@ -18,7 +18,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.118881,
+        "duration_seconds": 0.08686,
         "script_sha256": "1b921d2d4997754c983e39cd48d50c285797d325895612531f193f21b42e542c",
         "isolation": "fresh-container-per-criterion"
       },
@@ -29,7 +29,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.154226,
+        "duration_seconds": 0.124175,
         "script_sha256": "841e99b2021e9f47ddfe60ff1d8aba8d31edd57f264c448abc739bac3d5ea2bd",
         "isolation": "fresh-container-per-criterion"
       }
@@ -45,7 +45,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "FAIL answer.py missing",
-        "duration_seconds": 0.095865,
+        "duration_seconds": 0.071761,
         "script_sha256": "1b921d2d4997754c983e39cd48d50c285797d325895612531f193f21b42e542c",
         "isolation": "fresh-container-per-criterion"
       },
@@ -56,7 +56,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "FAIL answer.py missing",
-        "duration_seconds": 0.058784,
+        "duration_seconds": 0.066667,
         "script_sha256": "841e99b2021e9f47ddfe60ff1d8aba8d31edd57f264c448abc739bac3d5ea2bd",
         "isolation": "fresh-container-per-criterion"
       }
@@ -73,7 +73,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "FAIL expected exit 0: rc=2",
-          "duration_seconds": 0.109162,
+          "duration_seconds": 0.088174,
           "script_sha256": "1b921d2d4997754c983e39cd48d50c285797d325895612531f193f21b42e542c",
           "isolation": "fresh-container-per-criterion"
         },
@@ -84,7 +84,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "FAIL command exit=2",
-          "duration_seconds": 0.124542,
+          "duration_seconds": 0.124487,
           "script_sha256": "841e99b2021e9f47ddfe60ff1d8aba8d31edd57f264c448abc739bac3d5ea2bd",
           "isolation": "fresh-container-per-criterion"
         }
@@ -104,7 +104,7 @@
           ],
           "exit_code": 0,
           "final_output_line": "ok",
-          "duration_seconds": 0.087034,
+          "duration_seconds": 0.080391,
           "script_sha256": "1b921d2d4997754c983e39cd48d50c285797d325895612531f193f21b42e542c",
           "isolation": "fresh-container-per-criterion"
         },
@@ -115,7 +115,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "FAIL query-specific probe output=[30]",
-          "duration_seconds": 0.135526,
+          "duration_seconds": 0.109244,
           "script_sha256": "841e99b2021e9f47ddfe60ff1d8aba8d31edd57f264c448abc739bac3d5ea2bd",
           "isolation": "fresh-container-per-criterion"
         }

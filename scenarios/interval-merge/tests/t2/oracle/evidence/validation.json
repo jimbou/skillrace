@@ -2,10 +2,10 @@
   "schema": "skillrace-oracle-evidence/1",
   "test_id": "interval-merge/t2",
   "state": "validated",
-  "contract_identity_sha256": "a4e52744119c8603621f4726f23edde4a6b042812c60b5cadacda5d92dd85eb4",
+  "contract_identity_sha256": "41499bb3de5a6d7f34f183733b7c882c24152a0d451cc087bd2187627e7c6fe2",
   "reason": "Docker reference and negative oracle audit passed",
-  "validated_at": "2026-07-12T00:12:30.797909+00:00",
-  "image_digest": "sha256:ba8efe853f858230969de89fe1aaf66648b8a42e3d2d16de510b1039084387af",
+  "validated_at": "2026-07-12T17:35:32.010103+00:00",
+  "image_digest": "sha256:f18e44f0a03a29fdc53e9ff9da23cbd1722d64d12f19e648b59c1414cfbb8344",
   "docker_version": "29.6.1",
   "reference": {
     "passed": true,
@@ -18,7 +18,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.095677,
+        "duration_seconds": 0.064165,
         "script_sha256": "742bc37367db7c3a3b40cb4109f6e871b0f635e75cb303d3f605e0edf8c8d2b7",
         "isolation": "fresh-container-per-criterion"
       }
@@ -34,7 +34,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "ModuleNotFoundError: No module named 'intervals'",
-        "duration_seconds": 0.092176,
+        "duration_seconds": 0.088776,
         "script_sha256": "742bc37367db7c3a3b40cb4109f6e871b0f635e75cb303d3f605e0edf8c8d2b7",
         "isolation": "fresh-container-per-criterion"
       }
@@ -51,7 +51,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "RuntimeError: negative implementation",
-          "duration_seconds": 0.106083,
+          "duration_seconds": 0.092128,
           "script_sha256": "742bc37367db7c3a3b40cb4109f6e871b0f635e75cb303d3f605e0edf8c8d2b7",
           "isolation": "fresh-container-per-criterion"
         }

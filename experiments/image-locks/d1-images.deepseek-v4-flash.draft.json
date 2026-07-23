@@ -1,0 +1,281 @@
+{
+  "schema": "d1-track-images/1",
+  "status": "draft",
+  "model": "deepseek-v4-flash",
+  "pi_version": "0.73.1",
+  "suite_manifest": "experiments/manifests/rq1-skills.draft.json",
+  "suite_manifest_hash": "d739ef03e9f314d707225e6d28dc84feaa8b1982286eb69ef7948f717fd9273b",
+  "construction_base": "skillrace/skillgen-base:0.73.1-construction",
+  "records": [
+    {
+      "skill": "fastapi-endpoint",
+      "tag": "skillrace/fastapi-endpoint:base-deepseek-v4-flash",
+      "image_id": "sha256:38a181102017984bc871d3b20add663d2441373a7597bbe1424a23de2b663944",
+      "construction_image_id": "sha256:bf029e3820fa5252cf477248e410d52e380e5bcdb96c5e998eb4a1da3b0cd25d",
+      "input_tree_hash": "d586312e1438cf8f802b2196cb8ca7a39512d2f6bbbee92c86faf879ab716e7e",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "cli-argparse-fix",
+      "tag": "skillrace/cli-argparse-fix:base-deepseek-v4-flash",
+      "image_id": "sha256:98598430ea40435b579579e47e7c0175363492ab017465cb97a911ce7ee5111a",
+      "construction_image_id": "sha256:dfe04839d10d7088b74fe2df113d2426958c4d1cf15498914e93ddd851433a27",
+      "input_tree_hash": "b68bda88e2169395d432ef9740912c847d2557c853d6ab7c01d8014601c06d74",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "cli-subcommand-validator",
+      "tag": "skillrace/cli-subcommand-validator:base-deepseek-v4-flash",
+      "image_id": "sha256:a1aba854fbf886ced1e324e757e64555b303bfc8e122a80824c7a0652ffc79aa",
+      "construction_image_id": "sha256:15a142c8fb924dc6c2022c2ac528af39fbbea1c481d9d8ec0914f46a98afdb3f",
+      "input_tree_hash": "f110e74bb6f788e915ce181a994d7c48df5e41c8c52c1d89b779d1ab5603ecaf",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "code-refactor-fowler",
+      "tag": "skillrace/code-refactor-fowler:base-deepseek-v4-flash",
+      "image_id": "sha256:d2a33eb8a2a658be1d69e0872b1dffe2f30d919dd1700ba106c4d8b821fd2176",
+      "construction_image_id": "sha256:47438c6b1b98189ac0f898f5126d3e7a9d4604aa4ac87814d72f7fabb18870ae",
+      "input_tree_hash": "d1c372bba5e3527aa93612920760dc270b1a5b3967128bdf68b3a34b667c1462",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "condition-based-waiting",
+      "tag": "skillrace/condition-based-waiting:base-deepseek-v4-flash",
+      "image_id": "sha256:5fbab297e3c68fdd50a5c32215ea7bd8ad6ff67f84aa31a4d241934d4096940d",
+      "construction_image_id": "sha256:bcf32d63c2e0504bb518ece0948242b1181d0599272693608d870aa367a4239c",
+      "input_tree_hash": "af2e73baa16339d30b03b91b20f26864a9ecff60ecf5229ab9fc0d56e5ae0076",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "debugging-difficult-bugs",
+      "tag": "skillrace/debugging-difficult-bugs:base-deepseek-v4-flash",
+      "image_id": "sha256:548582309c197af84b6d9a785062fe9340fbbd4cca12e05d5d373dd12c824e3e",
+      "construction_image_id": "sha256:1d9f5dda264bd640a9413894b0623773e65bc672f323c2f365b505d838e22910",
+      "input_tree_hash": "65b1c5a9d71c75fdcb6558ffe7506e0751a5e45632dd5484a383b615af5d34fd",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "finishing-a-development-branch",
+      "tag": "skillrace/finishing-a-development-branch:base-deepseek-v4-flash",
+      "image_id": "sha256:05454c992f14c020e198ec53366fabe9e178d9083d6caeb3d065e622037d0fe2",
+      "construction_image_id": "sha256:dc49014db86eee8c9260df151fe5a8f4969d7d18d614359c150c519889733b18",
+      "input_tree_hash": "71384e7f0db8805cd860a102313078d8060d6c8935d58f9d3887d29db32e105d",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "json-parser",
+      "tag": "skillrace/json-parser:base-deepseek-v4-flash",
+      "image_id": "sha256:5debfea82a523c59cc5fe1dc4177e3e2a0c0de47648b0cc4fca4d8b772511f61",
+      "construction_image_id": "sha256:a32db41a9520f00042fd93ee5da0adba5d1c36900b337c0e6dac506584197adc",
+      "input_tree_hash": "729f6df5eb4a7fae3f4a89dcc73238313ce2d720204493d136e1b22152169399",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "parser-generator",
+      "tag": "skillrace/parser-generator:base-deepseek-v4-flash",
+      "image_id": "sha256:f2c29e073ae3992126ce195d3221520493c26a6f0a3ac03a11f0a91ae1007887",
+      "construction_image_id": "sha256:192e78ef4e27ad0137e1070faa140301f604ce5e98a42834e19730995e1e3105",
+      "input_tree_hash": "daca2fd9b34f6e89f5fc388fe1130c3bf1caa9b3a9a1d9d08e3c3e029aa0c140",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "refactor",
+      "tag": "skillrace/refactor:base-deepseek-v4-flash",
+      "image_id": "sha256:53a9434e45cbf75d75a41d86cc01c273ea7ce09459c39ed9642455e99204aebc",
+      "construction_image_id": "sha256:99575ff74a6cd025b99f3a6fcd1347752f128d7ecf030a4beb9629eaab892b4e",
+      "input_tree_hash": "52e67ab6e3b9364396be1d160ff25b1bd877dde62a8efa363881cb455a0da918",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "refactor-complexity-reduce",
+      "tag": "skillrace/refactor-complexity-reduce:base-deepseek-v4-flash",
+      "image_id": "sha256:7b4474fec4459c3d2a73c245375023c299800a31951b722967d6577aec84e12b",
+      "construction_image_id": "sha256:c4849fe26ed70edf3ae09da992e22925cc0ad67b46e0ffee85d3a779283b5670",
+      "input_tree_hash": "58228fd4b186cac690e5b84bc5a52cdce508d602ad6003017f618e366a1effec",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "regex-expert",
+      "tag": "skillrace/regex-expert:base-deepseek-v4-flash",
+      "image_id": "sha256:a4797296cbf6a3a95c6d6a059275f22c787002ac41a23d56f2689f95b8a4dc93",
+      "construction_image_id": "sha256:95bea49b2dba3eb5884ec4ac119da675ff019585ebdaa2246e93a0562c929d75",
+      "input_tree_hash": "59fad46c80542554902e6eeb3f609fc8c24e9fce8c8a834b0a7591dbb3a040e3",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "sql-queries",
+      "tag": "skillrace/sql-queries:base-deepseek-v4-flash",
+      "image_id": "sha256:f78cd8265db681b4637588c2974b75e9bb24dd508fa614f8c110f6dd36db51fd",
+      "construction_image_id": "sha256:8883cae910125a12955e6ba76ab15703f8456135e8d7c8b0b5ff3b929553eec5",
+      "input_tree_hash": "983917b1d72a9b7118d7227b3a0e168d575ae4ef081799edfd9f64257ba10c0a",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "sql-query-generator",
+      "tag": "skillrace/sql-query-generator:base-deepseek-v4-flash",
+      "image_id": "sha256:d8dfa2abcffa02e0ecfdb0480ce30446e33b2de86ca0307d1a18b304984681a3",
+      "construction_image_id": "sha256:2b474fd81d9c5d4906e4c59c14a106e4f18399e8ebb0af508eef7986abf2128a",
+      "input_tree_hash": "9081905e0ee9fa4a4ea99c89be1736358243eed6e4cfa279348a17571aaabad2",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "sql-query-json",
+      "tag": "skillrace/sql-query-json:base-deepseek-v4-flash",
+      "image_id": "sha256:5d84f1c012c4dbad105f18e71aa078ca6680cb051ac8e46fa799ca9084f0443d",
+      "construction_image_id": "sha256:85c586ed04d85d6d106a2bea42c629d2b49caf29a89ca991d91f23337e683acb",
+      "input_tree_hash": "678a984f7ec343229bae7302200cf309f078c9dad63b9384271da0a96268c962",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "sqlmodel-orm",
+      "tag": "skillrace/sqlmodel-orm:base-deepseek-v4-flash",
+      "image_id": "sha256:91632769bb66d5c17af34bf2135ce7b12e7297ed1daae3c1560dfb15d5466cb6",
+      "construction_image_id": "sha256:53ee3a780372da7cf11f6520920dd05140b94f32f2294819a8cadfc9facb10f2",
+      "input_tree_hash": "04d1fe1994bf33cf42645b14145fc31eef23945ca0a79709f06adc43d2d614cb",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "systematic-debugging",
+      "tag": "skillrace/systematic-debugging:base-deepseek-v4-flash",
+      "image_id": "sha256:c8ff5706d09e573c683021ceb7ca24c9b75bc34d4ddc6287f0a3d9dd68353e58",
+      "construction_image_id": "sha256:c9e4435ddda0abd5980bfb3c17f3c72fb7519208b1e5c87cd8a5c727bc9c97e4",
+      "input_tree_hash": "646f1d1ad6853c36ea0c7175f5181ec7925caf7de5b2152cb077357ec2978cdb",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "test-driven-development",
+      "tag": "skillrace/test-driven-development:base-deepseek-v4-flash",
+      "image_id": "sha256:df94718a43b1ffe111e9c2b5870406ddfd0081a13926a0800cbb1f631d4f396b",
+      "construction_image_id": "sha256:57698a0b2b1bf509ca2aafcbe3cd62091a04bbb22b892b8547f5f5a2253bc0ef",
+      "input_tree_hash": "8e60dffa7a9e3665ef67fe6960be77e6053520ce0fa5d21456c905e75f0fc674",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "unit-test-generation",
+      "tag": "skillrace/unit-test-generation:base-deepseek-v4-flash",
+      "image_id": "sha256:866b756374dec8798dfea6c3cf6a0202b72330ac8da8651ef5014fd18e34f01e",
+      "construction_image_id": "sha256:d503a3e8ab4f07512fc14964a4011cda6784f009888cd82095aeac8acb0d2eda",
+      "input_tree_hash": "6c42cd5bd06ad05feda7352f7a9bffc66095ffa559a9f4a77783d10f86c3eed4",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "unit-test-generator",
+      "tag": "skillrace/unit-test-generator:base-deepseek-v4-flash",
+      "image_id": "sha256:3916257af6aa34903530b6470b80fa12649435f372c28487c2e3136796f21efb",
+      "construction_image_id": "sha256:fdb4887875b480b7041fc6bd2044c8e8d769f3d5c5d9ee957059cad7ee3922d3",
+      "input_tree_hash": "7c9439767f32a326e891a225ac62ce4390d584831334bd133ad277f6af167dcc",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "using-git-worktrees",
+      "tag": "skillrace/using-git-worktrees:base-deepseek-v4-flash",
+      "image_id": "sha256:bc2d70b505881a7419f893949185a17c95acb6eb4391feb0cb04d5669dbc9381",
+      "construction_image_id": "sha256:0a3a64166405157e6993dfd905aa2eb88f6c7bef51195b288ee5792aa41dc585",
+      "input_tree_hash": "ffb96adbe5aa7c2e69aeb2d30535eaaa6536d438a970162dbf6ed6a7480f7351",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "yaml-config",
+      "tag": "skillrace/yaml-config:base-deepseek-v4-flash",
+      "image_id": "sha256:011d4660bca753b364676a5bb2deafc1d187e177899382cd10ab2d6f991fc9dc",
+      "construction_image_id": "sha256:83ffceaeaf26443f3c25f2c708e969b153e0f8f8c36a9aa2b3f3dec2ab86c913",
+      "input_tree_hash": "bd36410b77b947b272fb2cc003ce416573f2d06c17862a7e4b6ad669706a9dcd",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "network-config-validation",
+      "tag": "skillrace/network-config-validation:base-deepseek-v4-flash",
+      "image_id": "sha256:b9a433f40b512e3c48d9bdda729da9be944698092f3b3e80c514f10749a3b08b",
+      "construction_image_id": "sha256:27e7e648bd864a2be980d7e76d88d95befbaeee70d302af3de93a5b00d1dec4b",
+      "input_tree_hash": "067a03a3f6d9152b3b1fd623c8ae651e1fc758b150edb65cb0e6f6be2af318cd",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "rest-api-caller",
+      "tag": "skillrace/rest-api-caller:base-deepseek-v4-flash",
+      "image_id": "sha256:bfb1edd1f32e2f7c1c94081fe2090386e2aedac1d5e57731973c71b6440ac097",
+      "construction_image_id": "sha256:1d8addaf3a5259dc886dcbde0b4a328a0f68c6946a36628bc795d40ff7c68d1d",
+      "input_tree_hash": "7b3bba04d44773ec8701db3ec69db0bcedbd943935c83a82ecfa9e05ab4b40d2",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "csv-workbench",
+      "tag": "skillrace/csv-workbench:base-deepseek-v4-flash",
+      "image_id": "sha256:8855d71e811cd3591ec42d624395a1e921ea874be626860ef1aadb4dace903a5",
+      "construction_image_id": "sha256:bad306c5c2fd1151aee7853891dfb8c2daa00c3fb56f376749e7d08d6393abc6",
+      "input_tree_hash": "8c090d72038f8d07c4ba8af1341927b369aa57b43fa6791596b86a0c53e23d8e",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "argparse-scaffolder",
+      "tag": "skillrace/argparse-scaffolder:base-deepseek-v4-flash",
+      "image_id": "sha256:5e25c3000d05a3c7486e18508c875c23a201e2a91bdad94f26bb10d005e0784f",
+      "construction_image_id": "sha256:83864c0f4e9c125f9b859d98ac250ab2bcf977095ef124732dd7f260e676d15c",
+      "input_tree_hash": "f953751f136979bd2a389d659761a9a01672a5f204875bda3efed4cd022a801a",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "data-transform",
+      "tag": "skillrace/data-transform:base-deepseek-v4-flash",
+      "image_id": "sha256:770cbfca6eee827f696750b93c9fa75dd3d788fcb092d4ad81bb953d69be06d4",
+      "construction_image_id": "sha256:8ae27d136c29a401e2c77a4f1268ff7825b500e0d30bacf0d7e6c458a29f2f70",
+      "input_tree_hash": "605fa27d3909cc319ad8607b807e58397307a0e0b8fbf02f1c1e43445dfa5f44",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "compiler-hardening",
+      "tag": "skillrace/compiler-hardening:base-deepseek-v4-flash",
+      "image_id": "sha256:4037d8771f8636c8cde326bad59afa37113c92fc48dd2947455bd0ba7b55c5aa",
+      "construction_image_id": "sha256:0efcf540898240396d7ba656e59c85cd69fc4ce322edc4873696f693fb4d8ff1",
+      "input_tree_hash": "0cab2939e1b5dde45b181f18776769d2f0c1327acaa4feb3b196dbe45c47ce84",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "validator-agent",
+      "tag": "skillrace/validator-agent:base-deepseek-v4-flash",
+      "image_id": "sha256:369d209a039f4adca1fe30401b9ac55fe23bb211030dc545abe388bc36f075c4",
+      "construction_image_id": "sha256:f59808aab2cc5a458e2c6e633a0ad816589f6713330f2e484e439d400823acf7",
+      "input_tree_hash": "7007671503180a5ac52fc7ba77dce61817310f22d5cc446879ae659f5aecd5b1",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "log-parser",
+      "tag": "skillrace/log-parser:base-deepseek-v4-flash",
+      "image_id": "sha256:afb2914d003036daa9d0e256364cd13a5c8ee0540f41120c4006bc75d27f3246",
+      "construction_image_id": "sha256:f5de5953fb8383ea8cdfb0ad9b55d3fbf665d45afaf937e508ea6936a36ffffe",
+      "input_tree_hash": "c174f092847dfb6059a013f07301a0d8513bd60d513de9f4b1f926ad37f5a157",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    }
+  ]
+}

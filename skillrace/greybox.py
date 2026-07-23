@@ -135,7 +135,7 @@ class GreyboxGenerator:
     """Drop-in Generator: fold() = pure-code novelty feedback; propose() = one LLM
     mutation of a novelty-chosen seed, realized via the shared build pipeline."""
 
-    def __init__(self, skill, skill_dir, base_image, model="qwen3.6-flash",
+    def __init__(self, skill, skill_dir, base_image, model="glm-4.5-flash",
                  level="L1", temperature=0.9,
                  build_retries=DEFAULT_BUILD_RETRIES,
                  build_timeout=DEFAULT_BUILD_TIMEOUT,
@@ -145,7 +145,7 @@ class GreyboxGenerator:
         self.skill_input_hash = skill_input_tree_hash(self.skill_dir)
         self.base_image = base_image
         self.base_image_identity = base_image_identity or base_image
-        self.build_base_image = self.base_image_identity
+        self.build_base_image = self.base_image
         self.model = model
         self.level = level
         self.temperature = temperature
@@ -156,7 +156,7 @@ class GreyboxGenerator:
         self.corpus = []               # ALL kept seeds (VeriGrey's S — never exhausts)
         self.queue = deque()          # seeds: {"cand":.., "seq":[..], "energy":N}
         self._pending = None           # seed currently spending energy
-        self.cost_usd = 0.0
+        self.cost_provider_credits = 0.0
         self.stats = {
             "folded": 0,
             "initial_retained": 0,
@@ -279,9 +279,9 @@ class GreyboxGenerator:
         user = self.mutation_context(seed)
         resp = chat([{"role": "system", "content": MUTATE_SYS},
                      {"role": "user", "content": user}],
-                    model=self.model, temperature=self.temperature, reasoning=True,
+                    model=self.model, temperature=self.temperature, reasoning=False,
                     max_tokens=900, tag="greybox.mutate", skill=self.skill)
-        self.cost_usd += resp["cost_usd"]
+        self.cost_provider_credits += resp["cost_provider_credits"]
         obj = extract_json(resp["content"])
         return obj["task"].strip(), obj["env"].strip()
 
@@ -290,10 +290,10 @@ class GreyboxGenerator:
         user = self.mutation_context(seed)
         resp = chat([{"role": "system", "content": MUTATE_SYS},
                      {"role": "user", "content": user}],
-                    model=self.model, temperature=self.temperature, reasoning=True,
+                    model=self.model, temperature=self.temperature, reasoning=False,
                     max_tokens=900, tag="greybox.mutate", skill=self.skill)
         obj = extract_json(resp["content"])
-        return obj["task"].strip(), obj["env"].strip(), resp["cost_usd"]
+        return obj["task"].strip(), obj["env"].strip(), resp["cost_provider_credits"]
 
     def reserve_mutations(self, reservations, *, batch_path):
         """Spend scheduler energy serially and freeze independent worker inputs."""
@@ -379,7 +379,11 @@ class GreyboxGenerator:
             task_nl, env_nl, mutation_cost = self._mutate_reserved(seed)
         except Exception as error:
             raise GenerationFailure(
-                f"greybox mutation failed: {error}", reason="mutation-failure"
+                f"greybox mutation failed: {error}",
+                reason="mutation-failure",
+                cost_provider_credits=float(
+                    getattr(error, "cost_provider_credits", 0.0) or 0.0
+                ),
             ) from error
         try:
             artifact, build_cost, last_error = realize_and_build(
@@ -396,10 +400,19 @@ class GreyboxGenerator:
             raise GenerationFailure(
                 f"greybox realization failed: {error}",
                 reason="realization-failure",
+                cost_provider_credits=round(
+                    float(mutation_cost)
+                    + float(getattr(error, "cost_provider_credits", 0.0) or 0.0),
+                    12,
+                ),
             ) from error
         if artifact is None:
             raise GenerationFailure(
-                f"greybox build failed: {last_error}", reason="build-failure"
+                f"greybox build failed: {last_error}",
+                reason="build-failure",
+                cost_provider_credits=round(
+                    float(mutation_cost) + float(build_cost), 12
+                ),
             )
         provenance = {
             "source": "greybox",
@@ -417,7 +430,8 @@ class GreyboxGenerator:
             "candidate_id": cid,
             "skill": self.skill,
             "prompt": artifact["prompt"],
-            "base_image": self.build_base_image,
+            "base_image": self.base_image,
+            "base_image_identity": self.base_image_identity,
             "containerfile": artifact["containerfile"],
             "built_image": artifact["built_image"],
             "sanity": artifact["sanity"],
@@ -462,9 +476,9 @@ class GreyboxGenerator:
             successes = len(results) - len(failures)
             post["stats"]["mutations"] += len(results)
             post["stats"]["skipped_builds"] += len(failures)
-            total_cost = sum(float(item.get("cost_usd", 0.0)) for item in results)
-            post["cost_usd"] = round(float(post["cost_usd"]) + total_cost, 12)
-            post["gen_cost_usd"] = round(post["cost_usd"], 6)
+            total_cost = sum(float(item.get("cost_provider_credits", 0.0)) for item in results)
+            post["cost_provider_credits"] = round(float(post["cost_provider_credits"]) + total_cost, 12)
+            post["gen_cost_provider_credits"] = round(post["cost_provider_credits"], 6)
             post["failure_state"] = (
                 None
                 if successes
@@ -546,7 +560,9 @@ class GreyboxGenerator:
                         candidate, cost = self.propose_reserved(record)
                     return candidate, cost, None
                 except Exception as error:
-                    return None, 0.0, {
+                    return None, float(
+                        getattr(error, "cost_provider_credits", 0.0) or 0.0
+                    ), {
                         "type": type(error).__name__,
                         "reason": getattr(error, "reason", "generation-error"),
                         "message": str(error)[:500],
@@ -559,7 +575,7 @@ class GreyboxGenerator:
                 {
                     "candidate_id": record["candidate_id"],
                     "candidate": candidate,
-                    "cost_usd": cost,
+                    "cost_provider_credits": cost,
                     "error": error,
                 }
                 for record, (candidate, cost, error) in zip(records, realized)
@@ -608,7 +624,7 @@ class GreyboxGenerator:
                 build_retries=self.build_retries,
                 build_timeout=self.build_timeout,
             )
-            self.cost_usd += cost
+            self.cost_provider_credits += cost
         except Exception as error:
             self.stats["skipped_builds"] += 1
             failure = GenerationFailure(
@@ -629,7 +645,8 @@ class GreyboxGenerator:
             "candidate_id": cid,
             "skill": self.skill,
             "prompt": artifact["prompt"],
-            "base_image": self.build_base_image,
+            "base_image": self.base_image,
+            "base_image_identity": self.base_image_identity,
             "containerfile": artifact["containerfile"],
             "built_image": artifact["built_image"],
             "sanity": artifact["sanity"],
@@ -697,8 +714,8 @@ class GreyboxGenerator:
             "queue_order": queue_order,
             "pending_entry_id": pending,
             "stats": json.loads(json.dumps(self.stats)),
-            "cost_usd": self.cost_usd,
-            "gen_cost_usd": round(self.cost_usd, 6),
+            "cost_provider_credits": self.cost_provider_credits,
+            "gen_cost_provider_credits": round(self.cost_provider_credits, 6),
             "failure_state": json.loads(json.dumps(self.failure_state)),
             "folded_attempt_ids": list(self.folded_attempt_ids),
             "fold_results": fold_results,
@@ -755,7 +772,7 @@ class GreyboxGenerator:
         self.queue = queue
         self._pending = pending
         self.stats = json.loads(json.dumps(snapshot.get("stats", {})))
-        self.cost_usd = float(snapshot.get("cost_usd", 0.0))
+        self.cost_provider_credits = float(snapshot.get("cost_provider_credits", 0.0))
         self.failure_state = json.loads(json.dumps(snapshot.get("failure_state")))
         self.folded_attempt_ids = list(snapshot.get("folded_attempt_ids", []))
         self._fold_results = {}
@@ -773,7 +790,7 @@ class GreyboxGenerator:
                 "novelty": {"tools": len(self.d_tool), "transitions": len(self.d_trans),
                             "sequences": len(self.d_seq)},
                 "queue": len(self.queue), "stats": self.stats,
-                "gen_cost_usd": round(self.cost_usd, 6)}
+                "gen_cost_provider_credits": round(self.cost_provider_credits, 6)}
 
 
 def main():

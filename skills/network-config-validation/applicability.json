@@ -1,0 +1,2 @@
+{"skill":"network-config-validation","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","build-static","self-consistency"],"property_ids":["dangerous-commands-detected","address-conflicts-detected","section-scoped-validation"],"contingency":"high","family":"network-validation"}
+

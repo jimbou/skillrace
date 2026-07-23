@@ -1,0 +1,2 @@
+{"skill":"data-transform","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","build-static","self-consistency"],"property_ids":["transformation-values-correct","missing-and-duplicate-policy","schema-and-row-identity-preserved","transform-artifact-reproducible"],"contingency":"high","family":"data-transformation"}
+

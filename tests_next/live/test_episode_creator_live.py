@@ -19,6 +19,11 @@ from skillrace_next.storage import atomic_write_json, file_hash
 
 pytestmark = pytest.mark.live
 
+REAL_JS_FEATURE_EXECUTION = Path(
+    "out/live-contracts/pilot-v4/deepseek-v4-flash/part1/js-feature/"
+    "replicates/0001/campaign/methods/skillrace/runs/0/execution"
+)
+
 
 def unique_run_id() -> str:
     return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
@@ -65,6 +70,16 @@ def copy_trace_and_source_receipt(source: Path, evidence: Path) -> Path:
     shutil.copy2(source / "runtime" / "trace.jsonl", trace_path)
     shutil.copy2(source / "runtime" / "provider.json", receipt_path)
     shutil.copy2(source / "run.json", run_path)
+    verifier_input = source.parent / "checks" / "verifier" / "input"
+    for relative in ("prompt.txt", "nl_checks.json"):
+        if (verifier_input / relative).is_file():
+            shutil.copy2(verifier_input / relative, input_directory / relative)
+    if (verifier_input / "skill" / "SKILL.md").is_file():
+        (input_directory / "skill").mkdir()
+        shutil.copy2(
+            verifier_input / "skill" / "SKILL.md",
+            input_directory / "skill" / "SKILL.md",
+        )
     atomic_write_json(
         evidence / "source.json",
         {
@@ -164,6 +179,61 @@ def test_real_pi_segments_same_track_weak_agent_trace(
     assert all(
         episode["opening_reasoning"]
         == calls[episode["start_call"] - 1]["reasoning"]
+        for episode in episodes
+    )
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert receipt["provider"] == "lab"
+    assert receipt["model"] == model
+    assert receipt["status"] == "completed"
+    assert receipt["usage"]["total_tokens"] > 0
+    for path in evidence.rglob("*"):
+        if path.is_file():
+            assert secret not in path.read_text(encoding="utf-8", errors="replace")
+
+
+@pytest.mark.parametrize("model", ["deepseek-v4-flash", "qwen3.6-flash"])
+def test_real_pi_segments_nine_call_js_feature_into_concrete_attempts(
+    model: str, live_evidence_root: Path
+) -> None:
+    secret = os.environ.get("LAB_KEY_UNLIMITED")
+    if not secret:
+        pytest.fail("LAB_KEY_UNLIMITED is required for the live episode contract")
+    if not REAL_JS_FEATURE_EXECUTION.is_dir():
+        pytest.fail("the immutable nine-call js-feature execution is required")
+    evidence = live_evidence_root / "episode-creator" / model / unique_run_id()
+    trace_path = copy_trace_and_source_receipt(REAL_JS_FEATURE_EXECUTION, evidence)
+    run = run_record_from_saved_trace(REAL_JS_FEATURE_EXECUTION, trace_path, model)
+
+    episodes, receipt_path = create_episodes(
+        run, live_config(evidence, model), evidence / "episodes"
+    )
+
+    _, calls = project_trace(trace_path)
+    creation = json.loads(
+        (evidence / "episodes" / "episode-creation.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert len(calls) == 9
+    assert creation["target_episode_count"] == 9
+    assert 7 <= len(episodes) <= 9
+    assert validate_episodes(episodes, trace_path) == episodes
+    combined = " ".join(
+        f"{episode['purpose']} {episode['what_it_did']} {episode['outcome']}"
+        for episode in episodes
+    ).lower()
+    assert "deepclone" in combined
+    assert "primitive" in combined
+    assert "array" in combined
+    assert "typeerror" in combined
+    forbidden_purposes = {
+        "implementation",
+        "debugging",
+        "run tests",
+        "final verification",
+    }
+    assert all(
+        episode["purpose"].strip().lower() not in forbidden_purposes
         for episode in episodes
     )
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))

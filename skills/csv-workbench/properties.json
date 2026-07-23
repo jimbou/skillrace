@@ -1,0 +1,6 @@
+[
+  {"id":"numeric-summary-correct","reads":"state","nl":"Every requested count, aggregate, grouping, comparison, and unit in the output equals an independent computation over the concrete CSV fixture, including edge rows rather than a sample."},
+  {"id":"csv-parsing-correct","reads":"state","nl":"Quoted delimiters, escaped quotes, missing values, line endings, and malformed rows required by the task are handled according to the stated policy without shifting columns or silently dropping data."},
+  {"id":"source-data-preserved","reads":"state","nl":"The original input CSV remains unchanged unless the task explicitly asks for a transformed copy, and any generated result is valid in the requested format and location."}
+]
+

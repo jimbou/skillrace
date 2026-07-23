@@ -20,6 +20,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from .io_utils import atomic_write_json, canonical_json_hash
+from .model_policy import HIDDEN_TEMPLATE_BASE_IMAGE
 
 
 SCHEMA_SCENARIO = "skillrace-scenario/1"
@@ -358,7 +359,19 @@ def load_test(
     dockerfile = root / "Dockerfile"
     if not candidate.is_file() or not dockerfile.is_file():
         raise ContractError(f"hidden test lacks candidate.json or Dockerfile: {root}")
-    _read_json(candidate)
+    candidate_value = _read_json(candidate)
+    scenario_id = root.parents[1].name
+    if scenario_id in CANONICAL_SCENARIOS:
+        if (
+            candidate_value.get("skill") != scenario_id
+            or candidate_value.get("base_image") != HIDDEN_TEMPLATE_BASE_IMAGE
+            or not dockerfile.read_text(encoding="utf-8").startswith(
+                f"FROM {HIDDEN_TEMPLATE_BASE_IMAGE}\n"
+            )
+        ):
+            raise ContractError(
+                f"canonical hidden test runtime identity mismatch: {manifest_path}"
+            )
     candidate_hash = _require_digest(value["candidate_sha256"], "candidate_sha256")
     docker_hash = _require_digest(value["dockerfile_sha256"], "dockerfile_sha256")
     if candidate_hash != _sha256(candidate):
@@ -911,6 +924,50 @@ def refresh_hashes(root: str | pathlib.Path) -> tuple[pathlib.Path, ...]:
     return tuple(changed)
 
 
+def reset_runtime_evidence(
+    root: str | pathlib.Path, *, reason: str
+) -> tuple[pathlib.Path, ...]:
+    """Explicitly invalidate Docker evidence before a contract/runtime migration."""
+
+    if not isinstance(reason, str) or not reason.strip():
+        raise ContractError("runtime-evidence reset requires a non-empty reason")
+    target = pathlib.Path(root).resolve()
+    if (target / "test.json").is_file():
+        tests = [target]
+    elif (target / "scenario.json").is_file():
+        tests = sorted(path for path in (target / "tests").glob("t*") if path.is_dir())
+    else:
+        tests = sorted(
+            path
+            for path in target.glob("*/tests/t*")
+            if path.is_dir() and (path / "test.json").is_file()
+        )
+    if not tests:
+        raise ContractError(f"no hidden tests found under {target}")
+    changed: list[pathlib.Path] = []
+    for test_dir in tests:
+        manifest = _read_json(test_dir / "test.json")
+        test_id = manifest.get("test_id")
+        if not isinstance(test_id, str) or not test_id:
+            raise ContractError(f"test manifest has no stable test_id: {test_dir}")
+        evidence = test_dir / "oracle/evidence/validation.json"
+        if evidence.is_symlink() or not evidence.is_file():
+            raise ContractError(f"runtime evidence is missing or a symlink: {evidence}")
+        value = {
+            "schema": SCHEMA_EVIDENCE,
+            "test_id": test_id,
+            "state": EvidenceState.PENDING_DOCKER.value,
+            "contract_identity_sha256": None,
+            "reason": reason.strip(),
+            "reference": None,
+            "negative_implementations": None,
+        }
+        if _read_json(evidence) != value:
+            atomic_write_json(evidence, value)
+            changed.append(evidence.resolve())
+    return tuple(changed)
+
+
 def _print_report(report: ValidationReport, static: StaticAuditReport) -> None:
     print(
         json.dumps(
@@ -942,7 +999,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     validate.add_argument("--require-runtime-evidence", action="store_true")
     refresh = subparsers.add_parser("refresh-hashes")
     refresh.add_argument("root", type=pathlib.Path)
+    reset = subparsers.add_parser("reset-runtime-evidence")
+    reset.add_argument("root", type=pathlib.Path)
+    reset.add_argument("--reason", required=True)
     arguments = parser.parse_args(argv)
+    if arguments.command == "reset-runtime-evidence":
+        for changed in reset_runtime_evidence(arguments.root, reason=arguments.reason):
+            print(f"reset {changed}")
+        return 0
     if arguments.command == "refresh-hashes":
         for changed in refresh_hashes(arguments.root):
             print(f"refreshed {changed}")

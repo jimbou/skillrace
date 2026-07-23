@@ -1,0 +1,36 @@
+{
+  "model": "glm-4.5-flash",
+  "requested_model": "glm-4.5-flash",
+  "turns": 3,
+  "in": 3637,
+  "out": 195,
+  "cache_read": 0,
+  "total_tokens": 3832,
+  "billing_currency": "YUNWU_CREDIT",
+  "cost_provider_credits": 8.833999999999998e-05,
+  "price_provider_credits": 8.8e-05,
+  "cost_usd": null,
+  "by_turn": [
+    {
+      "model": "glm-4.5-flash",
+      "input": 1126,
+      "output": 108,
+      "total": 1234,
+      "cache_read": 0
+    },
+    {
+      "model": "glm-4.5-flash",
+      "input": 1223,
+      "output": 64,
+      "total": 1287,
+      "cache_read": 0
+    },
+    {
+      "model": "glm-4.5-flash",
+      "input": 1288,
+      "output": 23,
+      "total": 1311,
+      "cache_read": 0
+    }
+  ]
+}

@@ -43,10 +43,10 @@ def test_base_generation_records_exact_prompt_response_config_hashes_and_cost(tm
         calls.append((messages, settings))
         return {
             "content": "---\nname: widgets\ndescription: Build widgets.\n---\n# Widgets\nVerify inputs.\n",
-            "model": "qwen3.6-flash",
+            "model": "glm-4.5-flash",
             "id": "provider-call-1",
             "usage": {"prompt_tokens": 12, "completion_tokens": 8},
-            "cost_usd": 0.04,
+            "cost_provider_credits": 0.04,
         }
 
     record = generate_base_skill(
@@ -57,13 +57,13 @@ def test_base_generation_records_exact_prompt_response_config_hashes_and_cost(tm
     )
 
     assert len(calls) == 1
-    assert calls[0][1]["model"] == "qwen3.6-flash"
+    assert calls[0][1]["model"] == "glm-4.5-flash"
     assert record["model_config"] == FROZEN_BASE_GENERATION_CONFIG
     assert record["provider_response_id_sha256"] == hashlib.sha256(
         b"provider-call-1"
     ).hexdigest()
     assert "provider_call_id" not in record
-    assert record["cost_usd"] == 0.04
+    assert record["cost_provider_credits"] == 0.04
     assert record["skill_hash"]
     assert record["prompt_hash"]
     assert record["raw_response_hash"]
@@ -118,10 +118,10 @@ def test_base_generation_refuses_unknown_model_outcome_and_tampered_skill(tmp_pa
         chat_fn=nonproduction_chat_fixture(
             lambda *_args, **_kwargs: {
                 "content": "# Original\n",
-                "model": "qwen3.6-flash",
+                "model": "glm-4.5-flash",
                 "id": "fixture-other-call",
                 "usage": {"prompt_tokens": 0, "completion_tokens": 0},
-                "cost_usd": 0.0,
+                "cost_provider_credits": 0.0,
             }
         ),
     )
@@ -141,9 +141,9 @@ def test_base_generation_rejects_implicit_unjournaled_chat_fixture(tmp_path):
             output_dir=tmp_path / "base_skill",
             chat_fn=lambda *_args, **_kwargs: {
                 "content": "# Not journalled\n",
-                "model": "qwen3.6-flash",
+                "model": "glm-4.5-flash",
                 "usage": {"prompt_tokens": 1, "completion_tokens": 1},
-                "cost_usd": 0.1,
+                "cost_provider_credits": 0.1,
             },
         )
 
@@ -157,10 +157,10 @@ def test_base_generation_binds_stable_operation_to_redacted_terminal_receipt(tmp
         calls.append(settings)
         return {
             "content": "# Generated\n",
-            "model": "qwen3.6-flash",
+            "model": "glm-4.5-flash",
             "id": "raw-provider-id-must-not-be-stored",
             "usage": {"prompt_tokens": 4, "completion_tokens": 2},
-            "cost_usd": 0.25,
+            "cost_provider_credits": 0.25,
         }
 
     record = generate_base_skill(
@@ -219,10 +219,10 @@ def test_base_validation_rejects_rehashed_wrong_provider_model(tmp_path):
         chat_fn=nonproduction_chat_fixture(
             lambda *_args, **_kwargs: {
                 "content": "# Generated\n",
-                "model": "qwen3.6-flash",
+                "model": "glm-4.5-flash",
                 "id": "fixture-model-check",
                 "usage": {"prompt_tokens": 4, "completion_tokens": 2},
-                "cost_usd": 0.25,
+                "cost_provider_credits": 0.25,
             }
         ),
     )
@@ -251,10 +251,10 @@ def test_base_validation_rejects_missing_journal_terminal_receipt(tmp_path):
         chat_fn=nonproduction_chat_fixture(
             lambda *_args, **_kwargs: {
                 "content": "# Generated\n",
-                "model": "qwen3.6-flash",
+                "model": "glm-4.5-flash",
                 "id": "fixture-missing-receipt",
                 "usage": {"prompt_tokens": 4, "completion_tokens": 2},
-                "cost_usd": 0.25,
+                "cost_provider_credits": 0.25,
             }
         ),
     )
@@ -270,7 +270,7 @@ def test_base_artifact_copies_exact_durable_closeai_terminal_receipt(
     purpose = tmp_path / "scenario.md"
     purpose.write_text("purpose\n")
     ledger = tmp_path / "model-calls.jsonl"
-    monkeypatch.setenv("CLOSE_API_KEY", "fixture-secret")
+    monkeypatch.setenv("yunwu_key", "fixture-secret")
     monkeypatch.setenv("SKILLRACE_LEDGER", str(ledger))
 
     class ProviderResponse(io.BytesIO):
@@ -285,7 +285,7 @@ def test_base_artifact_copies_exact_durable_closeai_terminal_receipt(
 
     provider_value = {
         "id": "rq3-response-1",
-        "model": "qwen3.6-flash",
+        "model": "glm-4.5-flash",
         "choices": [{"message": {"content": "# Generated\n"}}],
         "usage": {
             "prompt_tokens": 4,
@@ -338,10 +338,10 @@ def test_base_validation_rejects_changed_frozen_system_prompt(tmp_path):
         chat_fn=nonproduction_chat_fixture(
             lambda *_args, **_kwargs: {
                 "content": "# Generated\n",
-                "model": "qwen3.6-flash",
+                "model": "glm-4.5-flash",
                 "id": "fixture-base-prompt-check",
                 "usage": {"prompt_tokens": 4, "completion_tokens": 2},
-                "cost_usd": 0.25,
+                "cost_provider_credits": 0.25,
             }
         ),
     )
@@ -373,10 +373,10 @@ def test_base_validation_rejects_rehashed_wrong_journal_request_identity(tmp_pat
         chat_fn=nonproduction_chat_fixture(
             lambda *_args, **_kwargs: {
                 "content": "# Generated\n",
-                "model": "qwen3.6-flash",
+                "model": "glm-4.5-flash",
                 "id": "fixture-base-request-check",
                 "usage": {"prompt_tokens": 4, "completion_tokens": 2},
-                "cost_usd": 0.25,
+                "cost_provider_credits": 0.25,
             }
         ),
     )

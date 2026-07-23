@@ -12,55 +12,54 @@ Related: [runner.md](./design/runner.md) (executes), [guard-synthesizer.md](./de
 
 ---
 
-## Reference implementation (as built & verified, June 2026)
+## Reference implementation (as built & verified, July 2026)
 
 The design below is **implemented and validated end-to-end** against a real Pi +
-CloseAI setup. Concrete artifacts in this repo:
+Yunwu setup. Concrete artifacts in this repo:
 
 | Path | What it is |
 |------|------------|
 | `images/pi-base/Dockerfile.pi-base` | Level-1 shared base recipe |
-| `images/pi-base/models.closeai.json` | baked CloseAI provider config (key injected at runtime) |
-| `images/pi-base/build.sh` | builds `skillrace/pi-base:<version>` + `:latest` |
+| `images/pi-base/models.yunwu.<model>.json` | one baked Yunwu model per track (key injected at runtime) |
+| `images/pi-base/build.sh` | builds `skillrace/pi-base:0.73.1-<model>` |
 | `images/pi-base/run_once.sh` | external "Runner" stand-in: run agent on (prompt, skill) → trace + `cost.json` |
 | `skills/<skill>/Containerfile.base` | Level-2 per-skill base recipe (`FROM skillrace/pi-base`) |
 | `skills/<skill>/seeds/*.Containerfile` | Level-3 per-test recipes (`FROM skillrace/<skill>:base` + tail) |
 
 **Verified facts (these override earlier assumptions from the pi.dev docs):**
 
-- **Agent package:** `@mariozechner/pi-coding-agent@0.62.0`, pinned, on `node:20-bookworm-slim`.
+- **Agent package:** `@mariozechner/pi-coding-agent@0.73.1`, pinned, on `node:20-bookworm-slim`.
   (npm warns this scope is migrating to `@earendil-works/pi-coding-agent` "going
   forward"; `PI_PKG` is a build-arg so we can switch without editing the Dockerfile.)
-- **Provider:** **CloseAI** (OpenAI-compatible proxy) via baked `models.json`. Key is
-  the **bare env-var name** `CLOSE_API_KEY` (no `$`), injected at run time with `-e`.
-  Traceable models (emit `thinking`/`reasoning_content`): `qwen3.5-flash`,
-  `qwen3.6-flash`, `glm-5`. Avoid `gemini-*`/`o4-mini` (no reasoning trace).
-- **Run + capture:** `pi --provider closeai --model <m> --print --session
+- **Provider:** **Yunwu** (OpenAI-compatible proxy) via baked `models.json`. Key is
+  the **bare env-var name** `yunwu_key` (no `$`), injected at run time with `-e`.
+  The selected track models are `glm-4.5-flash` and `deepseek-v4-flash`; both have
+  archived successful multi-turn Pi traces with nonempty `thinking` blocks.
+- **Run + capture:** `pi --provider yunwu --model <m> --print --session
   /logs/session.jsonl --skill /skills/<skill> "<prompt>" </dev/null`. The
   **`--session` JSONL is the trace** (entries tree-linked by `id`/`parentId`); it
   lands in the bind-mounted `/logs`. `</dev/null` prevents a `--print` hang.
-- **Cost** is in the trace at `.message.usage.cost.total` per assistant message
-  (computed from the per-model `cost` in `models.json`); `run_once.sh` also writes a
-  `cost.json` summary artifact.
-- **Images built/verified:** `skillrace/pi-base:0.62.0` (430 MB) →
-  `skillrace/fix-failing-test:base` (473 MB) → per-test image (built in **~0.16 s**,
-  base layers all cache hits). Stored in the local daemon; a portable copy lives at
-  `images/pi-base/pi-base-0.62.0.tar` (`docker save`/`docker load`).
+- **Cost** is recomputed from trace usage under the dated Yunwu custom-credit rate card;
+  the zero cost in Pi's catalog is never interpreted as free usage. `cost.json` records
+  provider credits and leaves USD null.
+- **Images built/verified:** distinct Pi 0.73.1 GLM and DeepSeek images pass direct and
+  multi-turn tool probes. D1 builds a heavy environment once per skill, then bakes one
+  tiny model-catalog overlay per track and records both final image IDs.
 
 Build & run, end to end:
 
 ```bash
 # Level 1 (once): the shared base  (~11 min first time: npm install of pi; cached after)
-images/pi-base/build.sh
+MODEL=glm-4.5-flash images/pi-base/build.sh
+MODEL=deepseek-v4-flash images/pi-base/build.sh
 
 # Level 2 (once per skill): the per-skill base
-docker build -t skillrace/fix-failing-test:base \
-  -f skills/fix-failing-test/Containerfile.base skills/fix-failing-test/
+python3 -m skillrace.d1_images --workers 3
 
 # Level 3 (per test): the per-test image + a run
 docker build -t skillrace/run-ftt-seed0:built \
   -f skills/fix-failing-test/seeds/seed0.Containerfile skills/fix-failing-test/
-images/pi-base/run_once.sh qwen3.6-flash skills/<skill> out/<run> "<prompt>"
+images/pi-base/run_once.sh glm-4.5-flash skills/<skill> out/<run> "<prompt>"
 ```
 
 The remainder of this page is the design rationale and the contract details.
@@ -102,7 +101,7 @@ strict structure**, so Docker's layer cache makes the shared work free. There ar
 
 ### Shared `pi-base` image (built once, all skills)
 
-A single image with Node + Pi (+ git/ripgrep) + a baked CloseAI `models.json`. The
+A single image with Node + Pi (+ git/ripgrep) + a baked Yunwu `models.json`. The
 **as-built** recipe is `images/pi-base/Dockerfile.pi-base`:
 
 ```dockerfile
@@ -111,26 +110,27 @@ FROM node:20-bookworm-slim                        # matches the host-verified ru
 RUN apt-get update \
  && apt-get install -y --no-install-recommends bash ca-certificates git ripgrep \
  && rm -rf /var/lib/apt/lists/*
-ARG PI_PKG=@mariozechner/pi-coding-agent@0.62.0   # pinned; build-arg → bump/migrate scope w/o edit
+ARG PI_PKG=@mariozechner/pi-coding-agent@0.73.1   # pinned
 RUN --mount=type=cache,target=/root/.npm \        # cache mount → fast future rebuilds; keeps tarballs out of the layer
     npm install -g --ignore-scripts --loglevel=error "$PI_PKG" && pi --version
-COPY models.closeai.json /root/.pi/agent/models.json   # CloseAI provider; key NOT baked
+ARG TRACK_MODEL
+ARG MODEL_CONFIG
+COPY ${MODEL_CONFIG} /root/.pi/agent/models.json     # exactly one model; key NOT baked
 RUN mkdir -p /skills /logs /workspace
 WORKDIR /workspace
 ```
 
-Build with `images/pi-base/build.sh` → tags `skillrace/pi-base:0.62.0` + `:latest`
-(430 MB). The model **API key is NOT baked in** — `models.json` names the bare env
-var `CLOSE_API_KEY`, injected at run time with `-e`. Because every skill builds
+Build once per selected model → tags `skillrace/pi-base:0.73.1-<model>`.
+The model **API key is NOT baked in** — `models.json` names the bare env
+var `yunwu_key`, injected at run time with `-e`. Because every skill builds
 `FROM skillrace/pi-base`, the expensive Pi install (210 packages, ~11 min) happens
 **once for the whole project**, not once per skill.
 
 > **Notes from building it:** we use `node:20` (host-verified) and the
 > `@mariozechner` scope (current package; pi.dev's `@earendil-works` is the future
-> name). **`pi-agent-budget` is deferred** — per-run cost already lands in the trace
-> (`.message.usage.cost`), and the extension's native `better-sqlite3` build + TUI
-> widget add complexity with little headless value. Add it later only if we want a
-> hard cost kill-switch ([Termination](#termination--budget)).
+> name). **`pi-agent-budget` is not installed** — immutable token usage lands in the
+> trace and the host applies the dated provider-credit rate card. The extension's native
+> dependency and TUI add complexity without improving the fixed wall-clock comparison.
 
 > We deliberately **do not let the synthesizer choose the base image.** A free-choice
 > base would bust the layer cache (a full Pi install per distinct base), weaken
@@ -140,7 +140,7 @@ var `CLOSE_API_KEY`, injected at run time with `-e`. Because every skill builds
 
 ### Per-skill base image (built once, cached)
 
-For each skill, build **one base image** `FROM skillrace/pi-base` containing
+For each skill, build **one heavy construction image** from the common skillgen base containing
 everything stable across all of that skill's test runs:
 
 - the **target repository at its base commit**,
@@ -154,14 +154,15 @@ everything stable across all of that skill's test runs:
 - a `python → python3` symlink so the agent doesn't waste a turn on
   `python: command not found`.
 
-This is the slow part. It happens **~once per skill** (≈20 times total for a
-campaign) and is cached. Tag `skillrace/<skill-id>:base`. Network egress for LLM
+This is the slow part. It happens **once per skill** (30 times total) and is cached.
+A tiny final overlay bakes exactly one track catalog, producing
+`skillrace/<skill-id>:base-<model>` with a distinct frozen image ID. Network egress for LLM
 calls is provided at run time (see [Network](#network-host-network)).
 
 The **as-built** example is `skills/fix-failing-test/Containerfile.base`:
 
 ```dockerfile
-FROM skillrace/pi-base:0.62.0
+FROM skillrace/pi-base:0.73.1-glm-4.5-flash
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-pytest \
  && rm -rf /var/lib/apt/lists/*
@@ -343,16 +344,15 @@ The tex mandates a hard step/turn cap; we **replace it with a wall-clock timeout
 - **Primary: wall-clock timeout** (`runner.wall_clock_cap_s`, default 900s). On
   expiry the container is killed; `run.json.termination.reason="timeout"`; whatever
   steps were captured are normalized into a (partial) trace.
-- **Optional backstop: token/cost hard cap** via the `pi-agent-budget` extension
-  baked into `pi-base` — set a hard per-run limit so a fast-looping agent can't burn
-  unbounded tokens within the timeout. Trips `termination.reason="token_budget"`.
+- **No token/cost stop:** tokens and provider credits are recorded, but only the frozen
+  wall-clock policy terminates a headline execution.
 - **Pathological repetition is not capped — it is *detected*.** A rapid-fire loop
   that finishes within the timeout is caught by the **process-hygiene property** "no
   pathological repetition" ([property-checker.md](./design/property-checker.md)),
   i.e. reported as a *bug* rather than hidden by a cap. (Re-introduce a turn cap only
   if runaway loops prove to waste meaningful budget in practice.)
 
-Budget tracking for the whole campaign uses the same `pi-agent-budget` data
+Budget tracking for the whole campaign uses host-side immutable session usage
 ([pi-integration §6 OQ-6](./pi-integration.md#oq-6-usagecost-for-budgeting)).
 
 ---

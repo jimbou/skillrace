@@ -1,9 +1,9 @@
 {
   "schema": "skillrace-hidden-test/1",
   "test_id": "interval-merge/t1",
-  "candidate_sha256": "bfc89e7835a8f46aa137ab13977da3144364bc2c592ac72efa16595303997894",
-  "dockerfile_sha256": "ba69408f061de14235f7f6678d509fb3b6644f447f0bd58d24de9cc614d6f08d",
-  "content_identity_sha256": "ecff0f1c168faa74fb1ffd2d994dd479919b950ac6071fee897e911c99fb4b2c",
+  "candidate_sha256": "f4f132c7e5674600c7cce858e545636cf45ac31e2dc5916c67bfb4284f73d46a",
+  "dockerfile_sha256": "f90a750388374a2ff1ffce8099f8e58dbea61404fe3d9d625319d983c2bd14ac",
+  "content_identity_sha256": "4f10275084a51e276bc8bc88fa2f9c9f777e841865f7abf92701215b2697ad62",
   "duplicate_justification": null,
   "entrypoint": "python3 -c 'from intervals import merge'",
   "criteria": [
@@ -32,5 +32,5 @@
   ],
   "validation_evidence": "oracle/evidence/validation.json",
   "reference_sha256": "522c262873aef9cbea2c476b2a9d23ada71da0facdd91856cf54f4eaea34f49c",
-  "contract_identity_sha256": "a285721830801eed1c885c3c4d85871d8e79071bb6e14487ed321ba24a88f38c"
+  "contract_identity_sha256": "547728a243d4da638555363a234b80bdd9e3743d6b65238378662a700456060e"
 }

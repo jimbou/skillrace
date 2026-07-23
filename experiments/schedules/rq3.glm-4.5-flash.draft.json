@@ -1,0 +1,70 @@
+{
+  "schema": "skillrace-rq3-schedule/1",
+  "experiment_id": "skillrace-rq3-glm-4.5-flash-r01-draft",
+  "status": "draft",
+  "model": "glm-4.5-flash",
+  "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+  "protocol_hash": "49e19b9a2d74e40213340423a4b39e0304235e79b228305a8bfaa8a6655a9718",
+  "scenarios_root": "scenarios",
+  "replication": 1,
+  "wall_clock": 1200,
+  "scenario_workers": 3,
+  "preparation_workers": 2,
+  "scenario_preparation": {
+    "mode": "private-track-copy-exactly-once",
+    "base_generation_calls_per_scenario": 1,
+    "cross_track_identity": "normalized-benchmark-template-hash"
+  },
+  "cells": [
+    {
+      "id": "rq3.glm-4.5-flash.argparse-cli.r01",
+      "scenario": "scenarios/argparse-cli",
+      "output": "scenarios/argparse-cli"
+    },
+    {
+      "id": "rq3.glm-4.5-flash.config-parser.r01",
+      "scenario": "scenarios/config-parser",
+      "output": "scenarios/config-parser"
+    },
+    {
+      "id": "rq3.glm-4.5-flash.csv-stats.r01",
+      "scenario": "scenarios/csv-stats",
+      "output": "scenarios/csv-stats"
+    },
+    {
+      "id": "rq3.glm-4.5-flash.fix-failing-test.r01",
+      "scenario": "scenarios/fix-failing-test",
+      "output": "scenarios/fix-failing-test"
+    },
+    {
+      "id": "rq3.glm-4.5-flash.interval-merge.r01",
+      "scenario": "scenarios/interval-merge",
+      "output": "scenarios/interval-merge"
+    },
+    {
+      "id": "rq3.glm-4.5-flash.json-csv.r01",
+      "scenario": "scenarios/json-csv",
+      "output": "scenarios/json-csv"
+    },
+    {
+      "id": "rq3.glm-4.5-flash.log-parser.r01",
+      "scenario": "scenarios/log-parser",
+      "output": "scenarios/log-parser"
+    },
+    {
+      "id": "rq3.glm-4.5-flash.regex-validate.r01",
+      "scenario": "scenarios/regex-validate",
+      "output": "scenarios/regex-validate"
+    },
+    {
+      "id": "rq3.glm-4.5-flash.sqlite-query.r01",
+      "scenario": "scenarios/sqlite-query",
+      "output": "scenarios/sqlite-query"
+    },
+    {
+      "id": "rq3.glm-4.5-flash.text-template.r01",
+      "scenario": "scenarios/text-template",
+      "output": "scenarios/text-template"
+    }
+  ]
+}

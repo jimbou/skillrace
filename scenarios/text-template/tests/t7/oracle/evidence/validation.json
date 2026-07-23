@@ -2,10 +2,10 @@
   "schema": "skillrace-oracle-evidence/1",
   "test_id": "text-template/t7",
   "state": "validated",
-  "contract_identity_sha256": "163f68fe23118c5fe8fc473e0d820e20f375f529007b702a467d4f0309e35ef2",
+  "contract_identity_sha256": "b1cd23840c8da3edae46b76e4a04c5b2ee57bf2b0070da50d2e01ce0e7aa7e61",
   "reason": "Docker reference and negative oracle audit passed",
-  "validated_at": "2026-07-12T00:16:05.070043+00:00",
-  "image_digest": "sha256:ed9c7d9fd42818189c49223f71883d20dc10a12f8296900329bdd402a56a718d",
+  "validated_at": "2026-07-12T17:36:44.372435+00:00",
+  "image_digest": "sha256:a20db682c0b95b744344446f03ac4e4e167dce9f02b1dba4fc2a34f1b1f30205",
   "docker_version": "29.6.1",
   "reference": {
     "passed": true,
@@ -18,7 +18,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.130801,
+        "duration_seconds": 0.092943,
         "script_sha256": "febd20282c5f43685334ccd79c1db2266f2204af11d8b66391c916cbabe211e7",
         "isolation": "fresh-container-per-criterion"
       }
@@ -34,7 +34,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "FAIL render.py missing",
-        "duration_seconds": 0.090035,
+        "duration_seconds": 0.057287,
         "script_sha256": "febd20282c5f43685334ccd79c1db2266f2204af11d8b66391c916cbabe211e7",
         "isolation": "fresh-container-per-criterion"
       }
@@ -51,7 +51,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "FAIL out.txt missing",
-          "duration_seconds": 0.111503,
+          "duration_seconds": 0.071347,
           "script_sha256": "febd20282c5f43685334ccd79c1db2266f2204af11d8b66391c916cbabe211e7",
           "isolation": "fresh-container-per-criterion"
         }

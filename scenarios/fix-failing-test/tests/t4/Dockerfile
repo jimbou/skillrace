@@ -1,4 +1,4 @@
-FROM skillrace/skillgen-base:latest
+FROM skillrace/skillgen-base:0.73.1-construction
 WORKDIR /workspace
 RUN cat > cmp.py <<'IMPL'
 def at_least(x, threshold):

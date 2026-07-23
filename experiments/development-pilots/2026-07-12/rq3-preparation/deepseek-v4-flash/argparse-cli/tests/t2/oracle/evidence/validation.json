@@ -1,0 +1,9 @@
+{
+  "schema": "skillrace-oracle-evidence/1",
+  "test_id": "argparse-cli/t2",
+  "state": "pending-docker",
+  "contract_identity_sha256": null,
+  "reason": "Pi 0.73.1 dual-model runtime migration; oracle evidence must be regenerated on the pinned construction base",
+  "reference": null,
+  "negative_implementations": null
+}

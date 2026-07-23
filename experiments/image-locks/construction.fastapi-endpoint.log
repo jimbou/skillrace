@@ -1,0 +1,166 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Containerfile.base
+#1 transferring dockerfile: 675B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/skillrace/skillgen-base:0.73.1-construction
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/4] FROM docker.io/skillrace/skillgen-base:0.73.1-construction
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 87B done
+#5 DONE 0.0s
+
+#6 [2/5] RUN apt-get update     && apt-get install -y --no-install-recommends python3-pip     && rm -rf /var/lib/apt/lists/*     && python3 -m pip install --break-system-packages --no-cache-dir --timeout 180 --retries 10         fastapi==0.139.0 uvicorn==0.51.0 httpx==0.28.1
+#6 5.757 Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+#6 7.261 Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+#6 8.303 Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [48.0 kB]
+#6 10.43 Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+#6 255.6 Ign:4 http://deb.debian.org/debian bookworm/main amd64 Packages
+#6 261.2 Get:5 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+#6 261.4 Get:6 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [316 kB]
+#6 264.9 Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+#6 382.0 Ign:4 http://deb.debian.org/debian bookworm/main amd64 Packages
+#6 389.9 Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+#6 520.6 Ign:4 http://deb.debian.org/debian bookworm/main amd64 Packages
+#6 541.3 Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+#6 748.8 Fetched 3556 kB in 12min 29s (4750 B/s)
+#6 748.8 Reading package lists...
+#6 749.2 Reading package lists...
+#6 749.6 Building dependency tree...
+#6 749.7 Reading state information...
+#6 749.8 The following additional packages will be installed:
+#6 749.8   python3-distutils python3-lib2to3 python3-setuptools python3-wheel
+#6 749.8 Suggested packages:
+#6 749.8   python-setuptools-doc
+#6 749.8 Recommended packages:
+#6 749.8   build-essential python3-dev
+#6 749.9 The following NEW packages will be installed:
+#6 749.9   python3-distutils python3-lib2to3 python3-pip python3-setuptools
+#6 749.9   python3-wheel
+#6 766.6 0 upgraded, 5 newly installed, 0 to remove and 13 not upgraded.
+#6 766.6 Need to get 2085 kB of archives.
+#6 766.6 After this operation, 10.6 MB of additional disk space will be used.
+#6 766.6 Get:1 http://deb.debian.org/debian bookworm/main amd64 python3-lib2to3 all 3.11.2-3 [76.3 kB]
+#6 767.5 Get:2 http://deb.debian.org/debian bookworm/main amd64 python3-distutils all 3.11.2-3 [131 kB]
+#6 768.2 Get:3 http://deb.debian.org/debian bookworm/main amd64 python3-setuptools all 66.1.1-1+deb12u2 [522 kB]
+#6 792.1 Get:4 http://deb.debian.org/debian bookworm/main amd64 python3-wheel all 0.38.4-2 [30.8 kB]
+#6 793.7 Get:5 http://deb.debian.org/debian bookworm/main amd64 python3-pip all 23.0.1+dfsg-1 [1325 kB]
+#6 886.5 Ign:5 http://deb.debian.org/debian bookworm/main amd64 python3-pip all 23.0.1+dfsg-1
+#6 893.1 Get:5 http://deb.debian.org/debian bookworm/main amd64 python3-pip all 23.0.1+dfsg-1 [1325 kB]
+#6 928.6 debconf: delaying package configuration, since apt-utils is not installed
+#6 928.7 Fetched 1289 kB in 2min 59s (7218 B/s)
+#6 928.7 Selecting previously unselected package python3-lib2to3.
+#6 928.7 (Reading database ... 
+(Reading database ... 5%
+(Reading database ... 10%
+(Reading database ... 15%
+(Reading database ... 20%
+(Reading database ... 25%
+(Reading database ... 30%
+(Reading database ... 35%
+(Reading database ... 40%
+(Reading database ... 45%
+(Reading database ... 50%
+(Reading database ... 55%
+(Reading database ... 60%
+(Reading database ... 65%
+(Reading database ... 70%
+(Reading database ... 75%
+(Reading database ... 80%
+(Reading database ... 85%
+(Reading database ... 90%
+(Reading database ... 95%
+(Reading database ... 100%
+(Reading database ... 11002 files and directories currently installed.)
+#6 928.7 Preparing to unpack .../python3-lib2to3_3.11.2-3_all.deb ...
+#6 928.7 Unpacking python3-lib2to3 (3.11.2-3) ...
+#6 928.7 Selecting previously unselected package python3-distutils.
+#6 928.7 Preparing to unpack .../python3-distutils_3.11.2-3_all.deb ...
+#6 928.7 Unpacking python3-distutils (3.11.2-3) ...
+#6 928.7 Selecting previously unselected package python3-setuptools.
+#6 928.7 Preparing to unpack .../python3-setuptools_66.1.1-1+deb12u2_all.deb ...
+#6 928.7 Unpacking python3-setuptools (66.1.1-1+deb12u2) ...
+#6 928.8 Selecting previously unselected package python3-wheel.
+#6 928.8 Preparing to unpack .../python3-wheel_0.38.4-2_all.deb ...
+#6 928.8 Unpacking python3-wheel (0.38.4-2) ...
+#6 928.8 Selecting previously unselected package python3-pip.
+#6 928.8 Preparing to unpack .../python3-pip_23.0.1+dfsg-1_all.deb ...
+#6 928.8 Unpacking python3-pip (23.0.1+dfsg-1) ...
+#6 928.9 Setting up python3-lib2to3 (3.11.2-3) ...
+#6 928.9 Setting up python3-distutils (3.11.2-3) ...
+#6 929.0 Setting up python3-setuptools (66.1.1-1+deb12u2) ...
+#6 929.3 Setting up python3-wheel (0.38.4-2) ...
+#6 929.4 Setting up python3-pip (23.0.1+dfsg-1) ...
+#6 937.7 Collecting fastapi==0.139.0
+#6 949.9   Downloading fastapi-0.139.0-py3-none-any.whl (130 kB)
+#6 951.1      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 130.3/130.3 kB 164.1 kB/s eta 0:00:00
+#6 952.8 Collecting uvicorn==0.51.0
+#6 953.3   Downloading uvicorn-0.51.0-py3-none-any.whl (73 kB)
+#6 954.2      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.2/73.2 kB 65.1 kB/s eta 0:00:00
+#6 955.8 Collecting httpx==0.28.1
+#6 956.0   Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+#6 959.2      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.5/73.5 kB 25.6 kB/s eta 0:00:00
+#6 962.1 Collecting starlette>=0.46.0
+#6 962.3   Downloading starlette-1.3.1-py3-none-any.whl (73 kB)
+#6 972.2      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.6/73.6 kB 7.2 kB/s eta 0:00:00
+#6 987.4 Collecting pydantic>=2.9.0
+#6 987.6   Downloading pydantic-2.13.4-py3-none-any.whl (472 kB)
+#6 1025.0      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 472.3/472.3 kB 12.7 kB/s eta 0:00:00
+#6 1026.6 Collecting typing-extensions>=4.8.0
+#6 1026.9   Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+#6 1031.0      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.6/45.6 kB 13.4 kB/s eta 0:00:00
+#6 1032.1 Collecting typing-inspection>=0.4.2
+#6 1032.3   Downloading typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+#6 1034.5 Collecting annotated-doc>=0.0.2
+#6 1034.7   Downloading annotated_doc-0.0.4-py3-none-any.whl (5.3 kB)
+#6 1037.6 Collecting click>=7.0
+#6 1037.8   Downloading click-8.4.2-py3-none-any.whl (119 kB)
+#6 1048.1      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 119.2/119.2 kB 11.9 kB/s eta 0:00:00
+#6 1048.5 Collecting h11>=0.8
+#6 1049.0   Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+#6 1052.9 Collecting anyio
+#6 1053.1   Downloading anyio-4.14.1-py3-none-any.whl (124 kB)
+#6 1061.8      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 124.9/124.9 kB 16.4 kB/s eta 0:00:00
+#6 1063.5 Collecting certifi
+#6 1064.0   Downloading certifi-2026.6.17-py3-none-any.whl (133 kB)
+#6 1071.9      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 133.3/133.3 kB 16.2 kB/s eta 0:00:00
+#6 1073.4 Collecting httpcore==1.*
+#6 1073.6   Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+#6 1080.0      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 78.8/78.8 kB 13.7 kB/s eta 0:00:00
+#6 1080.7 Collecting idna
+#6 1081.0   Downloading idna-3.18-py3-none-any.whl (65 kB)
+#6 1084.0      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 65.5/65.5 kB 23.3 kB/s eta 0:00:00
+#6 1084.5 Collecting annotated-types>=0.6.0
+#6 1084.7   Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
+#6 1307.1 Collecting pydantic-core==2.46.4
+#6 1307.3   Downloading pydantic_core-2.46.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+#6 1426.6      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 24.1 kB/s eta 0:00:00
+#6 1426.8 Installing collected packages: typing-extensions, idna, h11, click, certifi, annotated-types, annotated-doc, uvicorn, typing-inspection, pydantic-core, httpcore, anyio, starlette, pydantic, httpx, fastapi
+#6 1427.4 Successfully installed annotated-doc-0.0.4 annotated-types-0.7.0 anyio-4.14.1 certifi-2026.6.17 click-8.4.2 fastapi-0.139.0 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 idna-3.18 pydantic-2.13.4 pydantic-core-2.46.4 starlette-1.3.1 typing-extensions-4.16.0 typing-inspection-0.4.2 uvicorn-0.51.0
+#6 1427.4 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+#6 DONE 1427.6s
+
+#7 [3/5] COPY repo/    /workspace/
+#7 DONE 0.0s
+
+#8 [4/5] COPY SKILL.md /skills/fastapi-endpoint/SKILL.md
+#8 DONE 0.0s
+
+#9 [5/5] RUN cd /workspace && git add -A && git commit -q -m "base: fastapi-endpoint" || true
+#9 DONE 0.1s
+
+#10 exporting to image
+#10 exporting layers
+#10 exporting layers 0.2s done
+#10 writing image sha256:bf029e3820fa5252cf477248e410d52e380e5bcdb96c5e998eb4a1da3b0cd25d done
+#10 naming to docker.io/skillrace/fastapi-endpoint:base-construction-0.73.1 done
+#10 naming to docker.io/skillrace/fastapi-endpoint:base done
+#10 DONE 0.2s

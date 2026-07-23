@@ -8,8 +8,8 @@ properties (those are the [Runner](./runner.md) and [Property Checker](./propert
 separate components). No behavioral feedback (the floor baseline / SkillRACE seed phase).
 
 Implementation: `skillrace/gen_agent.py` (hybrid, the default) and
-`skillrace/generator.py` (a faster non-agentic fallback). Provider client +
-cost ledger: `skillrace/closeai.py`.
+`skillrace/generator.py` (a faster non-agentic fallback). The compatibility-named
+`skillrace/closeai.py` module is now the Yunwu provider client and durable ledger.
 
 ---
 
@@ -17,7 +17,7 @@ cost ledger: `skillrace/closeai.py`.
 
 ```bash
 python -m skillrace.gen_agent --skill-dir skills/<skill> \
-    --base skillrace/<skill>:base --k 3 --model qwen3.6-flash --out out/<skill>-gen
+    --base skillrace/<skill>:base --k 3 --model glm-4.5-flash --out out/<skill>-gen
 ```
 
 | Input | Meaning |
@@ -25,7 +25,7 @@ python -m skillrace.gen_agent --skill-dir skills/<skill> \
 | `--skill-dir` | the skill to generate tests for (`SKILL.md` + `repo/`) |
 | `--base` | the per-skill base image the envs build `FROM` |
 | `--k` | how many test cases |
-| `--model` | generation model (default `qwen3.6-flash`) |
+| `--model` | generation model (default `glm-4.5-flash`) |
 | `--out` | where to write the cases |
 
 It needs **no properties** — generation is independent of checking.
@@ -125,7 +125,7 @@ Steps for each idea N:
 
 Both calls log to the permanent ledger (`~/.skillrace/cost_ledger.jsonl`, override
 `$SKILLRACE_LEDGER`) with tags `generate.propose` and `generate.agent`
-(`{ts, tag, skill, model, in, out, price_usd}`). `accounting.json` also summarizes
+(`{ts, tag, skill, model, in, out, price_provider_credits}`). `accounting.json` also summarizes
 the run's totals (model confirmation + in/out tokens + price).
 
 ---

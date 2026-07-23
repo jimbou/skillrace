@@ -2,10 +2,10 @@
   "schema": "skillrace-oracle-evidence/1",
   "test_id": "json-csv/t7",
   "state": "validated",
-  "contract_identity_sha256": "95d0df3a853361d811394646027810eac8488673cb14e54f1699c070d518d0c7",
+  "contract_identity_sha256": "e26b675b22ce3d04e50a03178a63061fa93491ee2f23950f11d5a539019429e1",
   "reason": "Docker reference and negative oracle audit passed",
-  "validated_at": "2026-07-12T00:13:06.707260+00:00",
-  "image_digest": "sha256:af3c47597d015bd96ce480e863976301d5f6bfbd2470c487d93cc25082692b98",
+  "validated_at": "2026-07-12T17:35:52.295772+00:00",
+  "image_digest": "sha256:6bb3e004f252fd4fce7ccc8bbf764ae784bd7424f67ea96edd6f1e9b8752c6dd",
   "docker_version": "29.6.1",
   "reference": {
     "passed": true,
@@ -18,7 +18,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.150456,
+        "duration_seconds": 0.110684,
         "script_sha256": "2170595ed78753ff9548c838888bb220bc395871e117d60359e2b9a29ee65e07",
         "isolation": "fresh-container-per-criterion"
       }
@@ -34,7 +34,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "FAIL convert.py missing",
-        "duration_seconds": 0.106039,
+        "duration_seconds": 0.063033,
         "script_sha256": "2170595ed78753ff9548c838888bb220bc395871e117d60359e2b9a29ee65e07",
         "isolation": "fresh-container-per-criterion"
       }
@@ -51,7 +51,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "RuntimeError: negative implementation",
-          "duration_seconds": 0.105309,
+          "duration_seconds": 0.091741,
           "script_sha256": "2170595ed78753ff9548c838888bb220bc395871e117d60359e2b9a29ee65e07",
           "isolation": "fresh-container-per-criterion"
         }

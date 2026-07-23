@@ -1,0 +1,1197 @@
+{
+  "schema": "skillrace-experiment-manifest/1",
+  "experiment_id": "skillrace-rq1-glm-4.5-flash-r01-draft",
+  "status": "draft",
+  "model": "glm-4.5-flash",
+  "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+  "protocol_hash": "49e19b9a2d74e40213340423a4b39e0304235e79b228305a8bfaa8a6655a9718",
+  "suite_manifest": "experiments/manifests/rq1-skills.draft.json",
+  "suite_manifest_hash": "d739ef03e9f314d707225e6d28dc84feaa8b1982286eb69ef7948f717fd9273b",
+  "replication": 1,
+  "campaign_workers": 6,
+  "epoch_size": 1,
+  "resources": {
+    "api": 4,
+    "docker": 3,
+    "agent": 3
+  },
+  "confirmation": {
+    "enabled": true
+  },
+  "repair": {
+    "enabled": true,
+    "evidence_max_bytes": 32000
+  },
+  "cells": [
+    {
+      "id": "rq1.glm-4.5-flash.fastapi-endpoint.random.r01",
+      "output": "cells/fastapi-endpoint/random",
+      "campaign": {
+        "method": "random",
+        "skill": "fastapi-endpoint",
+        "skill_dir": "skills/fastapi-endpoint",
+        "base": "skillrace/fastapi-endpoint:base-glm-4.5-flash",
+        "props_path": "skills/fastapi-endpoint/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.fastapi-endpoint.greybox.r01",
+      "output": "cells/fastapi-endpoint/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "fastapi-endpoint",
+        "skill_dir": "skills/fastapi-endpoint",
+        "base": "skillrace/fastapi-endpoint:base-glm-4.5-flash",
+        "props_path": "skills/fastapi-endpoint/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.fastapi-endpoint.skillrace.r01",
+      "output": "cells/fastapi-endpoint/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "fastapi-endpoint",
+        "skill_dir": "skills/fastapi-endpoint",
+        "base": "skillrace/fastapi-endpoint:base-glm-4.5-flash",
+        "props_path": "skills/fastapi-endpoint/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.cli-argparse-fix.greybox.r01",
+      "output": "cells/cli-argparse-fix/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "cli-argparse-fix",
+        "skill_dir": "skills/cli-argparse-fix",
+        "base": "skillrace/cli-argparse-fix:base-glm-4.5-flash",
+        "props_path": "skills/cli-argparse-fix/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.cli-argparse-fix.skillrace.r01",
+      "output": "cells/cli-argparse-fix/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "cli-argparse-fix",
+        "skill_dir": "skills/cli-argparse-fix",
+        "base": "skillrace/cli-argparse-fix:base-glm-4.5-flash",
+        "props_path": "skills/cli-argparse-fix/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.cli-argparse-fix.random.r01",
+      "output": "cells/cli-argparse-fix/random",
+      "campaign": {
+        "method": "random",
+        "skill": "cli-argparse-fix",
+        "skill_dir": "skills/cli-argparse-fix",
+        "base": "skillrace/cli-argparse-fix:base-glm-4.5-flash",
+        "props_path": "skills/cli-argparse-fix/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.cli-subcommand-validator.skillrace.r01",
+      "output": "cells/cli-subcommand-validator/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "cli-subcommand-validator",
+        "skill_dir": "skills/cli-subcommand-validator",
+        "base": "skillrace/cli-subcommand-validator:base-glm-4.5-flash",
+        "props_path": "skills/cli-subcommand-validator/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.cli-subcommand-validator.random.r01",
+      "output": "cells/cli-subcommand-validator/random",
+      "campaign": {
+        "method": "random",
+        "skill": "cli-subcommand-validator",
+        "skill_dir": "skills/cli-subcommand-validator",
+        "base": "skillrace/cli-subcommand-validator:base-glm-4.5-flash",
+        "props_path": "skills/cli-subcommand-validator/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.cli-subcommand-validator.greybox.r01",
+      "output": "cells/cli-subcommand-validator/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "cli-subcommand-validator",
+        "skill_dir": "skills/cli-subcommand-validator",
+        "base": "skillrace/cli-subcommand-validator:base-glm-4.5-flash",
+        "props_path": "skills/cli-subcommand-validator/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.code-refactor-fowler.random.r01",
+      "output": "cells/code-refactor-fowler/random",
+      "campaign": {
+        "method": "random",
+        "skill": "code-refactor-fowler",
+        "skill_dir": "skills/code-refactor-fowler",
+        "base": "skillrace/code-refactor-fowler:base-glm-4.5-flash",
+        "props_path": "skills/code-refactor-fowler/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.code-refactor-fowler.greybox.r01",
+      "output": "cells/code-refactor-fowler/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "code-refactor-fowler",
+        "skill_dir": "skills/code-refactor-fowler",
+        "base": "skillrace/code-refactor-fowler:base-glm-4.5-flash",
+        "props_path": "skills/code-refactor-fowler/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.code-refactor-fowler.skillrace.r01",
+      "output": "cells/code-refactor-fowler/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "code-refactor-fowler",
+        "skill_dir": "skills/code-refactor-fowler",
+        "base": "skillrace/code-refactor-fowler:base-glm-4.5-flash",
+        "props_path": "skills/code-refactor-fowler/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.condition-based-waiting.greybox.r01",
+      "output": "cells/condition-based-waiting/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "condition-based-waiting",
+        "skill_dir": "skills/condition-based-waiting",
+        "base": "skillrace/condition-based-waiting:base-glm-4.5-flash",
+        "props_path": "skills/condition-based-waiting/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.condition-based-waiting.skillrace.r01",
+      "output": "cells/condition-based-waiting/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "condition-based-waiting",
+        "skill_dir": "skills/condition-based-waiting",
+        "base": "skillrace/condition-based-waiting:base-glm-4.5-flash",
+        "props_path": "skills/condition-based-waiting/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.condition-based-waiting.random.r01",
+      "output": "cells/condition-based-waiting/random",
+      "campaign": {
+        "method": "random",
+        "skill": "condition-based-waiting",
+        "skill_dir": "skills/condition-based-waiting",
+        "base": "skillrace/condition-based-waiting:base-glm-4.5-flash",
+        "props_path": "skills/condition-based-waiting/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.debugging-difficult-bugs.skillrace.r01",
+      "output": "cells/debugging-difficult-bugs/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "debugging-difficult-bugs",
+        "skill_dir": "skills/debugging-difficult-bugs",
+        "base": "skillrace/debugging-difficult-bugs:base-glm-4.5-flash",
+        "props_path": "skills/debugging-difficult-bugs/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.debugging-difficult-bugs.random.r01",
+      "output": "cells/debugging-difficult-bugs/random",
+      "campaign": {
+        "method": "random",
+        "skill": "debugging-difficult-bugs",
+        "skill_dir": "skills/debugging-difficult-bugs",
+        "base": "skillrace/debugging-difficult-bugs:base-glm-4.5-flash",
+        "props_path": "skills/debugging-difficult-bugs/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.debugging-difficult-bugs.greybox.r01",
+      "output": "cells/debugging-difficult-bugs/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "debugging-difficult-bugs",
+        "skill_dir": "skills/debugging-difficult-bugs",
+        "base": "skillrace/debugging-difficult-bugs:base-glm-4.5-flash",
+        "props_path": "skills/debugging-difficult-bugs/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.finishing-a-development-branch.random.r01",
+      "output": "cells/finishing-a-development-branch/random",
+      "campaign": {
+        "method": "random",
+        "skill": "finishing-a-development-branch",
+        "skill_dir": "skills/finishing-a-development-branch",
+        "base": "skillrace/finishing-a-development-branch:base-glm-4.5-flash",
+        "props_path": "skills/finishing-a-development-branch/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.finishing-a-development-branch.greybox.r01",
+      "output": "cells/finishing-a-development-branch/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "finishing-a-development-branch",
+        "skill_dir": "skills/finishing-a-development-branch",
+        "base": "skillrace/finishing-a-development-branch:base-glm-4.5-flash",
+        "props_path": "skills/finishing-a-development-branch/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.finishing-a-development-branch.skillrace.r01",
+      "output": "cells/finishing-a-development-branch/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "finishing-a-development-branch",
+        "skill_dir": "skills/finishing-a-development-branch",
+        "base": "skillrace/finishing-a-development-branch:base-glm-4.5-flash",
+        "props_path": "skills/finishing-a-development-branch/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.json-parser.greybox.r01",
+      "output": "cells/json-parser/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "json-parser",
+        "skill_dir": "skills/json-parser",
+        "base": "skillrace/json-parser:base-glm-4.5-flash",
+        "props_path": "skills/json-parser/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.json-parser.skillrace.r01",
+      "output": "cells/json-parser/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "json-parser",
+        "skill_dir": "skills/json-parser",
+        "base": "skillrace/json-parser:base-glm-4.5-flash",
+        "props_path": "skills/json-parser/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.json-parser.random.r01",
+      "output": "cells/json-parser/random",
+      "campaign": {
+        "method": "random",
+        "skill": "json-parser",
+        "skill_dir": "skills/json-parser",
+        "base": "skillrace/json-parser:base-glm-4.5-flash",
+        "props_path": "skills/json-parser/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.parser-generator.skillrace.r01",
+      "output": "cells/parser-generator/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "parser-generator",
+        "skill_dir": "skills/parser-generator",
+        "base": "skillrace/parser-generator:base-glm-4.5-flash",
+        "props_path": "skills/parser-generator/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.parser-generator.random.r01",
+      "output": "cells/parser-generator/random",
+      "campaign": {
+        "method": "random",
+        "skill": "parser-generator",
+        "skill_dir": "skills/parser-generator",
+        "base": "skillrace/parser-generator:base-glm-4.5-flash",
+        "props_path": "skills/parser-generator/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.parser-generator.greybox.r01",
+      "output": "cells/parser-generator/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "parser-generator",
+        "skill_dir": "skills/parser-generator",
+        "base": "skillrace/parser-generator:base-glm-4.5-flash",
+        "props_path": "skills/parser-generator/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.refactor.random.r01",
+      "output": "cells/refactor/random",
+      "campaign": {
+        "method": "random",
+        "skill": "refactor",
+        "skill_dir": "skills/refactor",
+        "base": "skillrace/refactor:base-glm-4.5-flash",
+        "props_path": "skills/refactor/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.refactor.greybox.r01",
+      "output": "cells/refactor/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "refactor",
+        "skill_dir": "skills/refactor",
+        "base": "skillrace/refactor:base-glm-4.5-flash",
+        "props_path": "skills/refactor/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.refactor.skillrace.r01",
+      "output": "cells/refactor/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "refactor",
+        "skill_dir": "skills/refactor",
+        "base": "skillrace/refactor:base-glm-4.5-flash",
+        "props_path": "skills/refactor/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.refactor-complexity-reduce.greybox.r01",
+      "output": "cells/refactor-complexity-reduce/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "refactor-complexity-reduce",
+        "skill_dir": "skills/refactor-complexity-reduce",
+        "base": "skillrace/refactor-complexity-reduce:base-glm-4.5-flash",
+        "props_path": "skills/refactor-complexity-reduce/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.refactor-complexity-reduce.skillrace.r01",
+      "output": "cells/refactor-complexity-reduce/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "refactor-complexity-reduce",
+        "skill_dir": "skills/refactor-complexity-reduce",
+        "base": "skillrace/refactor-complexity-reduce:base-glm-4.5-flash",
+        "props_path": "skills/refactor-complexity-reduce/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.refactor-complexity-reduce.random.r01",
+      "output": "cells/refactor-complexity-reduce/random",
+      "campaign": {
+        "method": "random",
+        "skill": "refactor-complexity-reduce",
+        "skill_dir": "skills/refactor-complexity-reduce",
+        "base": "skillrace/refactor-complexity-reduce:base-glm-4.5-flash",
+        "props_path": "skills/refactor-complexity-reduce/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.regex-expert.skillrace.r01",
+      "output": "cells/regex-expert/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "regex-expert",
+        "skill_dir": "skills/regex-expert",
+        "base": "skillrace/regex-expert:base-glm-4.5-flash",
+        "props_path": "skills/regex-expert/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.regex-expert.random.r01",
+      "output": "cells/regex-expert/random",
+      "campaign": {
+        "method": "random",
+        "skill": "regex-expert",
+        "skill_dir": "skills/regex-expert",
+        "base": "skillrace/regex-expert:base-glm-4.5-flash",
+        "props_path": "skills/regex-expert/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.regex-expert.greybox.r01",
+      "output": "cells/regex-expert/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "regex-expert",
+        "skill_dir": "skills/regex-expert",
+        "base": "skillrace/regex-expert:base-glm-4.5-flash",
+        "props_path": "skills/regex-expert/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.sql-queries.random.r01",
+      "output": "cells/sql-queries/random",
+      "campaign": {
+        "method": "random",
+        "skill": "sql-queries",
+        "skill_dir": "skills/sql-queries",
+        "base": "skillrace/sql-queries:base-glm-4.5-flash",
+        "props_path": "skills/sql-queries/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.sql-queries.greybox.r01",
+      "output": "cells/sql-queries/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "sql-queries",
+        "skill_dir": "skills/sql-queries",
+        "base": "skillrace/sql-queries:base-glm-4.5-flash",
+        "props_path": "skills/sql-queries/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.sql-queries.skillrace.r01",
+      "output": "cells/sql-queries/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "sql-queries",
+        "skill_dir": "skills/sql-queries",
+        "base": "skillrace/sql-queries:base-glm-4.5-flash",
+        "props_path": "skills/sql-queries/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.sql-query-generator.greybox.r01",
+      "output": "cells/sql-query-generator/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "sql-query-generator",
+        "skill_dir": "skills/sql-query-generator",
+        "base": "skillrace/sql-query-generator:base-glm-4.5-flash",
+        "props_path": "skills/sql-query-generator/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.sql-query-generator.skillrace.r01",
+      "output": "cells/sql-query-generator/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "sql-query-generator",
+        "skill_dir": "skills/sql-query-generator",
+        "base": "skillrace/sql-query-generator:base-glm-4.5-flash",
+        "props_path": "skills/sql-query-generator/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.sql-query-generator.random.r01",
+      "output": "cells/sql-query-generator/random",
+      "campaign": {
+        "method": "random",
+        "skill": "sql-query-generator",
+        "skill_dir": "skills/sql-query-generator",
+        "base": "skillrace/sql-query-generator:base-glm-4.5-flash",
+        "props_path": "skills/sql-query-generator/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.sql-query-json.skillrace.r01",
+      "output": "cells/sql-query-json/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "sql-query-json",
+        "skill_dir": "skills/sql-query-json",
+        "base": "skillrace/sql-query-json:base-glm-4.5-flash",
+        "props_path": "skills/sql-query-json/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.sql-query-json.random.r01",
+      "output": "cells/sql-query-json/random",
+      "campaign": {
+        "method": "random",
+        "skill": "sql-query-json",
+        "skill_dir": "skills/sql-query-json",
+        "base": "skillrace/sql-query-json:base-glm-4.5-flash",
+        "props_path": "skills/sql-query-json/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.sql-query-json.greybox.r01",
+      "output": "cells/sql-query-json/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "sql-query-json",
+        "skill_dir": "skills/sql-query-json",
+        "base": "skillrace/sql-query-json:base-glm-4.5-flash",
+        "props_path": "skills/sql-query-json/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.sqlmodel-orm.random.r01",
+      "output": "cells/sqlmodel-orm/random",
+      "campaign": {
+        "method": "random",
+        "skill": "sqlmodel-orm",
+        "skill_dir": "skills/sqlmodel-orm",
+        "base": "skillrace/sqlmodel-orm:base-glm-4.5-flash",
+        "props_path": "skills/sqlmodel-orm/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.sqlmodel-orm.greybox.r01",
+      "output": "cells/sqlmodel-orm/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "sqlmodel-orm",
+        "skill_dir": "skills/sqlmodel-orm",
+        "base": "skillrace/sqlmodel-orm:base-glm-4.5-flash",
+        "props_path": "skills/sqlmodel-orm/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.sqlmodel-orm.skillrace.r01",
+      "output": "cells/sqlmodel-orm/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "sqlmodel-orm",
+        "skill_dir": "skills/sqlmodel-orm",
+        "base": "skillrace/sqlmodel-orm:base-glm-4.5-flash",
+        "props_path": "skills/sqlmodel-orm/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.systematic-debugging.greybox.r01",
+      "output": "cells/systematic-debugging/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "systematic-debugging",
+        "skill_dir": "skills/systematic-debugging",
+        "base": "skillrace/systematic-debugging:base-glm-4.5-flash",
+        "props_path": "skills/systematic-debugging/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.systematic-debugging.skillrace.r01",
+      "output": "cells/systematic-debugging/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "systematic-debugging",
+        "skill_dir": "skills/systematic-debugging",
+        "base": "skillrace/systematic-debugging:base-glm-4.5-flash",
+        "props_path": "skills/systematic-debugging/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.systematic-debugging.random.r01",
+      "output": "cells/systematic-debugging/random",
+      "campaign": {
+        "method": "random",
+        "skill": "systematic-debugging",
+        "skill_dir": "skills/systematic-debugging",
+        "base": "skillrace/systematic-debugging:base-glm-4.5-flash",
+        "props_path": "skills/systematic-debugging/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.test-driven-development.skillrace.r01",
+      "output": "cells/test-driven-development/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "test-driven-development",
+        "skill_dir": "skills/test-driven-development",
+        "base": "skillrace/test-driven-development:base-glm-4.5-flash",
+        "props_path": "skills/test-driven-development/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.test-driven-development.random.r01",
+      "output": "cells/test-driven-development/random",
+      "campaign": {
+        "method": "random",
+        "skill": "test-driven-development",
+        "skill_dir": "skills/test-driven-development",
+        "base": "skillrace/test-driven-development:base-glm-4.5-flash",
+        "props_path": "skills/test-driven-development/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.test-driven-development.greybox.r01",
+      "output": "cells/test-driven-development/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "test-driven-development",
+        "skill_dir": "skills/test-driven-development",
+        "base": "skillrace/test-driven-development:base-glm-4.5-flash",
+        "props_path": "skills/test-driven-development/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.unit-test-generation.random.r01",
+      "output": "cells/unit-test-generation/random",
+      "campaign": {
+        "method": "random",
+        "skill": "unit-test-generation",
+        "skill_dir": "skills/unit-test-generation",
+        "base": "skillrace/unit-test-generation:base-glm-4.5-flash",
+        "props_path": "skills/unit-test-generation/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.unit-test-generation.greybox.r01",
+      "output": "cells/unit-test-generation/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "unit-test-generation",
+        "skill_dir": "skills/unit-test-generation",
+        "base": "skillrace/unit-test-generation:base-glm-4.5-flash",
+        "props_path": "skills/unit-test-generation/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.unit-test-generation.skillrace.r01",
+      "output": "cells/unit-test-generation/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "unit-test-generation",
+        "skill_dir": "skills/unit-test-generation",
+        "base": "skillrace/unit-test-generation:base-glm-4.5-flash",
+        "props_path": "skills/unit-test-generation/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.unit-test-generator.greybox.r01",
+      "output": "cells/unit-test-generator/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "unit-test-generator",
+        "skill_dir": "skills/unit-test-generator",
+        "base": "skillrace/unit-test-generator:base-glm-4.5-flash",
+        "props_path": "skills/unit-test-generator/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.unit-test-generator.skillrace.r01",
+      "output": "cells/unit-test-generator/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "unit-test-generator",
+        "skill_dir": "skills/unit-test-generator",
+        "base": "skillrace/unit-test-generator:base-glm-4.5-flash",
+        "props_path": "skills/unit-test-generator/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.unit-test-generator.random.r01",
+      "output": "cells/unit-test-generator/random",
+      "campaign": {
+        "method": "random",
+        "skill": "unit-test-generator",
+        "skill_dir": "skills/unit-test-generator",
+        "base": "skillrace/unit-test-generator:base-glm-4.5-flash",
+        "props_path": "skills/unit-test-generator/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.using-git-worktrees.skillrace.r01",
+      "output": "cells/using-git-worktrees/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "using-git-worktrees",
+        "skill_dir": "skills/using-git-worktrees",
+        "base": "skillrace/using-git-worktrees:base-glm-4.5-flash",
+        "props_path": "skills/using-git-worktrees/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.using-git-worktrees.random.r01",
+      "output": "cells/using-git-worktrees/random",
+      "campaign": {
+        "method": "random",
+        "skill": "using-git-worktrees",
+        "skill_dir": "skills/using-git-worktrees",
+        "base": "skillrace/using-git-worktrees:base-glm-4.5-flash",
+        "props_path": "skills/using-git-worktrees/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.using-git-worktrees.greybox.r01",
+      "output": "cells/using-git-worktrees/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "using-git-worktrees",
+        "skill_dir": "skills/using-git-worktrees",
+        "base": "skillrace/using-git-worktrees:base-glm-4.5-flash",
+        "props_path": "skills/using-git-worktrees/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.yaml-config.random.r01",
+      "output": "cells/yaml-config/random",
+      "campaign": {
+        "method": "random",
+        "skill": "yaml-config",
+        "skill_dir": "skills/yaml-config",
+        "base": "skillrace/yaml-config:base-glm-4.5-flash",
+        "props_path": "skills/yaml-config/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.yaml-config.greybox.r01",
+      "output": "cells/yaml-config/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "yaml-config",
+        "skill_dir": "skills/yaml-config",
+        "base": "skillrace/yaml-config:base-glm-4.5-flash",
+        "props_path": "skills/yaml-config/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.yaml-config.skillrace.r01",
+      "output": "cells/yaml-config/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "yaml-config",
+        "skill_dir": "skills/yaml-config",
+        "base": "skillrace/yaml-config:base-glm-4.5-flash",
+        "props_path": "skills/yaml-config/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.network-config-validation.greybox.r01",
+      "output": "cells/network-config-validation/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "network-config-validation",
+        "skill_dir": "skills/network-config-validation",
+        "base": "skillrace/network-config-validation:base-glm-4.5-flash",
+        "props_path": "skills/network-config-validation/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.network-config-validation.skillrace.r01",
+      "output": "cells/network-config-validation/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "network-config-validation",
+        "skill_dir": "skills/network-config-validation",
+        "base": "skillrace/network-config-validation:base-glm-4.5-flash",
+        "props_path": "skills/network-config-validation/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.network-config-validation.random.r01",
+      "output": "cells/network-config-validation/random",
+      "campaign": {
+        "method": "random",
+        "skill": "network-config-validation",
+        "skill_dir": "skills/network-config-validation",
+        "base": "skillrace/network-config-validation:base-glm-4.5-flash",
+        "props_path": "skills/network-config-validation/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.rest-api-caller.skillrace.r01",
+      "output": "cells/rest-api-caller/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "rest-api-caller",
+        "skill_dir": "skills/rest-api-caller",
+        "base": "skillrace/rest-api-caller:base-glm-4.5-flash",
+        "props_path": "skills/rest-api-caller/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.rest-api-caller.random.r01",
+      "output": "cells/rest-api-caller/random",
+      "campaign": {
+        "method": "random",
+        "skill": "rest-api-caller",
+        "skill_dir": "skills/rest-api-caller",
+        "base": "skillrace/rest-api-caller:base-glm-4.5-flash",
+        "props_path": "skills/rest-api-caller/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.rest-api-caller.greybox.r01",
+      "output": "cells/rest-api-caller/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "rest-api-caller",
+        "skill_dir": "skills/rest-api-caller",
+        "base": "skillrace/rest-api-caller:base-glm-4.5-flash",
+        "props_path": "skills/rest-api-caller/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.csv-workbench.random.r01",
+      "output": "cells/csv-workbench/random",
+      "campaign": {
+        "method": "random",
+        "skill": "csv-workbench",
+        "skill_dir": "skills/csv-workbench",
+        "base": "skillrace/csv-workbench:base-glm-4.5-flash",
+        "props_path": "skills/csv-workbench/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.csv-workbench.greybox.r01",
+      "output": "cells/csv-workbench/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "csv-workbench",
+        "skill_dir": "skills/csv-workbench",
+        "base": "skillrace/csv-workbench:base-glm-4.5-flash",
+        "props_path": "skills/csv-workbench/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.csv-workbench.skillrace.r01",
+      "output": "cells/csv-workbench/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "csv-workbench",
+        "skill_dir": "skills/csv-workbench",
+        "base": "skillrace/csv-workbench:base-glm-4.5-flash",
+        "props_path": "skills/csv-workbench/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.argparse-scaffolder.greybox.r01",
+      "output": "cells/argparse-scaffolder/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "argparse-scaffolder",
+        "skill_dir": "skills/argparse-scaffolder",
+        "base": "skillrace/argparse-scaffolder:base-glm-4.5-flash",
+        "props_path": "skills/argparse-scaffolder/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.argparse-scaffolder.skillrace.r01",
+      "output": "cells/argparse-scaffolder/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "argparse-scaffolder",
+        "skill_dir": "skills/argparse-scaffolder",
+        "base": "skillrace/argparse-scaffolder:base-glm-4.5-flash",
+        "props_path": "skills/argparse-scaffolder/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.argparse-scaffolder.random.r01",
+      "output": "cells/argparse-scaffolder/random",
+      "campaign": {
+        "method": "random",
+        "skill": "argparse-scaffolder",
+        "skill_dir": "skills/argparse-scaffolder",
+        "base": "skillrace/argparse-scaffolder:base-glm-4.5-flash",
+        "props_path": "skills/argparse-scaffolder/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.data-transform.skillrace.r01",
+      "output": "cells/data-transform/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "data-transform",
+        "skill_dir": "skills/data-transform",
+        "base": "skillrace/data-transform:base-glm-4.5-flash",
+        "props_path": "skills/data-transform/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.data-transform.random.r01",
+      "output": "cells/data-transform/random",
+      "campaign": {
+        "method": "random",
+        "skill": "data-transform",
+        "skill_dir": "skills/data-transform",
+        "base": "skillrace/data-transform:base-glm-4.5-flash",
+        "props_path": "skills/data-transform/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.data-transform.greybox.r01",
+      "output": "cells/data-transform/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "data-transform",
+        "skill_dir": "skills/data-transform",
+        "base": "skillrace/data-transform:base-glm-4.5-flash",
+        "props_path": "skills/data-transform/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.compiler-hardening.random.r01",
+      "output": "cells/compiler-hardening/random",
+      "campaign": {
+        "method": "random",
+        "skill": "compiler-hardening",
+        "skill_dir": "skills/compiler-hardening",
+        "base": "skillrace/compiler-hardening:base-glm-4.5-flash",
+        "props_path": "skills/compiler-hardening/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.compiler-hardening.greybox.r01",
+      "output": "cells/compiler-hardening/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "compiler-hardening",
+        "skill_dir": "skills/compiler-hardening",
+        "base": "skillrace/compiler-hardening:base-glm-4.5-flash",
+        "props_path": "skills/compiler-hardening/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.compiler-hardening.skillrace.r01",
+      "output": "cells/compiler-hardening/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "compiler-hardening",
+        "skill_dir": "skills/compiler-hardening",
+        "base": "skillrace/compiler-hardening:base-glm-4.5-flash",
+        "props_path": "skills/compiler-hardening/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.validator-agent.greybox.r01",
+      "output": "cells/validator-agent/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "validator-agent",
+        "skill_dir": "skills/validator-agent",
+        "base": "skillrace/validator-agent:base-glm-4.5-flash",
+        "props_path": "skills/validator-agent/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.validator-agent.skillrace.r01",
+      "output": "cells/validator-agent/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "validator-agent",
+        "skill_dir": "skills/validator-agent",
+        "base": "skillrace/validator-agent:base-glm-4.5-flash",
+        "props_path": "skills/validator-agent/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.validator-agent.random.r01",
+      "output": "cells/validator-agent/random",
+      "campaign": {
+        "method": "random",
+        "skill": "validator-agent",
+        "skill_dir": "skills/validator-agent",
+        "base": "skillrace/validator-agent:base-glm-4.5-flash",
+        "props_path": "skills/validator-agent/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.log-parser.skillrace.r01",
+      "output": "cells/log-parser/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "log-parser",
+        "skill_dir": "skills/log-parser",
+        "base": "skillrace/log-parser:base-glm-4.5-flash",
+        "props_path": "skills/log-parser/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.log-parser.random.r01",
+      "output": "cells/log-parser/random",
+      "campaign": {
+        "method": "random",
+        "skill": "log-parser",
+        "skill_dir": "skills/log-parser",
+        "base": "skillrace/log-parser:base-glm-4.5-flash",
+        "props_path": "skills/log-parser/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    },
+    {
+      "id": "rq1.glm-4.5-flash.log-parser.greybox.r01",
+      "output": "cells/log-parser/greybox",
+      "campaign": {
+        "method": "greybox",
+        "skill": "log-parser",
+        "skill_dir": "skills/log-parser",
+        "base": "skillrace/log-parser:base-glm-4.5-flash",
+        "props_path": "skills/log-parser/properties.json",
+        "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+        "wall_clock": 1800
+      }
+    }
+  ]
+}

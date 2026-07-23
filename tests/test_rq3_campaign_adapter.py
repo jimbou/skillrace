@@ -27,20 +27,33 @@ def _write_real_campaign2(
     base_hash=None,
     base_package_hash=None,
     public_stage_hash=None,
+    protocol_hash=None,
 ):
     protocol = {
         "schema": "campaign-protocol/1",
-        "protocol_id": "skillrace-issta-main-v1",
+        "protocol_id": "skillrace-issta-main-glm-4.5-flash-v1",
         "status": "frozen",
-        "model": "qwen3.6-flash",
+        "model": "glm-4.5-flash",
         "budget": 30,
         "bootstrap_count": 10,
         "max_generation_attempts_per_execution": 5,
         "seed_generator": {"batch_size": 5, "temperature": 0.9, "build_retries": 4},
         "greybox_level": "L1",
         "random_seed": 20260711,
+        "repair": {
+            "enabled": True,
+            "timeout_seconds": 120,
+            "max_output_tokens": 4000,
+            "temperature": 0.0,
+            "reasoning": True,
+            "backend_by_method": {
+                "random": "direct",
+                "greybox": "direct",
+                "skillrace": "pi",
+            },
+        },
     }
-    protocol_hash = canonical_json_hash(protocol)
+    protocol_hash = protocol_hash or canonical_json_hash(protocol)
     base_hash = base_hash or _digest("base skill")
     base_package_hash = base_package_hash or _digest("base package")
     public_stage_hash = public_stage_hash or _digest("public stage")
@@ -94,7 +107,7 @@ def _write_real_campaign2(
             "oracle_status": "completed",
             "violated": [],
             "inconclusive": [],
-            "cost_usd": 0.01,
+            "cost_provider_credits": 0.01,
             "input_tokens": 10,
             "output_tokens": 2,
             "run_id": f"agent-{ordinal:04d}",
@@ -102,13 +115,13 @@ def _write_real_campaign2(
         run = root / "runs" / f"agent-{ordinal:04d}"
         run.mkdir(parents=True)
         (run / "cost.json").write_text(
-            json.dumps({"usd": 0.01, "in": 10, "out": 2}) + "\n"
+            json.dumps({"provider_credits": 0.01, "in": 10, "out": 2}) + "\n"
         )
         (run / "run.json").write_text(
             json.dumps(
                 {
                     "run_id": f"agent-{ordinal:04d}",
-                    "model": "qwen3.6-flash",
+                    "model": "glm-4.5-flash",
                     "agent_started": True,
                     "case": f"cases/candidate-{ordinal:03d}",
                 }
@@ -210,15 +223,15 @@ def _write_real_campaign2(
             "bootstrap": 0 if method == "random" else 10,
             "exploration": 30 if method == "random" else 20,
         },
-        "model": "qwen3.6-flash",
-        "agent_model": "qwen3.6-flash",
+        "model": "glm-4.5-flash",
+        "agent_model": "glm-4.5-flash",
         "greybox_level": "L1" if method == "greybox" else None,
         "max_pre_agent_attempts": 5,
         "counted_executions": 30,
         "attempts": attempts,
         "iterations": iterations,
-        "generator_state": {"gen_cost_usd": 0.2},
-        "bootstrap_generator_state": {"gen_cost_usd": 0.1},
+        "generator_state": {"gen_cost_provider_credits": 0.2},
+        "bootstrap_generator_state": {"gen_cost_provider_credits": 0.1},
         "pending_fold": None,
         "folded_attempt_ids": [row["attempt_id"] for row in iterations],
         "status": "completed",
@@ -245,7 +258,7 @@ def test_adapter_accepts_real_campaign2_and_recursively_verifies_receipts(tmp_pa
     assert record["schema"] == "campaign/2"
     assert record["counted_executions"] == 30
     assert record["allocation"] == {"budget": 30, "bootstrap": 10, "exploration": 20}
-    assert record["cost_usd"] == pytest.approx(0.6)
+    assert record["cost_provider_credits"] == pytest.approx(0.6)
     assert record["agent_ids"] == [f"agent-{i:04d}" for i in range(30)]
     assert record["artifact_hash"] == canonical_json_hash(
         json.loads(campaign_path.read_text())
@@ -459,16 +472,28 @@ def test_adapter_accepts_artifacts_emitted_by_the_actual_campaign_engine(tmp_pat
     protocol = CampaignProtocol.from_dict(
         {
             "schema": "campaign-protocol/1",
-            "protocol_id": "skillrace-issta-main-v1",
+            "protocol_id": "skillrace-issta-main-glm-4.5-flash-v1",
             "status": "frozen",
-            "model": "qwen3.6-flash",
+            "model": "glm-4.5-flash",
             "budget": 30,
             "bootstrap_count": 10,
             "max_generation_attempts_per_execution": 5,
             "seed_generator": {"batch_size": 5, "temperature": 0.9, "build_retries": 4},
-            "greybox_level": "L1",
-            "random_seed": 20260711,
-        }
+                "greybox_level": "L1",
+                "random_seed": 20260711,
+                "repair": {
+                    "enabled": True,
+                    "timeout_seconds": 120,
+                    "max_output_tokens": 4000,
+                    "temperature": 0.0,
+                    "reasoning": True,
+                    "backend_by_method": {
+                        "random": "direct",
+                        "greybox": "direct",
+                        "skillrace": "pi",
+                    },
+                },
+            }
     )
     base_hash = _digest("actual base")
     base_package_hash = _digest("actual package")
@@ -507,7 +532,7 @@ def test_adapter_accepts_artifacts_emitted_by_the_actual_campaign_engine(tmp_pat
                 "source": self.source,
                 "index": self.index,
                 "folded": self.folded,
-                "gen_cost_usd": 0.1,
+                "gen_cost_provider_credits": 0.1,
             }
 
         def restore(self, value):
@@ -520,13 +545,13 @@ def test_adapter_accepts_artifacts_emitted_by_the_actual_campaign_engine(tmp_pat
             run.mkdir(parents=True, exist_ok=True)
             agent_id = f"agent-{execution_id}"
             (run / "cost.json").write_text(
-                json.dumps({"usd": 0.01, "in": 10, "out": 2}) + "\n"
+                json.dumps({"provider_credits": 0.01, "in": 10, "out": 2}) + "\n"
             )
             (run / "run.json").write_text(
                 json.dumps(
                     {
                         "run_id": agent_id,
-                        "model": "qwen3.6-flash",
+                        "model": "glm-4.5-flash",
                         "agent_started": True,
                     }
                 )
@@ -541,7 +566,7 @@ def test_adapter_accepts_artifacts_emitted_by_the_actual_campaign_engine(tmp_pat
                 "oracle_status": "completed",
                 "violated": [],
                 "inconclusive": [],
-                "cost_usd": 0.01,
+                "cost_provider_credits": 0.01,
                 "input_tokens": 10,
                 "output_tokens": 2,
                 "run_id": agent_id,

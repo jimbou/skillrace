@@ -1,0 +1,17 @@
+{
+  "schema": "d1-dual-track-images/1",
+  "status": "draft",
+  "pi_version": "0.73.1",
+  "suite_manifest_hash": "d739ef03e9f314d707225e6d28dc84feaa8b1982286eb69ef7948f717fd9273b",
+  "construction_images": 30,
+  "construction_images_reused": 30,
+  "skillgen_track_images": 2,
+  "track_images": {
+    "glm-4.5-flash": 30,
+    "deepseek-v4-flash": 30
+  },
+  "locks": {
+    "glm-4.5-flash": "experiments/image-locks/d1-images.glm-4.5-flash.draft.json",
+    "deepseek-v4-flash": "experiments/image-locks/d1-images.deepseek-v4-flash.draft.json"
+  }
+}

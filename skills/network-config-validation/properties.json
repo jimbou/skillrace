@@ -1,0 +1,6 @@
+[
+  {"id":"dangerous-commands-detected","reads":"state","nl":"The finished validator flags every dangerous or credential-exposing command required by the task and does not silently approve the concrete unsafe configuration examples supplied by the generated case."},
+  {"id":"address-conflicts-detected","reads":"state","nl":"Duplicate interface addresses and overlapping subnets in the task input are detected correctly, while distinct non-overlapping networks are not reported as conflicts."},
+  {"id":"section-scoped-validation","reads":"state","nl":"Checks for VTY blocks, ACLs, route maps, prefix lists, or interfaces respect configuration-section boundaries so evidence from one block cannot incorrectly satisfy or contaminate another block."}
+]
+

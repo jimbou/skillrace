@@ -26,6 +26,7 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from .campaign_protocol import CampaignProtocol
+from .closeai import OutcomeUnknownError
 from .io_utils import atomic_write_json, canonical_json_hash
 from .parallel_campaign import (
     ParallelReducer,
@@ -378,6 +379,11 @@ class CampaignEngine:
             raise ValueError("generation cap exceeds deterministic attempt ID range")
         if not isinstance(epoch_size, int) or isinstance(epoch_size, bool) or epoch_size <= 0:
             raise ValueError("epoch_size must be a positive integer")
+        if protocol.status == "frozen" and epoch_size != 1:
+            raise ValueError(
+                "frozen headline campaigns are sequential within a cell; "
+                "parallelism is scheduled across independent cells"
+            )
         if protocol.bootstrap_for(method) and bootstrap_generator is None:
             raise ValueError(f"{method} requires a bootstrap generator")
         self.protocol = protocol
@@ -981,6 +987,12 @@ class CampaignEngine:
                     }
                 else:
                     raise ValueError("malformed epoch proposal generation error")
+        except OutcomeUnknownError as exc:
+            error = {
+                "type": type(exc).__name__,
+                "reason": "external-outcome-unknown",
+                "message": str(exc)[:500],
+            }
         except Exception as exc:
             error = {
                 "type": type(exc).__name__,
@@ -1048,16 +1060,31 @@ class CampaignEngine:
         candidate = proposal["candidate"]
         if candidate is None:
             generation_error = proposal.get("generation_error") or {}
-            result = {
-                "agent_started": False,
-                "status": generation_error.get("reason", "generation-error"),
-                "generation_status": "generation_error",
-                "infrastructure_status": "not_started",
-                "oracle_status": "not_run",
-                "violated": [],
-                "inconclusive": [],
-                "error": generation_error.get("message", "generator returned no candidate"),
-            }
+            if generation_error.get("reason") == "external-outcome-unknown":
+                result = {
+                    "agent_started": False,
+                    "status": "external-outcome-indeterminate",
+                    "generation_status": "generation_error",
+                    "infrastructure_status": "external_state_indeterminate",
+                    "oracle_status": "not_run",
+                    "violated": [],
+                    "inconclusive": [],
+                    "cost_accounting": "unknown-nonzero-possible",
+                    "unrecorded_cost_possible": True,
+                    "stop_campaign": True,
+                    "error": generation_error.get("message", "operation outcome is unknown"),
+                }
+            else:
+                result = {
+                    "agent_started": False,
+                    "status": generation_error.get("reason", "generation-error"),
+                    "generation_status": "generation_error",
+                    "infrastructure_status": "not_started",
+                    "oracle_status": "not_run",
+                    "violated": [],
+                    "inconclusive": [],
+                    "error": generation_error.get("message", "generator returned no candidate"),
+                }
         else:
             candidate_id = candidate.get("candidate_id")
             result = self._recover_lifecycle_result(
@@ -1254,7 +1281,7 @@ class CampaignEngine:
             "sanity_status",
             "sanity_rejection",
             "sanity_error",
-            "compile_cost_usd",
+            "compile_cost_provider_credits",
             "runner_returncode",
             "runner_error",
             "termination",
@@ -1866,7 +1893,10 @@ class CampaignEngine:
         state = self._load_or_create()
         if state["complete"]:
             return state
-        if state.get("stop_reason") == "generation-attempt-cap":
+        if state.get("stop_reason") in {
+            "generation-attempt-cap",
+            "external-outcome-unknown",
+        }:
             return state
         if self.epoch_size > 1:
             return self._run_parallel()
@@ -1882,6 +1912,16 @@ class CampaignEngine:
                 if committed is not None and not committed["consume_budget"]:
                     continue
                 consumed = self._process_attempt(ordinal, attempt_number)
+                committed = self._committed_attempt(attempt_id)
+                if (
+                    committed is not None
+                    and committed["result"].get("stop_campaign") is True
+                ):
+                    state["status"] = "aborted_external_outcome_unknown"
+                    state["stop_reason"] = "external-outcome-unknown"
+                    state["complete"] = False
+                    self._finish_campaign()
+                    return state
                 if consumed:
                     break
             if not consumed:

@@ -1,0 +1,37 @@
+{
+  "schema": "skillrace-scenario/1",
+  "scenario_id": "argparse-cli",
+  "purpose_sha256": "b9866b7e21b33e378ffce438edabf00709a1fc79d468799dadd53872081cb633",
+  "base_skill_sha256": "854911b6b545bac4aa66b7c89dcaae4a10eb0a4220349eaa53bd099d2a557000",
+  "public_paths": [
+    "scenario.md",
+    "base_skill",
+    "campaign"
+  ],
+  "hidden_tests": {
+    "path": "tests",
+    "count": 10,
+    "ids": [
+      "argparse-cli/t1",
+      "argparse-cli/t2",
+      "argparse-cli/t3",
+      "argparse-cli/t4",
+      "argparse-cli/t5",
+      "argparse-cli/t6",
+      "argparse-cli/t7",
+      "argparse-cli/t8",
+      "argparse-cli/t9",
+      "argparse-cli/t10"
+    ]
+  },
+  "boundary": {
+    "public_can_read": [
+      "scenario.md",
+      "base_skill",
+      "campaign"
+    ],
+    "forbidden_to_campaign": [
+      "tests"
+    ]
+  }
+}

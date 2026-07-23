@@ -71,7 +71,7 @@ def test_greybox_mutation_prompt_contains_only_skill_seed_nl_and_tool_sequence(
         seen.append(messages[-1]["content"])
         return {
             "content": json.dumps({"task": "new task", "env": "new env"}),
-            "cost_usd": 0.0,
+            "cost_provider_credits": 0.0,
         }
 
     monkeypatch.setattr(greybox_module, "chat", fake_chat)

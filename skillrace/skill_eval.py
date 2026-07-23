@@ -15,6 +15,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .io_utils import atomic_write_json, file_hash
+from .model_policy import HIDDEN_TEMPLATE_BASE_IMAGE, skillgen_track_image
 from .scenario_contract import load_test
 
 
@@ -59,8 +60,8 @@ def _effective_candidate_skill(candidate: Mapping[str, Any]) -> str | None:
     return None
 
 
-def derive_case(test_dir, skill_name, skill_dir, work_dir):
-    """Copy a hidden case byte-for-byte; keep the candidate skill as a host mount."""
+def derive_case(test_dir, skill_name, skill_dir, work_dir, *, agent_model):
+    """Copy a hidden case and project only its frozen model-runtime reference."""
 
     test_dir = pathlib.Path(test_dir)
     work_dir = pathlib.Path(work_dir)
@@ -83,6 +84,35 @@ def derive_case(test_dir, skill_name, skill_dir, work_dir):
         if path.is_symlink():
             raise ValueError(f"hidden test symlink is forbidden: {path}")
     shutil.copytree(test_dir, work_dir)
+    runtime_image = skillgen_track_image(agent_model)
+    if candidate.get("base_image") != HIDDEN_TEMPLATE_BASE_IMAGE:
+        raise ValueError("hidden candidate does not use the frozen template base image")
+    source_dockerfile = dockerfile_path.read_bytes()
+    prefix = f"FROM {HIDDEN_TEMPLATE_BASE_IMAGE}\n".encode("utf-8")
+    if not source_dockerfile.startswith(prefix):
+        raise ValueError("hidden Dockerfile does not start from the frozen template base")
+    projected_dockerfile = (
+        f"FROM {runtime_image}\n".encode("utf-8") + source_dockerfile[len(prefix) :]
+    )
+    candidate["base_image"] = runtime_image
+    if "containerfile" in candidate:
+        if candidate["containerfile"] != source_dockerfile.decode("utf-8"):
+            raise ValueError("hidden candidate containerfile differs from Dockerfile")
+        candidate["containerfile"] = projected_dockerfile.decode("utf-8")
+    (work_dir / "Dockerfile").write_bytes(projected_dockerfile)
+    atomic_write_json(work_dir / "candidate.json", candidate)
+    projection = {
+        "schema": "skillrace-hidden-runtime-projection/1",
+        "model": agent_model,
+        "template_base_image": HIDDEN_TEMPLATE_BASE_IMAGE,
+        "runtime_base_image": runtime_image,
+        "source_candidate_sha256": file_hash(candidate_path),
+        "source_dockerfile_sha256": file_hash(dockerfile_path),
+        "projected_candidate_sha256": file_hash(work_dir / "candidate.json"),
+        "projected_dockerfile_sha256": file_hash(work_dir / "Dockerfile"),
+        "checks_tree_unchanged": True,
+    }
+    atomic_write_json(work_dir / "runtime-projection.json", projection)
     return work_dir
 
 
@@ -105,7 +135,7 @@ def _invoke_shared_runner(
         "HTTP_PROXY",
         "HTTPS_PROXY",
         "NO_PROXY",
-        "CLOSE_API_KEY",
+        "yunwu_key",
         "SKILLRACE_LEDGER",
         "DOCKER_HOST",
         "DOCKER_CONFIG",
@@ -149,10 +179,27 @@ def _invoke_shared_runner(
             "environment": {
                 "names": sorted(clean_env),
                 "secret_names": sorted(
-                    name for name in clean_env if "KEY" in name or "TOKEN" in name
+                    name
+                    for name in clean_env
+                    if "KEY" in name.upper()
+                    or "TOKEN" in name.upper()
+                    or "SECRET" in name.upper()
                 ),
                 "values_recorded": False,
             },
+            "runtime_projection": (
+                {
+                    "path": str(case_dir / "runtime-projection.json"),
+                    "sha256": file_hash(case_dir / "runtime-projection.json"),
+                    "record": json.loads(
+                        (case_dir / "runtime-projection.json").read_text(
+                            encoding="utf-8"
+                        )
+                    ),
+                }
+                if (case_dir / "runtime-projection.json").is_file()
+                else None
+            ),
         },
     )
     runner = subprocess.run(
@@ -216,6 +263,7 @@ def execute_hidden_request(request: HiddenExecutionRequest) -> dict[str, Any]:
         request.skill_name,
         request.skill_dir,
         request.run_dir / "case",
+        agent_model=request.agent_model,
     )
     execution_dir = request.run_dir / "execution"
     runner, checker, verdicts, manifest = _invoke_shared_runner(
@@ -248,7 +296,13 @@ def execute_hidden_request(request: HiddenExecutionRequest) -> dict[str, Any]:
         "verdicts": verdicts,
         "input_tokens": int(cost.get("in", 0) or 0),
         "output_tokens": int(cost.get("out", 0) or 0),
-        "cost_usd": float(cost.get("usd", cost.get("price_usd", 0.0)) or 0.0),
+        "cost_provider_credits": float(
+            cost.get(
+                "cost_provider_credits",
+                cost.get("provider_credits", cost.get("price_provider_credits", 0.0)),
+            )
+            or 0.0
+        ),
         "wall_seconds": float(wall_seconds or 0.0),
         "run_id": manifest.get("run_id"),
         "agent_id": manifest.get("agent_id") or manifest.get("run_id"),
@@ -403,7 +457,7 @@ def main() -> None:
     parser.add_argument("--condition", choices=EVALUATION_CONDITIONS, default="zero-shot")
     parser.add_argument("--skill-name", required=True)
     parser.add_argument("--skill-dir", required=True)
-    parser.add_argument("--agent-model", default="qwen3.6-flash")
+    parser.add_argument("--agent-model", default="glm-4.5-flash")
     parser.add_argument("--wall-clock", type=int, default=1200)
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
@@ -443,7 +497,7 @@ def main() -> None:
             expected_criterion_ids=request.criterion_ids,
         )
         results.append({"test_id": request.test_id, **grade, **{
-            key: raw.get(key) for key in ("input_tokens", "output_tokens", "cost_usd", "wall_seconds", "run_id")
+            key: raw.get(key) for key in ("input_tokens", "output_tokens", "cost_provider_credits", "wall_seconds", "run_id")
         }})
         print(f"  {test.name}: {grade['status']} / functional={grade['functional_pass']}")
     summary = {

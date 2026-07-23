@@ -45,6 +45,38 @@ def file_hash(path: str | pathlib.Path) -> str:
     return digest.hexdigest()
 
 
+def resolve_campaign_path(
+    root: str | pathlib.Path, raw: Any, label: str
+) -> pathlib.Path:
+    """Resolve a saved campaign path while containing it beneath ``root``.
+
+    Current drivers pass absolute cell roots. Older development drivers could save a
+    workspace-relative path that already included the cell root; prefer the normal
+    root-relative interpretation when it exists, then accept that legacy spelling only
+    when it resolves to an existing artifact inside the same cell root.
+    """
+
+    if not isinstance(raw, str) or not raw:
+        raise ValueError(f"campaign lacks {label}")
+    root_path = pathlib.Path(root).resolve()
+    candidate = pathlib.Path(raw)
+    if candidate.is_absolute():
+        resolved = candidate.resolve()
+    else:
+        rooted = (root_path / candidate).resolve()
+        workspace_relative = candidate.resolve()
+        resolved = (
+            workspace_relative
+            if not rooted.exists()
+            and workspace_relative.exists()
+            and (workspace_relative == root_path or root_path in workspace_relative.parents)
+            else rooted
+        )
+    if resolved == root_path or root_path not in resolved.parents:
+        raise ValueError(f"campaign {label} escapes its cell root")
+    return resolved
+
+
 def _fsync_directory(directory: pathlib.Path) -> None:
     """Persist a directory entry where the host filesystem supports it."""
     flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)

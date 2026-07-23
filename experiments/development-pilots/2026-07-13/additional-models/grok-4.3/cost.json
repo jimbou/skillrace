@@ -1,0 +1,44 @@
+{
+  "model": "grok-4.3",
+  "requested_model": "grok-4.3",
+  "turns": 4,
+  "in": 6665,
+  "out": 207,
+  "cache_read": 0,
+  "total_tokens": 6872,
+  "billing_status": "unknown",
+  "billing_currency": null,
+  "cost_provider_credits": null,
+  "price_provider_credits": null,
+  "cost_usd": null,
+  "by_turn": [
+    {
+      "model": "grok-4.3",
+      "input": 1606,
+      "output": 62,
+      "total": 1668,
+      "cache_read": 0
+    },
+    {
+      "model": "grok-4.3",
+      "input": 1649,
+      "output": 32,
+      "total": 1681,
+      "cache_read": 0
+    },
+    {
+      "model": "grok-4.3",
+      "input": 1676,
+      "output": 58,
+      "total": 1734,
+      "cache_read": 0
+    },
+    {
+      "model": "grok-4.3",
+      "input": 1734,
+      "output": 55,
+      "total": 1789,
+      "cache_read": 0
+    }
+  ]
+}

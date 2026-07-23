@@ -176,9 +176,41 @@ def main():
     ap = argparse.ArgumentParser(description="Aggregate campaign results into RQ1 numbers")
     ap.add_argument("--root", default="out/campaign", help="dir with <method>/<skill>/campaign.json")
     ap.add_argument("--out", help="write full summary JSON here")
+    ap.add_argument("--manifest", help="frozen experiment manifest (verified mode)")
+    ap.add_argument("--schedule", help="completed schedule.json (verified mode)")
+    ap.add_argument("--d1", help="frozen D1 manifest (verified mode)")
+    ap.add_argument("--allow-draft", action="store_true")
     args = ap.parse_args()
 
+    verified = (args.manifest, args.schedule, args.d1)
+    if any(verified):
+        if not all(verified) or not args.out:
+            ap.error("verified mode requires --manifest, --schedule, --d1, and --out")
+        from .analyze_rq1 import (
+            analyze_verified_cells,
+            verify_rq1_experiment,
+            write_analysis_outputs,
+        )
+
+        cells = verify_rq1_experiment(
+            experiment_manifest_path=args.manifest,
+            schedule_path=args.schedule,
+            d1_manifest_path=args.d1,
+            require_frozen=not args.allow_draft,
+        )
+        analysis = analyze_verified_cells(cells)
+        paths = write_analysis_outputs(analysis, args.out)
+        print(
+            "aggregate.py compatibility mode delegated to the verified RQ1 analyzer; "
+            f"wrote {paths['json']}"
+        )
+        return
+
     summary = aggregate(args.root)
+    print(
+        "WARNING: legacy raw-property aggregation is diagnostic only and is not "
+        "eligible for headline paper claims. Use --manifest/--schedule/--d1."
+    )
     print("Pooled by method:")
     for m, d in sorted(summary["pooled_by_method"].items()):
         print(f"  {m:>10}: skills={d['skills']} runs={d['runs']} "

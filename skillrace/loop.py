@@ -2,13 +2,13 @@
 
   random       : 30 fresh cases and no bootstrap or execution feedback.
   adaptive     : 10 counted bootstrap cases, then 20 exploration cases.
-  every phase  : shared sanity -> compile -> agent -> property checker -> fold.
+  every phase  : shared sanity -> agent -> path-only Python checker -> fold.
 
 The exact bootstrap cases are independently generated per adaptive campaign; their
 generator configuration and counted allocation are identical and recorded.
 
 Explore phase: until the counted agent-run budget is spent —
-                 propose -> compile checks -> run agent -> check properties -> fold.
+                 propose -> run agent -> author/check properties -> fold.
 
 Only `make_generator(method)` differs between rungs ("random" | "greybox" |
 "skillrace"); the runner and the property checker are byte-identical subprocess
@@ -54,7 +54,7 @@ from .generator import DEFAULT_BUILD_RETRIES, RandomGenerator
 from .greybox import GreyboxGenerator
 from .campaign_engine import CampaignEngine
 from .campaign_protocol import CampaignProtocol
-from .compile_checks import compile_case
+from .closeai import OutcomeUnknownError
 from .io_utils import atomic_write_json, atomic_write_text, canonical_json_hash
 from .input_identity import skill_input_tree_hash
 from .property_specs import load_applicable_properties
@@ -74,19 +74,22 @@ from .simplify_trace import render, target_episodes, call_reasonings
 from .segment import segment_text, validate as validate_spans, assemble
 from .tree import fold as tree_fold, empty_tree
 from . import guards as G
+from .model_policy import EXPERIMENT_MODELS
 
 
 DEFAULT_MAIN_PROTOCOL_PATH = (
     pathlib.Path(__file__).resolve().parent.parent
-    / "experiments" / "protocols" / "issta-main.draft.json"
+    / "experiments" / "protocols" / "issta-main.glm-4.5-flash.draft.json"
 )
 DEFAULT_PILOT_PROTOCOL_PATH = (
     pathlib.Path(__file__).resolve().parent.parent
-    / "experiments" / "protocols" / "pilot.json"
+    / "experiments" / "protocols" / "pilot.glm-4.5-flash.json"
 )
-FROZEN_HEADLINE_PROTOCOL_ID = "skillrace-issta-main-v1"
+FROZEN_HEADLINE_PROTOCOL_IDS = {
+    "glm-4.5-flash": "skillrace-issta-main-glm-4.5-flash-v1",
+    "deepseek-v4-flash": "skillrace-issta-main-deepseek-v4-flash-v1",
+}
 FROZEN_HEADLINE_FIELDS = {
-    "model": "qwen3.6-flash",
     "budget": 30,
     "bootstrap_count": 10,
     "max_generation_attempts_per_execution": 5,
@@ -161,7 +164,8 @@ def resolve_base_image_identity(base_image, *, resolver=None):
 def _require_frozen_headline(protocol: CampaignProtocol) -> CampaignProtocol:
     exact = (
         protocol.status == "frozen"
-        and protocol.protocol_id == FROZEN_HEADLINE_PROTOCOL_ID
+        and protocol.model in EXPERIMENT_MODELS
+        and protocol.protocol_id == FROZEN_HEADLINE_PROTOCOL_IDS[protocol.model]
         and not protocol.protocol_id.startswith("development-only-")
         and all(
             getattr(protocol, field) == expected
@@ -173,7 +177,7 @@ def _require_frozen_headline(protocol: CampaignProtocol) -> CampaignProtocol:
     if not exact:
         raise ValueError(
             "non-development execution requires the exact approved frozen headline "
-            "protocol (30/10, L1, qwen3.6-flash, fixed attempts/settings)"
+            "protocol for one selected model track (30/10, L1, fixed attempts/settings)"
         )
     return protocol
 
@@ -251,21 +255,57 @@ def bind_run_cost_receipt(run_dir):
     }
 
 
-def check_run(run_dir, model):
-    """SHARED property checker (precompiled per-case checks + fixed core)."""
+def check_run(
+    run_dir,
+    model,
+    *,
+    properties=None,
+    candidate=None,
+    applicability=None,
+):
+    """Run fixed checks plus blinded post-run generated checks."""
     run_dir = pathlib.Path(run_dir)
     if not (run_dir / "run.json").is_file():
         return [], ["run.json missing; property checker suppressed"], None
-    p = subprocess.run([sys.executable, "-m", "skillrace.check_properties",
-                        "--run", str(run_dir), "--model", model],
-                       capture_output=True, text=True)
+    command = [
+        sys.executable,
+        "-m",
+        "skillrace.check_properties",
+        "--run",
+        str(run_dir),
+        "--model",
+        model,
+    ]
+    if properties is not None:
+        provenance = (candidate or {}).get("provenance") or {}
+        checker_input = {
+            "schema": "post-run-check-input/1",
+            "properties": properties,
+            "candidate": {
+                "skill": (candidate or {}).get("skill"),
+                "prompt": (candidate or {}).get("prompt", ""),
+                "provenance": {"env_nl": provenance.get("env_nl", "")},
+            },
+            "applicability": applicability,
+        }
+        input_path = run_dir / "post-run-check-input.json"
+        atomic_write_json(input_path, checker_input)
+        command.extend(["--post-run-input", str(input_path)])
+    unknown_path = run_dir / "checker-outcome-unknown.json"
+    if unknown_path.is_file():
+        unknown = json.loads(unknown_path.read_text())
+        raise OutcomeUnknownError(unknown.get("error", "checker outcome unknown"))
+    p = subprocess.run(command, capture_output=True, text=True)
+    if unknown_path.is_file():
+        unknown = json.loads(unknown_path.read_text())
+        raise OutcomeUnknownError(unknown.get("error", "checker outcome unknown"))
     vp = run_dir / "verdicts.json"
     verdicts = json.loads(vp.read_text()) if vp.exists() else []
     return verdicts, (p.stdout + p.stderr).strip().splitlines()[-3:], p.returncode
 
 
 class RealCampaignExecutor:
-    """One shared materialize/trust/sanity/compile/run/check execution pipeline.
+    """One shared materialize/trust/sanity/run/post-run-check execution pipeline.
 
     It always returns a JSON result instead of raising a stage failure.  That lets
     :class:`CampaignEngine` publish the immutable result before mutating campaign
@@ -325,7 +365,9 @@ class RealCampaignExecutor:
         runtime_path = case_dir / "runtime-integrity.json"
         try:
             fingerprint = verify_runtime_integrity(
-                candidate.get("base_image"), candidate.get("built_image")
+                candidate.get("base_image_identity")
+                or candidate.get("base_image"),
+                candidate.get("built_image"),
             )
         except RuntimeIntegrityError as error:
             report = {
@@ -366,6 +408,7 @@ class RealCampaignExecutor:
                 "schema": "runtime-integrity/1",
                 "valid": True,
                 "base_image": candidate.get("base_image"),
+                "base_image_identity": candidate.get("base_image_identity"),
                 "candidate_image": candidate.get("built_image"),
                 "candidate_fingerprint": fingerprint,
             },
@@ -420,24 +463,6 @@ class RealCampaignExecutor:
             return result
         result["sanity_status"] = "accepted"
 
-        try:
-            _, cost = compile_case(
-                case_dir,
-                self.properties,
-                self.model,
-                image=candidate.get("built_image"),
-                applicability=self.applicability,
-            )
-        except Exception as error:
-            result.update(
-                status="compile_error",
-                infrastructure_status="compile_error",
-                error=str(error)[:500],
-                seconds=round(time.time() - t0, 3),
-            )
-            return result
-        result["compile_cost_usd"] = round(cost, 12)
-
         run_dir = self.runs_dir / f"{attempt_id}-{candidate.get('candidate_id', 'x')[:24]}"
         result["run_dir"] = str(run_dir)
         if lifecycle is not None:
@@ -476,6 +501,10 @@ class RealCampaignExecutor:
             runner_returncode=returncode,
             agent_started=runner["agent_started"],
         )
+        if isinstance(manifest, Mapping):
+            run_id = manifest.get("run_id")
+            if isinstance(run_id, str) and run_id:
+                result["run_id"] = run_id
         if lifecycle is not None:
             lifecycle("external-terminal", {"result": dict(result)})
         if not runner["consume_budget"]:
@@ -489,11 +518,37 @@ class RealCampaignExecutor:
         result["infrastructure_status"] = "ready"
         result["termination"] = manifest.get("termination") if manifest else None
         try:
-            verdicts, checker_tail, checker_returncode = check_run(run_dir, self.model)
+            verdicts, checker_tail, checker_returncode = check_run(
+                run_dir,
+                self.model,
+                properties=self.properties,
+                candidate=candidate,
+                applicability=self.applicability,
+            )
+        except OutcomeUnknownError as error:
+            result.update(
+                status="external-outcome-indeterminate",
+                infrastructure_status="external_state_indeterminate",
+                oracle_status="not_run",
+                cost_accounting="unknown-nonzero-possible",
+                unrecorded_cost_possible=True,
+                stop_campaign=True,
+                error=str(error)[:500],
+                seconds=round(time.time() - t0, 3),
+            )
+            return result
         except Exception as error:
             verdicts, checker_tail, checker_returncode = [], [str(error)], None
             result["oracle_error"] = str(error)[:300]
         result["oracle_status"] = classify_oracle_result(checker_returncode, verdicts)
+        checker_manifest_path = pathlib.Path(run_dir) / "checks" / "manifest.json"
+        if checker_manifest_path.is_file():
+            checker_manifest = json.loads(checker_manifest_path.read_text())
+            result["compile_cost_provider_credits"] = checker_manifest.get(
+                "cost_provider_credits", 0.0
+            )
+            if checker_manifest.get("cost_accounting"):
+                result["cost_accounting"] = checker_manifest["cost_accounting"]
         if checker_returncode not in (0, None):
             result["oracle_error"] = "\n".join(checker_tail)[-300:]
         result["violated"] = [
@@ -792,7 +847,7 @@ class SkillRACEGenerator:
         self.out = pathlib.Path(out_dir)
         self.tree_path = self.out / "tree.json"
         self.seed_gen = seed_gen
-        self.cost_usd = 0.0
+        self.cost_provider_credits = 0.0
         self.stats = {"synthesized": 0, "fallbacks": 0, "synth_failures": 0}
         self.last_target_parent = None      # parent node id of the targeted branch
         self.last_target_metadata = None
@@ -813,11 +868,11 @@ class SkillRACEGenerator:
                 skill=self.skill,
                 signal_mode=self.strategy.signal_mode,
             )
-            self.cost_usd += c
+            self.cost_provider_credits += c
             frontier = G.build_frontier(state)
             target, c = G.select_target(frontier, self.props, self.model,
                                         skill=self.skill)
-            self.cost_usd += c
+            self.cost_provider_credits += c
             if target:
                 self.last_target_metadata = {
                     "parent_id": target["item"]["guard"].get("parent_id"),
@@ -828,10 +883,11 @@ class SkillRACEGenerator:
                 }
                 case, info, c = G.synthesize(tree, target, self.skill,
                                              self.skill_dir,
-                                             self.base_image_identity,
+                                             self.base,
                                              self.model, cases_dir,
-                                             requested_base_image=self.base)
-                self.cost_usd += c
+                                             requested_base_image=self.base,
+                                             base_image_identity=self.base_image_identity)
+                self.cost_provider_credits += c
                 st, sp = G.load_guard_state(
                     self.tree_path, signal_mode=self.strategy.signal_mode
                 )
@@ -922,10 +978,10 @@ class SkillRACEGenerator:
                     raise ValueError(
                         "SkillRACE synthesis receipt identity/hash mismatch"
                     )
-                recorded_target_cost += float(receipt.get("cost_usd", 0.0))
-            current = round(float(self.cost_usd), 12)
+                recorded_target_cost += float(receipt.get("cost_provider_credits", 0.0))
+            current = round(float(self.cost_provider_credits), 12)
             if current == round(before, 12):
-                self.cost_usd = after
+                self.cost_provider_credits = after
             elif current != round(after, 12) and current != round(
                 after + recorded_target_cost, 12
             ):
@@ -988,7 +1044,7 @@ class SkillRACEGenerator:
                 {**intent_core, "intent_hash": canonical_json_hash(intent_core)},
             )
 
-        cost_before = round(float(self.cost_usd), 12)
+        cost_before = round(float(self.cost_provider_credits), 12)
         frontier = []
         selected = None
         tree = None
@@ -1007,13 +1063,13 @@ class SkillRACEGenerator:
                     skill=self.skill,
                     signal_mode=self.strategy.signal_mode,
                 )
-                self.cost_usd = round(self.cost_usd + cost, 12)
+                self.cost_provider_credits = round(self.cost_provider_credits + cost, 12)
                 frontier = G.build_frontier(state)
                 if frontier:
                     selected, cost = G.select_target(
                         frontier, self.props, self.model, skill=self.skill
                     )
-                    self.cost_usd = round(self.cost_usd + cost, 12)
+                    self.cost_provider_credits = round(self.cost_provider_credits + cost, 12)
 
         # Preserve the property-guided first choice, then rotate branches so one
         # prolific guard cannot consume the whole frozen epoch.
@@ -1081,7 +1137,7 @@ class SkillRACEGenerator:
             "tree_version": tree_version,
             "frozen_state_hash": frozen_state_hash,
             "cost_before": cost_before,
-            "cost_after_planning": round(float(self.cost_usd), 12),
+            "cost_after_planning": round(float(self.cost_provider_credits), 12),
             "stats_before": json.loads(json.dumps(self.stats)),
             "assignments": assignments,
         }
@@ -1162,10 +1218,11 @@ class SkillRACEGenerator:
                         target,
                         self.skill,
                         self.skill_dir,
-                        self.base_image_identity,
+                        self.base,
                         self.model,
                         cases_dir,
                         requested_base_image=self.base,
+                        base_image_identity=self.base_image_identity,
                         proposal_id=candidate_id,
                         provenance=assignment["provenance"],
                     )
@@ -1189,7 +1246,7 @@ class SkillRACEGenerator:
                 "candidate_id": candidate_id,
                 "case_dir": case_dir,
                 "info": info,
-                "cost_usd": round(float(cost), 12),
+                "cost_provider_credits": round(float(cost), 12),
                 "error": error,
             }
             receipt = {**core, "receipt_hash": canonical_json_hash(core)}
@@ -1210,7 +1267,7 @@ class SkillRACEGenerator:
                         "case_dir": receipt.get("case_dir"),
                         "source": "skillrace",
                         "error": receipt.get("error"),
-                        "cost_usd": receipt.get("cost_usd", 0.0),
+                        "cost_provider_credits": receipt.get("cost_provider_credits", 0.0),
                     }
 
         fallback = [
@@ -1299,7 +1356,7 @@ class SkillRACEGenerator:
                     "case_dir": case_dir,
                     "source": "skillrace-fallback",
                     "error": error,
-                    "cost_usd": 0.0,
+                    "cost_provider_credits": 0.0,
                 }
 
         target_receipts = [
@@ -1307,16 +1364,16 @@ class SkillRACEGenerator:
             if result is not None and result["source"] == "skillrace"
         ]
         target_cost = round(
-            sum(float(result.get("cost_usd", 0.0)) for result in target_receipts),
+            sum(float(result.get("cost_provider_credits", 0.0)) for result in target_receipts),
             12,
         )
         desired_cost = round(float(plan["cost_after_planning"]) + target_cost, 12)
-        current_cost = round(float(self.cost_usd), 12)
+        current_cost = round(float(self.cost_provider_credits), 12)
         if current_cost not in {
             round(float(plan["cost_after_planning"]), 12), desired_cost
         }:
             raise ValueError("SkillRACE target synthesis cost replay mismatch")
-        self.cost_usd = desired_cost
+        self.cost_provider_credits = desired_cost
 
         stats = json.loads(json.dumps(plan["stats_before"]))
         stats["synthesized"] += sum(
@@ -1381,7 +1438,7 @@ class SkillRACEGenerator:
         actions, err, c = segment_and_fold(
             run_dir, self.tree_path, self.model, self.skill, attempt_id=attempt_id
         )
-        self.cost_usd += c
+        self.cost_provider_credits += c
         if err:
             print(f"  [fold] {err}")
         if attempt_id is not None:
@@ -1405,8 +1462,8 @@ class SkillRACEGenerator:
             "strategy": self.strategy.as_dict(),
             "strategy_hash": self.strategy.hash,
             "stats": json.loads(json.dumps(self.stats)),
-            "cost_usd": self.cost_usd,
-            "gen_cost_usd": round(self.cost_usd + self.seed_gen.cost_usd, 6),
+            "cost_provider_credits": self.cost_provider_credits,
+            "gen_cost_provider_credits": round(self.cost_provider_credits + self.seed_gen.cost_provider_credits, 6),
             "target_metadata": {
                 "last_target_parent": self.last_target_parent,
                 "last_target": json.loads(json.dumps(self.last_target_metadata)),
@@ -1439,7 +1496,7 @@ class SkillRACEGenerator:
         ):
             raise ValueError("SkillRACE generator strategy mismatch")
         self.stats = json.loads(json.dumps(snapshot.get("stats", {})))
-        self.cost_usd = float(snapshot.get("cost_usd", 0.0))
+        self.cost_provider_credits = float(snapshot.get("cost_provider_credits", 0.0))
         target = snapshot.get("target_metadata") or {}
         self.last_target_parent = target.get("last_target_parent")
         self.last_target_metadata = json.loads(json.dumps(target.get("last_target")))
@@ -1510,7 +1567,7 @@ class SkillRACEGenerator:
 
     def state(self):
         return {"skill": self.skill, "source": "skillrace", "stats": self.stats,
-                "gen_cost_usd": round(self.cost_usd + self.seed_gen.cost_usd, 6)}
+                "gen_cost_provider_credits": round(self.cost_provider_credits + self.seed_gen.cost_provider_credits, 6)}
 
 
 # ------------------------------------------------------------------ the loop
@@ -1558,6 +1615,16 @@ def resolve_campaign_protocol(
         if loaded.seed_generator["build_retries"] != DEFAULT_BUILD_RETRIES:
             raise ValueError("reviewed protocol must use the shared build retry policy")
         return _require_frozen_headline(loaded)
+
+    # A protocol embedded by an already-started development campaign already has
+    # its final identity. Preserve it byte-for-byte on resume instead of adding a
+    # second development prefix or reconstructing its hash.
+    if (
+        loaded.status == "runtime"
+        and loaded.protocol_id.startswith("development-only-")
+        and not any(value is not None for value in overrides.values())
+    ):
+        return loaded
 
     raw = json.loads(json.dumps(loaded.raw))
     raw["protocol_id"] = f"development-only-{loaded.protocol_id}"
@@ -1775,7 +1842,7 @@ def build_parser():
         help="allow an explicitly non-headline pilot/development protocol",
     )
     ap.add_argument("--wall-clock", type=int, default=1800)
-    ap.add_argument("--epoch-size", type=int, default=4)
+    ap.add_argument("--epoch-size", type=int, default=1)
     ap.add_argument("--out", required=True)
     return ap
 

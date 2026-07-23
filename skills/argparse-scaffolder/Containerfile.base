@@ -1,0 +1,6 @@
+ARG SKILLGEN_BASE_IMAGE=skillrace/skillgen-base:0.73.1-construction
+FROM ${SKILLGEN_BASE_IMAGE}
+COPY repo/ /workspace/
+COPY SKILL.md /skills/argparse-scaffolder/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: argparse-scaffolder" || true
+

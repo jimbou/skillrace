@@ -1,0 +1,28 @@
+{
+  "schema": "campaign-protocol/1",
+  "protocol_id": "skillrace-issta-main-deepseek-v4-flash-v1-draft",
+  "status": "draft",
+  "model": "deepseek-v4-flash",
+  "budget": 30,
+  "bootstrap_count": 10,
+  "max_generation_attempts_per_execution": 5,
+  "seed_generator": {
+    "batch_size": 5,
+    "temperature": 0.9,
+    "build_retries": 4
+  },
+  "greybox_level": "L1",
+  "random_seed": 20260711,
+  "repair": {
+    "enabled": true,
+    "timeout_seconds": 300,
+    "max_output_tokens": 4000,
+    "temperature": 0.0,
+    "reasoning": true,
+    "backend_by_method": {
+      "random": "direct",
+      "greybox": "direct",
+      "skillrace": "pi"
+    }
+  }
+}

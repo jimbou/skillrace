@@ -1,0 +1,9 @@
+ARG SKILLGEN_BASE_IMAGE=skillrace/skillgen-base:0.73.1-construction
+FROM ${SKILLGEN_BASE_IMAGE}
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3-requests \
+    && rm -rf /var/lib/apt/lists/*
+COPY repo/ /workspace/
+COPY SKILL.md /skills/rest-api-caller/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: rest-api-caller" || true
+

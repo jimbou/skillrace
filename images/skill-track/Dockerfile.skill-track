@@ -1,0 +1,13 @@
+# syntax=docker/dockerfile:1.7
+# Tiny final overlay: all heavy skill-environment layers are shared, while the
+# effective Pi model catalog and final image identity are frozen per model track.
+ARG SKILL_IMAGE
+FROM ${SKILL_IMAGE}
+
+ARG TRACK_MODEL
+ARG MODEL_CONFIG
+COPY ${MODEL_CONFIG} /root/.pi/agent/models.json
+RUN TRACK_MODEL="$TRACK_MODEL" node -e 'const fs=require("fs"); const cfg=JSON.parse(fs.readFileSync("/root/.pi/agent/models.json","utf8")); const models=cfg.providers?.yunwu?.models??[]; if(models.length!==1||models[0].id!==process.env.TRACK_MODEL)process.exit(2); if(cfg.providers.yunwu.apiKey!=="yunwu_key")process.exit(3)'
+
+LABEL org.skillrace.track.model="${TRACK_MODEL}" \
+      org.skillrace.track.overlay="model-catalog-v1"

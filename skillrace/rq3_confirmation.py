@@ -10,7 +10,12 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-from .io_utils import atomic_write_json, canonical_json_hash, file_hash
+from .io_utils import (
+    atomic_write_json,
+    canonical_json_hash,
+    file_hash,
+    resolve_campaign_path,
+)
 
 
 CONFIRMATION_SCHEMA = "skillrace-confirmations/1"
@@ -106,14 +111,9 @@ def _suspected_clusters(
         if not verdicts and campaign_root is not None:
             run = raw_attempt.get("run") or result.get("run_dir")
             if isinstance(run, str) and run:
-                raw_run = pathlib.Path(run)
-                run_path = (
-                    raw_run.resolve()
-                    if raw_run.is_absolute()
-                    else (campaign_root / raw_run).resolve()
+                run_path = resolve_campaign_path(
+                    campaign_root, run, "verdict path"
                 )
-                if campaign_root != run_path and campaign_root not in run_path.parents:
-                    raise ValueError("campaign verdict path escapes campaign root")
                 verdict_path = run_path / "verdicts.json"
                 if verdict_path.is_file() and not verdict_path.is_symlink():
                     try:
@@ -222,7 +222,7 @@ def _normalize_result(raw: Any, request: ConfirmationRequest) -> dict[str, Any]:
         "agent_id": raw.get("agent_id") or raw.get("run_id"),
         "input_tokens": int(raw.get("input_tokens", 0) or 0),
         "output_tokens": int(raw.get("output_tokens", 0) or 0),
-        "cost_usd": _safe_number(raw.get("cost_usd", 0.0) or 0.0, "confirmation cost"),
+        "cost_provider_credits": _safe_number(raw.get("cost_provider_credits", 0.0) or 0.0, "confirmation cost"),
         "wall_seconds": _safe_number(raw.get("wall_seconds", 0.0) or 0.0, "confirmation wall time"),
         "error": str(raw.get("error") or raw.get("error_message") or "")[:500],
     }
@@ -303,9 +303,9 @@ def validate_confirmation_ledger(
             )
     if ledger.get("confirmation_executions_counted_in_search_budget") is not False:
         raise ValueError("confirmation executions must remain outside the search budget")
-    total = round(sum(_safe_number(row.get("cost_usd", 0.0), "confirmation cost") for row in results), 6)
+    total = round(sum(_safe_number(row.get("cost_provider_credits", 0.0), "confirmation cost") for row in results), 6)
     if ledger.get("costs") != {
-        "total_usd": total,
+        "total_provider_credits": total,
         "input_tokens": sum(int(row.get("input_tokens", 0)) for row in results),
         "output_tokens": sum(int(row.get("output_tokens", 0)) for row in results),
         "wall_seconds": round(sum(float(row.get("wall_seconds", 0.0)) for row in results), 3),
@@ -320,12 +320,31 @@ def confirm_campaign_findings(
     *,
     executor: Callable[[ConfirmationRequest], Mapping[str, Any]],
     campaign_root: str | pathlib.Path | None = None,
+    allow_bounded_development: bool = False,
 ) -> dict[str, Any]:
     """Confirm one representative per property/signature exactly once."""
 
     if not isinstance(campaign, Mapping):
         raise ValueError("campaign must be an object")
-    if campaign.get("complete") is not True or campaign.get("counted_executions") != 30:
+    search_executions = campaign.get("counted_executions")
+    bounded_development = (
+        allow_bounded_development
+        and campaign.get("complete") is True
+        and campaign.get("status") == "completed"
+        and isinstance(search_executions, int)
+        and not isinstance(search_executions, bool)
+        and 0 < search_executions < 30
+    )
+    if bounded_development:
+        protocol = campaign.get("protocol")
+        if not isinstance(protocol, Mapping) or protocol.get("status") not in {
+            "runtime",
+            "development-only",
+        }:
+            raise ValueError(
+                "bounded confirmation requires an embedded development protocol"
+            )
+    elif campaign.get("complete") is not True or search_executions != 30:
         raise ValueError("confirmation requires a complete 30-execution campaign")
     output = pathlib.Path(out_dir)
     if output.is_symlink() or (output.exists() and not output.is_dir()):
@@ -421,16 +440,18 @@ def confirm_campaign_findings(
         "method": campaign.get("method"),
         "protocol_hash": campaign.get("protocol_hash"),
         "base_skill_hash": campaign.get("base_skill_hash"),
-        "search_agent_executions": 30,
+        "search_agent_executions": search_executions,
         "confirmation_executions": len(links),
         "confirmation_executions_counted_in_search_budget": False,
         "clusters": links,
         "costs": {
-            "total_usd": round(sum(float(row["cost_usd"]) for row in results), 6),
+            "total_provider_credits": round(sum(float(row["cost_provider_credits"]) for row in results), 6),
             "input_tokens": sum(int(row["input_tokens"]) for row in results),
             "output_tokens": sum(int(row["output_tokens"]) for row in results),
             "wall_seconds": round(sum(float(row["wall_seconds"]) for row in results), 3),
         },
     }
+    if bounded_development:
+        ledger["development_only"] = True
     atomic_write_json(ledger_path, ledger)
     return validate_confirmation_ledger(ledger_path, campaign_root=source_root)

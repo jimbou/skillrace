@@ -72,9 +72,22 @@ def test_random_all_build_failure_is_retryable_not_permanent_exhaustion(monkeypa
                 {"summary": "a", "task": "a", "env": "a"},
                 {"summary": "b", "task": "b", "env": "b"},
             ],
-            {"cost_usd": 0.1},
+            {"cost_provider_credits": 0.1},
         ),
     )
-    monkeypatch.setattr(generator, "_make_one", lambda item: (None, 0.0))
-    with pytest.raises(GenerationFailure, match="no buildable"):
+    monkeypatch.setattr(
+        generator,
+        "_make_one_detailed",
+        lambda item: random_module.RealizationOutcome(
+            None,
+            0.0,
+            {
+                "type": "GenerationFailure",
+                "reason": "invalid-realization-response",
+                "message": "exact invalid sanity diagnostic",
+            },
+        ),
+    )
+    with pytest.raises(GenerationFailure, match="exact invalid sanity diagnostic"):
         generator.propose()
+    assert generator.failure_state["reason"] == "invalid-realization-response"

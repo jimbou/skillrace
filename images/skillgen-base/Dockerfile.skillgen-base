@@ -1,25 +1,29 @@
 # syntax=docker/dockerfile:1.7
-# Rebuildable Python/pytest workspace shared by D1 and D2 environments.
-FROM skillrace/pi-base:0.62.0
+# Compose the source-built Python/pytest layer with the model-compatible Pi runtime.
+ARG PI_RUNTIME_IMAGE=skillrace/pi-base:0.73.1-glm-4.5-flash
+ARG PYTHON_BOOTSTRAP_IMAGE=skillrace/skillgen-base:python3.11-pytest7.2.1-bootstrap
+
+FROM ${PI_RUNTIME_IMAGE} AS pi_runtime
+FROM ${PYTHON_BOOTSTRAP_IMAGE}
+
+COPY --from=pi_runtime /usr/local/lib/node_modules/ /usr/local/lib/node_modules/
+COPY --from=pi_runtime /usr/local/bin/pi /usr/local/bin/pi
+COPY --from=pi_runtime /root/.pi/agent/models.json /root/.pi/agent/models.json
 
 LABEL org.opencontainers.image.title="skillrace-skillgen-base" \
-      org.opencontainers.image.description="Pinned Python/pytest workspace on the shared SkillRACE Pi runtime" \
-      org.opencontainers.image.source="skillrace/images/skillgen-base"
-
-# Exact Debian package versions make repository drift fail visibly instead of
-# silently changing the experiment environment.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      python3=3.11.2-1+b1 \
-      python3-pytest=7.2.1-2 \
- && rm -rf /var/lib/apt/lists/* \
- && ln -sf /usr/bin/python3 /usr/local/bin/python
+      org.opencontainers.image.description="Pinned Python/pytest workspace with Pi 0.73.1 construction runtime" \
+      org.opencontainers.image.source="skillrace/images/skillgen-base" \
+      org.skillrace.image.role="construction"
 
 WORKDIR /
-RUN rm -rf /workspace /skills/* /logs/* \
- && mkdir -p /workspace /skills /logs \
- && git config --global user.email "base@skillrace.local" \
- && git config --global user.name "skillrace"
+RUN set -eux; \
+    test "$(pi --version 2>&1)" = "0.73.1"; \
+    test "$(python3 --version 2>&1)" = "Python 3.11.2"; \
+    python3 -m pytest --version | grep -F 'pytest 7.2.1'; \
+    rm -rf /workspace /skills/* /logs/*; \
+    mkdir -p /workspace /skills /logs; \
+    git config --global user.email "base@skillrace.local"; \
+    git config --global user.name "skillrace"
 
 WORKDIR /workspace
 RUN git init -q -b main \

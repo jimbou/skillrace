@@ -18,6 +18,7 @@ from typing import Any
 
 from .input_identity import skill_input_tree_hash
 from .io_utils import canonical_json_hash
+from .d1_selection import SelectionAuditError, validate_continuation_audit
 from .third_party_audit import ThirdPartyValidationError, validate_third_party_manifest
 
 
@@ -294,6 +295,19 @@ def validate_suite(
             "development-only list must enumerate every prepared non-public skill"
         )
 
+    selection_audit = None
+    if len(headline_ids) >= 30:
+        try:
+            selection_audit = validate_continuation_audit(
+                root / "candidates/D1-continuation-audit.json",
+                suite_manifest=manifest_path,
+                repo_root=root,
+            )
+        except SelectionAuditError as error:
+            raise SuiteValidationError(
+                f"D1 continuation selection invalid: {error}"
+            ) from error
+
     try:
         third_party = validate_third_party_manifest(
             root / "experiments/manifests/third-party-skills.json",
@@ -321,6 +335,7 @@ def validate_suite(
         "resolved_images": resolved_images,
         "missing_images": [],
         "third_party_records": third_party["records"],
+        "continuation_audit": selection_audit,
     }
 
 

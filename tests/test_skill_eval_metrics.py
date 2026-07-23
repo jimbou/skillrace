@@ -230,11 +230,11 @@ def test_summary_uses_every_scheduled_test_as_the_conservative_headline_denomina
     }
 
 
-def test_derived_case_preserves_candidate_dockerfile_and_checks_bytes(tmp_path):
+def test_derived_case_preserves_hidden_semantics_and_projects_only_track_runtime(tmp_path):
     test = tmp_path / "test"
     (test / "checks").mkdir(parents=True)
-    candidate = b'{"skill":"demo","prompt":"hidden","base_image":"demo:base"}\n'
-    dockerfile = b"FROM demo:base\nRUN true\n"
+    candidate = b'{"skill":"demo","prompt":"hidden","base_image":"skillrace/skillgen-base:0.73.1-construction"}\n'
+    dockerfile = b"FROM skillrace/skillgen-base:0.73.1-construction\nRUN true\n"
     check = b"#!/bin/sh\nexit 0\n"
     (test / "candidate.json").write_bytes(candidate)
     (test / "Dockerfile").write_bytes(dockerfile)
@@ -243,12 +243,23 @@ def test_derived_case_preserves_candidate_dockerfile_and_checks_bytes(tmp_path):
     skill.mkdir()
     (skill / "SKILL.md").write_text("# Skill\n", encoding="utf-8")
 
-    case = derive_case(test, "demo", skill, tmp_path / "case")
+    case = derive_case(
+        test, "demo", skill, tmp_path / "case", agent_model="deepseek-v4-flash"
+    )
 
-    assert (case / "candidate.json").read_bytes() == candidate
-    assert (case / "Dockerfile").read_bytes() == dockerfile
+    projected = json.loads((case / "candidate.json").read_text())
+    assert projected["base_image"] == (
+        "skillrace/skillgen-base:0.73.1-deepseek-v4-flash"
+    )
+    assert (case / "Dockerfile").read_text().startswith(
+        "FROM skillrace/skillgen-base:0.73.1-deepseek-v4-flash\n"
+    )
     assert (case / "checks" / "pass.sh").read_bytes() == check
-    assert json.loads((case / "candidate.json").read_text())["skill"] == "demo"
+    receipt = json.loads((case / "runtime-projection.json").read_text())
+    assert receipt["model"] == "deepseek-v4-flash"
+    assert receipt["source_candidate_sha256"] == file_hash(test / "candidate.json")
+    assert receipt["source_dockerfile_sha256"] == file_hash(test / "Dockerfile")
+    assert projected["skill"] == "demo"
 
 
 def test_condition_blind_executor_request_has_no_condition_field(tmp_path):
@@ -262,7 +273,7 @@ def test_condition_blind_executor_request_has_no_condition_field(tmp_path):
         skill_name="demo",
         skill_dir=tmp_path / "skill",
         run_dir=tmp_path / "run",
-        agent_model="qwen3.6-flash",
+        agent_model="glm-4.5-flash",
         wall_clock=30,
         contract_identity="a" * 64,
         criterion_ids=("behavior",),
@@ -278,10 +289,18 @@ def test_condition_blind_executor_reads_nested_wall_time_and_agent_cost(
     hidden = tmp_path / "hidden"
     (hidden / "checks").mkdir(parents=True)
     (hidden / "candidate.json").write_text(
-        json.dumps({"skill": "demo", "base_image": "demo:base", "prompt": "task"}),
+        json.dumps(
+            {
+                "skill": "demo",
+                "base_image": "skillrace/skillgen-base:0.73.1-construction",
+                "prompt": "task",
+            }
+        ),
         encoding="utf-8",
     )
-    (hidden / "Dockerfile").write_text("FROM demo:base\n", encoding="utf-8")
+    (hidden / "Dockerfile").write_text(
+        "FROM skillrace/skillgen-base:0.73.1-construction\n", encoding="utf-8"
+    )
     (hidden / "checks" / "pass.sh").write_text("exit 0\n", encoding="utf-8")
     skill = tmp_path / "skill"
     skill.mkdir()
@@ -293,7 +312,15 @@ def test_condition_blind_executor_reads_nested_wall_time_and_agent_cost(
     def fake_invoke(_case, execution_dir, *_args):
         execution_dir.mkdir(parents=True)
         (execution_dir / "cost.json").write_text(
-            json.dumps({"in": 10, "out": 3, "price_usd": 0.25}), encoding="utf-8"
+            json.dumps(
+                {
+                    "in": 10,
+                    "out": 3,
+                    "cost_provider_credits": 0.251234,
+                    "price_provider_credits": 0.25,
+                }
+            ),
+            encoding="utf-8",
         )
         (execution_dir / "launch.json").write_text(
             json.dumps({"schema": "skillrace-hidden-launch/1"}), encoding="utf-8"
@@ -333,7 +360,7 @@ def test_condition_blind_executor_reads_nested_wall_time_and_agent_cost(
             skill_name="demo",
             skill_dir=skill,
             run_dir=tmp_path / "run",
-            agent_model="qwen3.6-flash",
+            agent_model="glm-4.5-flash",
             wall_clock=30,
             contract_identity="a" * 64,
             criterion_ids=("behavior",),
@@ -342,7 +369,7 @@ def test_condition_blind_executor_reads_nested_wall_time_and_agent_cost(
     )
 
     assert result["wall_seconds"] == 12.5
-    assert result["cost_usd"] == 0.25
+    assert result["cost_provider_credits"] == 0.251234
     assert result["raw_artifacts"] == {
         name: {
             "path": f"execution/{filename}",
@@ -381,9 +408,10 @@ def test_shared_hidden_launch_records_clean_cwd_argv_env_and_oracle_provenance(
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(skill_eval_module.subprocess, "run", fake_run)
+    monkeypatch.setenv("yunwu_key", "not-recorded")
 
     skill_eval_module._invoke_shared_runner(
-        case, run_dir, "qwen3.6-flash", 30, checks, skill
+        case, run_dir, "glm-4.5-flash", 30, checks, skill
     )
 
     launch = json.loads((run_dir / "launch.json").read_text())
@@ -393,6 +421,7 @@ def test_shared_hidden_launch_records_clean_cwd_argv_env_and_oracle_provenance(
     checker_argv = launch["commands"][1]["argv"]
     assert checker_argv[-2:] == ["--verdict-provenance", "hidden-independent"]
     assert launch["environment"]["values_recorded"] is False
+    assert launch["environment"]["secret_names"] == ["yunwu_key"]
     assert all(kwargs["cwd"] == run_dir for _, kwargs in calls)
     assert all(set(kwargs["env"]) == set(launch["environment"]["names"]) for _, kwargs in calls)
 

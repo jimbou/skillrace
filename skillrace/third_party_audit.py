@@ -6,6 +6,7 @@ import hashlib
 import json
 import pathlib
 import re
+import urllib.parse
 from typing import Any
 
 
@@ -16,6 +17,10 @@ _ID = re.compile(r"[a-z0-9][a-z0-9-]*\Z")
 _DISPOSITIONS = {"headline", "excluded"}
 _FIDELITY = {"exact", "abridged"}
 _UNSAFE_LICENSES = {"noassertion", "proprietary", "unknown", "unlicensed"}
+# Development-only fixtures are excluded from all headline measurements, but their
+# upstream license texts still ship in the artifact.  Keep this exact allowlist small
+# and mirrored in THIRD_PARTY_NOTICES.md; unknown extra files remain an audit error.
+_DEVELOPMENT_LICENSE_REPOSITORIES = {"anthropics/skills"}
 _LICENSE_MARKERS = {
     "MIT": "MIT License",
     "Apache-2.0": "Apache License",
@@ -130,7 +135,10 @@ def validate_third_party_manifest(
             or ".." in pathlib.PurePosixPath(source_path).parts
         ):
             raise ThirdPartyValidationError(f"{skill_id} has unsafe source_path")
-        expected_url = f"https://github.com/{repository}/blob/{commit}/{source_path}"
+        encoded_source_path = urllib.parse.quote(source_path, safe="/")
+        expected_url = (
+            f"https://github.com/{repository}/blob/{commit}/{encoded_source_path}"
+        )
         if record["source_url"] != expected_url:
             raise ThirdPartyValidationError(
                 f"{skill_id} source_url is not the commit-pinned source_url"
@@ -206,13 +214,18 @@ def validate_third_party_manifest(
         path.stem.replace("--", "/", 1)
         for path in (root / "licenses" / "third-party").glob("*.txt")
     }
-    if embedded != licensed_repositories:
+    expected_embedded = licensed_repositories | _DEVELOPMENT_LICENSE_REPOSITORIES
+    if embedded != expected_embedded:
         raise ThirdPartyValidationError(
-            "embedded third-party license files do not exactly match headline sources"
+            "embedded third-party license files do not exactly match headline sources "
+            "plus documented development-only sources"
         )
     return {
         "schema": "third-party-skills-validation/1",
         "records": len(records),
         **counts,
-        "embedded_licenses": len(embedded),
+        "embedded_licenses": len(licensed_repositories),
+        "development_licenses": len(
+            _DEVELOPMENT_LICENSE_REPOSITORIES - licensed_repositories
+        ),
     }

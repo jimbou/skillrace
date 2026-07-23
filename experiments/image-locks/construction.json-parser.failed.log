@@ -1,0 +1,29 @@
+D1ImageError: command failed (130): docker build --build-arg SKILLGEN_BASE_IMAGE=skillrace/skillgen-base:0.73.1-construction --label org.skillrace.input-tree-sha256=85500e0ed31c3ccb679fdec89eed4a95b7de20d1549f4341d942e3c290ce6b55 --label org.skillrace.construction-base-id=sha256:3b43a9c16498ef11d7f40a87cc32afba159536ee9a26d71f912a3e8ab4eb01c7 --tag skillrace/json-parser:base-construction-0.73.1 --tag skillrace/json-parser:base --file /home/jim/skillrace/skills/json-parser/Containerfile.base /home/jim/skillrace/skills/json-parser
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Containerfile.base
+#1 transferring dockerfile: 560B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/skillrace/skillgen-base:0.73.1-construction
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/6] FROM docker.io/skillrace/skillgen-base:0.73.1-construction
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 87B done
+#5 DONE 0.0s
+
+#6 [2/6] RUN apt-get update  && apt-get install -y --no-install-recommends python3-pip  && rm -rf /var/lib/apt/lists/*
+#6 1.091 Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+#6 2.934 Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+#6 4.314 Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [48.0 kB]
+#6 5.339 Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+#6 CANCELED
+ERROR: failed to build: failed to solve: Canceled: context canceled
+

@@ -1,0 +1,38 @@
+{
+  "schema": "skillrace-dual-track-schedules/1",
+  "status": "draft",
+  "reporting": "separate-primary-tables-no-cross-model-pooling",
+  "execution_policy": "run-one-complete-track-at-a-time",
+  "fixed_agent_executions": {
+    "per_track": 4000,
+    "both_tracks": 8000,
+    "repair_upper_bound_both_tracks": 7200,
+    "fixed_plus_repair_upper_bound": 15200
+  },
+  "model_calls_outside_agent_executions": {
+    "rq3_base_generation_per_track": 10,
+    "rq3_base_generation_both_tracks": 20,
+    "rq3_aggregate_revision_per_track": 30,
+    "rq3_aggregate_revision_both_tracks": 60
+  },
+  "tracks": [
+    {
+      "model": "glm-4.5-flash",
+      "rq1_schedule": "experiments/schedules/rq1.glm-4.5-flash.draft.json",
+      "rq1_schedule_hash": "5ac674ac7cfe20379da8afe7a81f391629d6193936d777d36fab52ec98e7abe2",
+      "rq1_output_root": "results/glm-4.5-flash/rq1",
+      "rq3_schedule": "experiments/schedules/rq3.glm-4.5-flash.draft.json",
+      "rq3_schedule_hash": "691903d64f754e8e764db3249869ac9615ac74baaad9c054ff080612ee93a74e",
+      "rq3_output_root": "results/glm-4.5-flash/rq3"
+    },
+    {
+      "model": "deepseek-v4-flash",
+      "rq1_schedule": "experiments/schedules/rq1.deepseek-v4-flash.draft.json",
+      "rq1_schedule_hash": "bad6fd653ff2907da00bdcea478d1ceebd5fe998c4ba3150ba9f468d2ab3e0e0",
+      "rq1_output_root": "results/deepseek-v4-flash/rq1",
+      "rq3_schedule": "experiments/schedules/rq3.deepseek-v4-flash.draft.json",
+      "rq3_schedule_hash": "a6b2f96c8470ddbb36f4c6839cba86c95920d20aa84b42c65edc7855a63de467",
+      "rq3_output_root": "results/deepseek-v4-flash/rq3"
+    }
+  ]
+}

@@ -125,7 +125,7 @@ def same_purpose(ep, node, model, cache):
             "Do A and B pursue the same purpose? Return ONLY the JSON.")
     resp = chat([{"role": "system", "content": SAME_PURPOSE_SYS},
                  {"role": "user", "content": user}],
-                model=model, temperature=0.0, reasoning=True, max_tokens=400,
+                model=model, temperature=0.0, reasoning=False, max_tokens=400,
                 tag="tree.same_purpose")
     obj = extract_json(resp["content"])
     cache[key] = {"same": bool(obj.get("same")), "reason": obj.get("reason", "")}
@@ -144,7 +144,7 @@ def broaden_intent(cur, new, model, cache):
             "Return ONLY the JSON with the generalized purpose.")
     resp = chat([{"role": "system", "content": BROADEN_SYS},
                  {"role": "user", "content": user}],
-                model=model, temperature=0.0, reasoning=True, max_tokens=300,
+                model=model, temperature=0.0, reasoning=False, max_tokens=300,
                 tag="tree.broaden")
     intent = (extract_json(resp["content"]).get("intent") or cur).strip()
     cache[key] = {"intent": intent}
@@ -160,7 +160,7 @@ def same_approach(a_did, b_did, model, cache):
     user = f"Way A: {a_did}\n\nWay B: {b_did}\n\nSame approach? Return ONLY the JSON."
     resp = chat([{"role": "system", "content": SAME_APPROACH_SYS},
                  {"role": "user", "content": user}],
-                model=model, temperature=0.0, reasoning=True, max_tokens=200,
+                model=model, temperature=0.0, reasoning=False, max_tokens=200,
                 tag="tree.same_approach")
     cache[key] = {"same": bool(extract_json(resp["content"]).get("same"))}
     return cache[key]["same"]
@@ -296,7 +296,7 @@ def main():
     ap.add_argument("--run-id", help="run id (default: the run dir name)")
     ap.add_argument("--run-dir", help="run directory (default: the session's parent run dir)")
     ap.add_argument("--skill", help="skill name (recorded on a fresh tree)")
-    ap.add_argument("--model", default="qwen3.6-flash")
+    ap.add_argument("--model", default="glm-4.5-flash")
     args = ap.parse_args()
 
     session = pathlib.Path(args.session)

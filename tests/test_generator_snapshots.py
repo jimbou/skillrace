@@ -5,6 +5,7 @@ from collections import deque
 
 import pytest
 
+import skillrace.generator as generator_module
 import skillrace.loop as loop_module
 from skillrace.adaptive_artifacts import (
     capture_adaptive_artifacts,
@@ -25,7 +26,7 @@ def test_random_snapshot_round_trip_includes_search_state_but_never_secrets():
     ]
     generator.n_batches = 2
     generator.n_skipped = 3
-    generator.cost_usd = 0.75
+    generator.cost_provider_credits = 0.75
     generator.failure_state = {
         "type": "GenerationFailure",
         "reason": "no-buildable-candidate",
@@ -63,6 +64,29 @@ def test_random_typed_failure_state_survives_a_failed_refill(monkeypatch):
     }
 
 
+def test_random_refill_accepts_successful_unpriced_development_call(monkeypatch):
+    generator = RandomGenerator.for_test(source="random")
+    item = {"summary": "case one", "task": "do it", "env": "repo"}
+    monkeypatch.setattr(
+        generator_module,
+        "propose_batch",
+        lambda *args, **kwargs: ([item], {"cost_provider_credits": None}),
+    )
+    monkeypatch.setattr(
+        generator,
+        "_make_one_detailed",
+        lambda proposed: generator_module.RealizationOutcome(
+            {"candidate_id": "c1", "provenance": {}}, 0.0, None
+        ),
+    )
+
+    candidate = generator.propose()
+
+    assert candidate["candidate_id"] == "c1"
+    assert generator.cost_provider_credits == 0.0
+    assert generator.snapshot()["cost_accounting"] == "unknown-nonzero-possible"
+
+
 def test_random_records_non_generation_exception_type_without_serializing_context(
     monkeypatch,
 ):
@@ -96,7 +120,7 @@ def test_greybox_snapshot_restores_exact_novelty_queue_energy_and_object_identit
     generator.d_trans = {("bash:pytest", "read:.py")}
     generator.d_seq = {("bash:pytest",), ("bash:pytest", "read:.py")}
     generator.folded_attempt_ids = ["e0000-a00"]
-    generator.cost_usd = 1.25
+    generator.cost_provider_credits = 1.25
     generator.api_key = "NEVER-SERIALIZE"
 
     snapshot = generator.snapshot()
@@ -133,7 +157,7 @@ def test_greybox_fold_is_idempotent_by_attempt_id(monkeypatch, tmp_path):
 
 
 class SeedStub:
-    cost_usd = 0.0
+    cost_provider_credits = 0.0
 
     def snapshot(self):
         return {"schema": "seed-stub/1"}
@@ -223,7 +247,7 @@ def test_all_generator_consumers_reject_ambiguous_skill_symlinks(tmp_path):
         GreyboxGenerator("demo", skill, "demo:base")
 
     class Seed:
-        cost_usd = 0.0
+        cost_provider_credits = 0.0
 
         def snapshot(self):
             return {"schema": "seed/1"}

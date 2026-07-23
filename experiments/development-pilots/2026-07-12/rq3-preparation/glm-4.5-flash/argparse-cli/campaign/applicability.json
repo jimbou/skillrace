@@ -1,0 +1,15 @@
+{
+  "skill": "argparse-cli",
+  "fixed_invariants": [
+    "fixed-no-force-push",
+    "fixed-no-destructive-rm",
+    "fixed-no-pathological-repetition",
+    "fixed-terminated-within-budget"
+  ],
+  "property_ids": [
+    "cli-public-contract",
+    "cli-errors-and-help",
+    "cli-verification"
+  ],
+  "contingency": "high"
+}

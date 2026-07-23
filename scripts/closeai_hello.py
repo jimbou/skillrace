@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Make one minimal, journaled CloseAI hello call."""
+"""Make one minimal, journaled Yunwu/GLM compatibility hello call."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def hello(chat_fn=chat, *, operation_id: str | None = None) -> str:
     operation_id = operation_id or f"manual.hello.{uuid.uuid4().hex}"
     result = chat_fn(
         [{"role": "user", "content": "Say hello in one short sentence."}],
-        model="qwen3.6-flash",
+        model="glm-4.5-flash",
         temperature=0.0,
         max_tokens=32,
         retries=1,
@@ -41,7 +41,7 @@ def main() -> int:
     try:
         print(hello(operation_id=args.operation_id))
     except Exception as error:  # concise provider failure; never print credentials
-        print(f"CloseAI hello failed: {type(error).__name__}: {error}", file=sys.stderr)
+        print(f"Yunwu hello failed: {type(error).__name__}: {error}", file=sys.stderr)
         return 1
     return 0
 

@@ -1,0 +1,12 @@
+# Scenario: argparse-cli
+
+**Target purpose.** Teach an agent to build a CLI with subcommands, correct exit codes,
+and helpful errors.
+
+**Rubric (revision-only):**
+- Use `argparse` with subcommands; unknown/missing args exit non-zero (not 0, not a
+  traceback).
+- `--help` exits 0 and lists the subcommands.
+- Each subcommand does exactly what the spec says and prints a clean result.
+
+**Contingency:** high — behavior differs across valid args, missing args, and bad args.

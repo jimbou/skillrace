@@ -50,7 +50,7 @@ def test_random_reserves_stable_identities_before_independent_realization(
         items,
         reservations,
         batch_path=batch_path,
-        proposal_cost_usd=0.3,
+        proposal_cost_provider_credits=0.3,
     )
 
     assert [item["candidate_id"] for item in batch] == [
@@ -60,7 +60,7 @@ def test_random_reserves_stable_identities_before_independent_realization(
     assert batch[0]["item"] == items[0]
     assert batch_path.is_file()
     assert generator.n_batches == 1
-    assert generator.cost_usd == 0.3
+    assert generator.cost_provider_credits == 0.3
 
     replay = generator_module.RandomGenerator(
         "demo", "/definitely/missing", "demo:base"
@@ -70,7 +70,7 @@ def test_random_reserves_stable_identities_before_independent_realization(
         items,
         reservations,
         batch_path=batch_path,
-        proposal_cost_usd=0.3,
+        proposal_cost_provider_credits=0.3,
     ) == batch
     assert replay.snapshot() == generator.snapshot()
 
@@ -96,13 +96,13 @@ def test_random_reserves_stable_identities_before_independent_realization(
             {
                 "candidate_id": reservations[0].candidate_id,
                 "candidate": candidate,
-                "cost_usd": 0.25,
+                "cost_provider_credits": 0.25,
                 "error": None,
             },
             {
                 "candidate_id": reservations[1].candidate_id,
                 "candidate": None,
-                "cost_usd": 0.1,
+                "cost_provider_credits": 0.1,
                 "error": "build failed",
             },
         ],
@@ -111,20 +111,20 @@ def test_random_reserves_stable_identities_before_independent_realization(
     accounted = generator.snapshot()
     assert accounted["digest"] == ["one"]
     assert accounted["counters"] == {"batches": 1, "skipped": 1}
-    assert accounted["cost_usd"] == 0.65
+    assert accounted["cost_provider_credits"] == 0.65
     generator.complete_reserved_batch(
         batch_path,
         [
             {
                 "candidate_id": reservations[0].candidate_id,
                 "candidate": candidate,
-                "cost_usd": 0.25,
+                "cost_provider_credits": 0.25,
                 "error": None,
             },
             {
                 "candidate_id": reservations[1].candidate_id,
                 "candidate": None,
-                "cost_usd": 0.1,
+                "cost_provider_credits": 0.1,
                 "error": "build failed",
             },
         ],
@@ -211,19 +211,19 @@ def test_greybox_reserves_energy_sequentially_from_one_frozen_scheduler(
             {
                 "candidate_id": reservations[0].candidate_id,
                 "candidate": candidate,
-                "cost_usd": cost,
+                "cost_provider_credits": cost,
                 "error": None,
             },
             {
                 "candidate_id": reservations[1].candidate_id,
                 "candidate": None,
-                "cost_usd": 0.2,
+                "cost_provider_credits": 0.2,
                 "error": "mutation failed",
             },
             {
                 "candidate_id": reservations[2].candidate_id,
                 "candidate": None,
-                "cost_usd": 0.3,
+                "cost_provider_credits": 0.3,
                 "error": "build failed",
             },
         ],
@@ -232,7 +232,7 @@ def test_greybox_reserves_energy_sequentially_from_one_frozen_scheduler(
     snapshot = generator.snapshot()
     assert snapshot["stats"]["mutations"] == 3
     assert snapshot["stats"]["skipped_builds"] == 2
-    assert snapshot["cost_usd"] == 0.6
+    assert snapshot["cost_provider_credits"] == 0.6
 
 
 def test_random_epoch_isolates_generation_failures_and_replays_without_work(
@@ -254,7 +254,7 @@ def test_random_epoch_isolates_generation_failures_and_replays_without_work(
                 {"summary": "one", "task": "task one", "env": "env one"},
                 {"summary": "two", "task": "task two", "env": "env two"},
             ],
-            {"cost_usd": 0.2},
+            {"cost_provider_credits": 0.2},
         ),
     )
     calls = []
@@ -278,7 +278,7 @@ def test_random_epoch_isolates_generation_failures_and_replays_without_work(
     assert [result["candidate"] is not None for result in results] == [True, False]
     assert results[1]["error"]["reason"] == "realization-failure"
     assert generator.snapshot()["counters"] == {"batches": 1, "skipped": 1}
-    assert generator.cost_usd == 0.3
+    assert generator.cost_provider_credits == 0.3
 
     monkeypatch.setattr(
         generator,
@@ -291,6 +291,115 @@ def test_random_epoch_isolates_generation_failures_and_replays_without_work(
     assert sorted(calls) == sorted(
         reservation.candidate_id for reservation in reservations
     )
+
+
+def test_random_epoch_persists_exact_realization_failure_and_its_cost(
+    tmp_path, monkeypatch
+):
+    generator = generator_module.RandomGenerator(
+        "demo", "/definitely/missing", "demo:base", max_parallel=1
+    )
+    reservations = make_reservations(
+        "protocol/rep/random/demo", [("e0000", "e0000-a00")], epoch=0
+    )
+    monkeypatch.setattr(
+        generator_module,
+        "propose_batch",
+        lambda *args, **kwargs: (
+            [{"summary": "one", "task": "task", "env": "env"}],
+            {"cost_provider_credits": 0.2},
+        ),
+    )
+    monkeypatch.setattr(
+        generator_module,
+        "realize_and_build",
+        lambda *args, **kwargs: (
+            None,
+            0.125,
+            "build failed: exact compiler diagnostic",
+        ),
+    )
+
+    results = generator.propose_epoch(
+        reservations, batch_dir=tmp_path / "random-exact-error"
+    )
+
+    assert results[0]["candidate"] is None
+    assert results[0]["error"] == {
+        "type": "GenerationFailure",
+        "reason": "realization-failure",
+        "message": "build failed: exact compiler diagnostic",
+    }
+    assert generator.cost_provider_credits == 0.325
+    completion = json.loads(
+        (tmp_path / "random-exact-error/completion.json").read_text()
+    )
+    assert completion["payload"]["results"][0]["cost_provider_credits"] == 0.125
+    assert "exact compiler diagnostic" in str(
+        completion["payload"]["results"][0]["error"]
+    )
+
+
+def test_random_refill_accounts_for_paid_invalid_proposer_response(monkeypatch):
+    generator = generator_module.RandomGenerator(
+        "demo", "/definitely/missing", "demo:base", max_parallel=1
+    )
+    monkeypatch.setattr(
+        generator_module,
+        "propose_batch",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            generator_module.GenerationFailure(
+                "invalid JSON",
+                reason="invalid-proposer-response",
+                cost_provider_credits=0.275,
+            )
+        ),
+    )
+
+    with pytest.raises(generator_module.GenerationFailure):
+        generator.propose()
+
+    assert generator.cost_provider_credits == 0.275
+
+
+def test_greybox_reserved_failure_preserves_all_paid_call_costs(
+    tmp_path, monkeypatch
+):
+    generator = greybox_module.GreyboxGenerator(
+        "demo", "/definitely/missing", "demo:base"
+    )
+    reservation = {
+        "schema": "greybox-mutation-reservation/1",
+        "candidate_id": "candidate-a",
+        "provenance": {},
+        "frozen_scheduler_hash": "frozen",
+        "seed": {
+            "cand": {"candidate_id": "seed-a", "provenance": {}},
+            "seq": [],
+            "energy": 0,
+        },
+    }
+    monkeypatch.setattr(
+        generator,
+        "_mutate_reserved",
+        lambda seed: ("task", "env", 0.2),
+    )
+    monkeypatch.setattr(
+        greybox_module,
+        "realize_and_build",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            generator_module.GenerationFailure(
+                "invalid realization",
+                reason="invalid-realization-response",
+                cost_provider_credits=0.3,
+            )
+        ),
+    )
+
+    with pytest.raises(generator_module.GenerationFailure) as caught:
+        generator.propose_reserved(reservation)
+
+    assert caught.value.cost_provider_credits == 0.5
 
 
 def test_greybox_epoch_reserves_once_isolates_failures_and_replays(
@@ -338,7 +447,7 @@ def test_greybox_epoch_reserves_once_isolates_failures_and_replays(
     snapshot = generator.snapshot()
     assert snapshot["stats"]["mutations"] == 2
     assert snapshot["stats"]["skipped_builds"] == 1
-    assert snapshot["cost_usd"] == 0.15
+    assert snapshot["cost_provider_credits"] == 0.15
 
     monkeypatch.setattr(
         generator,
@@ -415,7 +524,7 @@ def test_guard_batch_is_branch_diverse_and_synthesis_uses_reserved_identity(
             "content": json.dumps(
                 {"task": "task", "env": "env", "validate_sh": "true"}
             ),
-            "cost_usd": 0.0,
+            "cost_provider_credits": 0.0,
         },
     )
     monkeypatch.setattr(
@@ -539,7 +648,7 @@ def test_skillrace_epoch_freezes_one_branch_diverse_target_plan_before_synthesis
         return str(case), {"validated": True}, 0.1
 
     class FallbackGenerator:
-        cost_usd = 0.0
+        cost_provider_credits = 0.0
 
         def propose_epoch(self, reservations, *, batch_dir, **kwargs):
             reservations = list(reservations)
@@ -623,7 +732,7 @@ def test_skillrace_epoch_freezes_one_branch_diverse_target_plan_before_synthesis
         "target", "target", "target", "fallback"
     ]
     assert component.stats == {"synthesized": 3, "fallbacks": 1, "synth_failures": 0}
-    assert component.cost_usd == 0.35
+    assert component.cost_provider_credits == 0.35
 
     replayed = adapter.propose_epoch(
         reservations,
@@ -639,7 +748,7 @@ def test_skillrace_epoch_freezes_one_branch_diverse_target_plan_before_synthesis
     assert calls["extract"] == 1 and calls["select"] == 1
     assert len(calls["synthesize"]) == 3
     assert component.stats == {"synthesized": 3, "fallbacks": 1, "synth_failures": 0}
-    assert component.cost_usd == 0.35
+    assert component.cost_provider_credits == 0.35
 
 
 def test_skillrace_generation_intent_authorizes_preproposal_artifact_rollback(
@@ -651,7 +760,7 @@ def test_skillrace_generation_intent_authorizes_preproposal_artifact_rollback(
     tree_path.write_text(json.dumps({"schema": "tree/1", "nodes": {}}))
 
     class Seed:
-        cost_usd = 0.0
+        cost_provider_credits = 0.0
 
         def snapshot(self):
             return {"schema": "seed/1"}

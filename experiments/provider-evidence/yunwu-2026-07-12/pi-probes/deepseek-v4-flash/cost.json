@@ -1,0 +1,29 @@
+{
+  "model": "deepseek-v4-flash",
+  "requested_model": "deepseek-v4-flash",
+  "turns": 2,
+  "in": 2915,
+  "out": 103,
+  "cache_read": 0,
+  "total_tokens": 3018,
+  "billing_currency": "YUNWU_CREDIT",
+  "cost_provider_credits": 0.003121,
+  "price_provider_credits": 0.003121,
+  "cost_usd": null,
+  "by_turn": [
+    {
+      "model": "deepseek-v4-flash",
+      "input": 1462,
+      "output": 87,
+      "total": 1549,
+      "cache_read": 0
+    },
+    {
+      "model": "deepseek-v4-flash",
+      "input": 1453,
+      "output": 16,
+      "total": 1469,
+      "cache_read": 0
+    }
+  ]
+}

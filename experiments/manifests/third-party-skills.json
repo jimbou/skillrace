@@ -1,7 +1,19 @@
 {
   "schema": "third-party-skills/1",
-  "recorded_at": "2026-07-11",
+  "recorded_at": "2026-07-12",
   "records": [
+    {
+      "id": "argparse-scaffolder",
+      "disposition": "headline",
+      "source_repo": "a5c-ai/babysitter",
+      "source_commit": "44a5d58b47b93962f143914e0652d9e3ae5dcf2c",
+      "source_path": "library/specializations/cli-mcp-development/skills/argparse-scaffolder/SKILL.md",
+      "source_url": "https://github.com/a5c-ai/babysitter/blob/44a5d58b47b93962f143914e0652d9e3ae5dcf2c/library/specializations/cli-mcp-development/skills/argparse-scaffolder/SKILL.md",
+      "skill_sha256": "b586769910e51f92e440acea316a3e9e9341d57617d74bc8f4918b2d5e50a719",
+      "fidelity": "exact",
+      "license": "MIT",
+      "license_evidence": "https://github.com/a5c-ai/babysitter/blob/44a5d58b47b93962f143914e0652d9e3ae5dcf2c/LICENSE.md"
+    },
     {
       "id": "cli-argparse-fix",
       "disposition": "headline",
@@ -51,6 +63,18 @@
       "license_evidence": "https://github.com/luongnv89/claude-howto/blob/a645ffe6b027c2dfb56c4efcbba1c8051f0ff006/LICENSE"
     },
     {
+      "id": "compiler-hardening",
+      "disposition": "headline",
+      "source_repo": "RedHatProductSecurity/prodsec-skills",
+      "source_commit": "f8f0222171390b0cf241fb56ed7d082a585c60c3",
+      "source_path": "module/skills/compiler-hardening/SKILL.md",
+      "source_url": "https://github.com/RedHatProductSecurity/prodsec-skills/blob/f8f0222171390b0cf241fb56ed7d082a585c60c3/module/skills/compiler-hardening/SKILL.md",
+      "skill_sha256": "abf15e04fe51b2e9d16cc871f9ad17d11de06bcb580ed866ee7df778c97088cd",
+      "fidelity": "exact",
+      "license": "Apache-2.0",
+      "license_evidence": "https://github.com/RedHatProductSecurity/prodsec-skills/blob/f8f0222171390b0cf241fb56ed7d082a585c60c3/LICENSE"
+    },
+    {
       "id": "condition-based-waiting",
       "disposition": "headline",
       "source_repo": "obra/superpowers",
@@ -61,6 +85,30 @@
       "fidelity": "exact",
       "license": "MIT",
       "license_evidence": "https://github.com/obra/superpowers/blob/48410c7f1973bd66569a627ef27ef6619e0ba923/LICENSE"
+    },
+    {
+      "id": "csv-workbench",
+      "disposition": "headline",
+      "source_repo": "openai/openai-agents-python",
+      "source_commit": "beb3c5102ff9dc5ec9e2a7cbb7e55761f9f77ce1",
+      "source_path": "examples/tools/skills/csv-workbench/SKILL.md",
+      "source_url": "https://github.com/openai/openai-agents-python/blob/beb3c5102ff9dc5ec9e2a7cbb7e55761f9f77ce1/examples/tools/skills/csv-workbench/SKILL.md",
+      "skill_sha256": "96bbebd83d3468312bc25729100d4b05d7e8eadf0b9d46339dc329a4e1a6c374",
+      "fidelity": "exact",
+      "license": "MIT",
+      "license_evidence": "https://github.com/openai/openai-agents-python/blob/beb3c5102ff9dc5ec9e2a7cbb7e55761f9f77ce1/LICENSE"
+    },
+    {
+      "id": "data-transform",
+      "disposition": "headline",
+      "source_repo": "aipoch/medical-research-skills",
+      "source_commit": "7cc568024021a3de07cbeb935691dc72c69bfe28",
+      "source_path": "scientific-skills/Data Analysis/data-transform/SKILL.md",
+      "source_url": "https://github.com/aipoch/medical-research-skills/blob/7cc568024021a3de07cbeb935691dc72c69bfe28/scientific-skills/Data%20Analysis/data-transform/SKILL.md",
+      "skill_sha256": "693ab2d0e784fdda510561442e0db9201e651d4b61475d6c7100c417f76e7edc",
+      "fidelity": "exact",
+      "license": "MIT",
+      "license_evidence": "https://github.com/aipoch/medical-research-skills/blob/7cc568024021a3de07cbeb935691dc72c69bfe28/LICENSE"
     },
     {
       "id": "debugging-difficult-bugs",
@@ -135,6 +183,30 @@
       "license_evidence": "https://github.com/microclaw/microclaw/blob/9779a8c61ff6b8c01819cdfe19dafc54da353e64/skills/built-in/json-tools/SKILL.md"
     },
     {
+      "id": "log-parser",
+      "disposition": "headline",
+      "source_repo": "Mosi-AI/LiveClawBench",
+      "source_commit": "8717895e2119bcf7d63d74d216804291a8736852",
+      "source_path": "tasks/skill-combination/environment/skills/log-parser/SKILL.md",
+      "source_url": "https://github.com/Mosi-AI/LiveClawBench/blob/8717895e2119bcf7d63d74d216804291a8736852/tasks/skill-combination/environment/skills/log-parser/SKILL.md",
+      "skill_sha256": "1923ffb7db43321f072b00a7a746a953f21a160b4b684baee736fdbafaf95563",
+      "fidelity": "exact",
+      "license": "MIT",
+      "license_evidence": "https://github.com/Mosi-AI/LiveClawBench/blob/8717895e2119bcf7d63d74d216804291a8736852/LICENSE"
+    },
+    {
+      "id": "network-config-validation",
+      "disposition": "headline",
+      "source_repo": "affaan-m/ECC",
+      "source_commit": "40927950c49f6e742d341e20ff7b9b7e1e7bfff5",
+      "source_path": "skills/network-config-validation/SKILL.md",
+      "source_url": "https://github.com/affaan-m/ECC/blob/40927950c49f6e742d341e20ff7b9b7e1e7bfff5/skills/network-config-validation/SKILL.md",
+      "skill_sha256": "d92d129d517470d35c6a6be6899afbfea9ab0bf170323af9fd1992c805ef91f3",
+      "fidelity": "exact",
+      "license": "MIT",
+      "license_evidence": "https://github.com/affaan-m/ECC/blob/40927950c49f6e742d341e20ff7b9b7e1e7bfff5/LICENSE"
+    },
+    {
       "id": "parser-generator",
       "disposition": "headline",
       "source_repo": "a5c-ai/babysitter",
@@ -181,6 +253,18 @@
       "fidelity": "exact",
       "license": "Apache-2.0",
       "license_evidence": "https://github.com/RightNow-AI/openfang/blob/acf2587e46be174c10200489c9a2d23a39a98aeb/LICENSE-APACHE"
+    },
+    {
+      "id": "rest-api-caller",
+      "disposition": "headline",
+      "source_repo": "OpenBMB/ChatDev",
+      "source_commit": "4fd4da603801766b14ad8788649cfc1ad21f99a6",
+      "source_path": ".agents/skills/rest-api-caller/SKILL.md",
+      "source_url": "https://github.com/OpenBMB/ChatDev/blob/4fd4da603801766b14ad8788649cfc1ad21f99a6/.agents/skills/rest-api-caller/SKILL.md",
+      "skill_sha256": "b6972c3fbe35942c6b1f960c446bd3680de5e5dc9939b0825b870351d19bebe8",
+      "fidelity": "exact",
+      "license": "Apache-2.0",
+      "license_evidence": "https://github.com/OpenBMB/ChatDev/blob/4fd4da603801766b14ad8788649cfc1ad21f99a6/LICENSE"
     },
     {
       "id": "sql-queries",
@@ -289,6 +373,18 @@
       "fidelity": "exact",
       "license": "MIT",
       "license_evidence": "https://github.com/obra/superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/LICENSE"
+    },
+    {
+      "id": "validator-agent",
+      "disposition": "headline",
+      "source_repo": "7oSkaaa/polygon-problems-generator",
+      "source_commit": "2ac566f908d8ccd215970538b4688e831e3e4dc8",
+      "source_path": ".agents/skills/validator-agent/SKILL.md",
+      "source_url": "https://github.com/7oSkaaa/polygon-problems-generator/blob/2ac566f908d8ccd215970538b4688e831e3e4dc8/.agents/skills/validator-agent/SKILL.md",
+      "skill_sha256": "e5e9cf04a159bb6f95060844310ce08d5bb3c558c98d7bef541c5ba691c7628d",
+      "fidelity": "exact",
+      "license": "MIT",
+      "license_evidence": "https://github.com/7oSkaaa/polygon-problems-generator/blob/2ac566f908d8ccd215970538b4688e831e3e4dc8/LICENSE"
     },
     {
       "id": "yaml-config",

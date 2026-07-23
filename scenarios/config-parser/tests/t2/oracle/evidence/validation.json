@@ -2,10 +2,10 @@
   "schema": "skillrace-oracle-evidence/1",
   "test_id": "config-parser/t2",
   "state": "validated",
-  "contract_identity_sha256": "be46dc7d0ed6402f15b795eeac518ca5ba8ecb9e0566a557bcbf41746e8147c5",
+  "contract_identity_sha256": "9afdb1a50a3e94c6a77265dd317c54fe264479d4d324477c5073b5edc77a3f08",
   "reason": "Docker reference and negative oracle audit passed",
-  "validated_at": "2026-07-12T00:09:46.477394+00:00",
-  "image_digest": "sha256:71e38e60b8b3e231ef1ec348fd1df665a07b4234b01a5884044efbe0df28e311",
+  "validated_at": "2026-07-12T17:34:54.569203+00:00",
+  "image_digest": "sha256:c51b7895184fb5d93b8a6eeecd7ea3de64f59306f48edd6d5319078834e48bce",
   "docker_version": "29.6.1",
   "reference": {
     "passed": true,
@@ -18,7 +18,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.117776,
+        "duration_seconds": 0.099413,
         "script_sha256": "3d1889d6935066afea5dde243444511e34216b1371501cad40f704255225c42a",
         "isolation": "fresh-container-per-criterion"
       },
@@ -29,7 +29,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.125199,
+        "duration_seconds": 0.098842,
         "script_sha256": "4f2a55535c1b28ef54b1339b302cb3ec3e4849a766e6ffb6d8d82350178b1acd",
         "isolation": "fresh-container-per-criterion"
       },
@@ -40,7 +40,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.127246,
+        "duration_seconds": 0.091277,
         "script_sha256": "c3948971418456a89f940e7439ee7b5fb1ebfc7d74a57c8f6552cee1d92ed8e8",
         "isolation": "fresh-container-per-criterion"
       }
@@ -56,7 +56,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "FAIL loadcfg.py missing",
-        "duration_seconds": 0.074503,
+        "duration_seconds": 0.077675,
         "script_sha256": "3d1889d6935066afea5dde243444511e34216b1371501cad40f704255225c42a",
         "isolation": "fresh-container-per-criterion"
       },
@@ -67,7 +67,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "FAIL loadcfg.py missing",
-        "duration_seconds": 0.091401,
+        "duration_seconds": 0.072595,
         "script_sha256": "4f2a55535c1b28ef54b1339b302cb3ec3e4849a766e6ffb6d8d82350178b1acd",
         "isolation": "fresh-container-per-criterion"
       },
@@ -78,7 +78,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "FAIL loadcfg.py missing",
-        "duration_seconds": 0.083899,
+        "duration_seconds": 0.061519,
         "script_sha256": "c3948971418456a89f940e7439ee7b5fb1ebfc7d74a57c8f6552cee1d92ed8e8",
         "isolation": "fresh-container-per-criterion"
       }
@@ -95,7 +95,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "FAIL accepted invalid config",
-          "duration_seconds": 0.108169,
+          "duration_seconds": 0.084212,
           "script_sha256": "3d1889d6935066afea5dde243444511e34216b1371501cad40f704255225c42a",
           "isolation": "fresh-container-per-criterion"
         },
@@ -106,7 +106,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "FAIL expected non-zero exit: rc=0",
-          "duration_seconds": 0.100432,
+          "duration_seconds": 0.080497,
           "script_sha256": "4f2a55535c1b28ef54b1339b302cb3ec3e4849a766e6ffb6d8d82350178b1acd",
           "isolation": "fresh-container-per-criterion"
         },
@@ -117,7 +117,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "FAIL expected non-zero exit: rc=0",
-          "duration_seconds": 0.108145,
+          "duration_seconds": 0.094315,
           "script_sha256": "c3948971418456a89f940e7439ee7b5fb1ebfc7d74a57c8f6552cee1d92ed8e8",
           "isolation": "fresh-container-per-criterion"
         }

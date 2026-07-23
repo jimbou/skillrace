@@ -45,7 +45,7 @@ preserved.
 
 The **only** job of v1: given the global tree (a JSON file, created empty if missing) and
 **one run's episode line**, **update the global tree**. No frontier and no guard synthesis
-(and no `split` — that was dropped from the design). Model: `qwen3.6-flash` (the shared
+(and no `split` — that was dropped from the design). Model: `glm-4.5-flash` (the shared
 judgment model), temperature 0, cached.
 
 **Inputs.**
@@ -220,7 +220,7 @@ branch points are where outcomes/decisions differ — the fuel for guard synthes
   cache (read/write).
 - Config:
   ```json
-  { "model": {"provider":"closeai","id":"qwen3.6-flash","temperature":0},
+  { "model": {"provider":"yunwu","id":"glm-4.5-flash","temperature":0},
     "merge_threshold": 0.5, "use_embedding_prefilter": true }
   ```
 

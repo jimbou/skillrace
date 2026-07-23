@@ -36,11 +36,11 @@ PYTHON=.venv/bin/python scripts/artifact_smoke.sh
 ```
 
 This gate compiles the Python sources, runs the focused experimental-contract tests,
-audits the 22-skill D1 manifest and third-party licensing boundary, and verifies the
+audits the 30-skill D1 manifest and third-party licensing boundary, and verifies the
 checked-in runtime evidence for all 10 D2 scenarios and 100 hidden tests. It does not
-contact the CloseAI API, start an agent-under-test run, or spend model credit.
+contact the Yunwu API, start an agent-under-test run, or spend model credit.
 
-If the 22 prebuilt D1 images are already present, add the local image-identity check:
+If the 30 prebuilt D1 images are already present, add the local image-identity check:
 
 ```bash
 SKILLRACE_SMOKE_REQUIRE_IMAGES=1 PYTHON=.venv/bin/python \
@@ -51,16 +51,20 @@ SKILLRACE_SMOKE_REQUIRE_IMAGES=1 PYTHON=.venv/bin/python \
 
 Live RQ1/RQ3 execution additionally requires:
 
-- a funded CloseAI account and `CLOSE_API_KEY` exported in the shell;
-- network access to the configured CloseAI endpoint;
-- the frozen `qwen3.6-flash` model configuration for every model-driven role;
+- a funded Yunwu account and `yunwu_key` exported in the shell;
+- network access to the configured Yunwu endpoint;
+- two independent full tracks: one uses `glm-4.5-flash` for every model-driven role,
+  and the other uses `deepseek-v4-flash` for every model-driven role;
+- a dated Yunwu rate-card snapshot for both model IDs. Provider-native costs are
+  reported in Yunwu credits (`⚡`), without inventing a USD conversion;
 - all referenced Docker base images built or available locally;
 - substantially more time, disk, and model credit than the Getting Started smoke.
 
 Never put the credential in a manifest or command-line argument. Live calls are
 journaled durably, including exact request identity, provider usage when available, and
-known or explicitly unknown billing. A paid run must not be started until the draft
-protocol and dataset manifests have been reviewed and frozen.
+known or explicitly unknown billing. A paid headline run must not be started until both
+draft track protocols and the dataset manifests have been reviewed and frozen.
+Development connectivity probes are kept outside pilot and headline result directories.
 
 ## Reproduction levels
 
@@ -71,4 +75,3 @@ protocol and dataset manifests have been reviewed and frozen.
   evidence before validating it. See `scenarios/README.md`.
 - Headline RQ1/RQ3: paid, long-running campaigns; commands and freeze requirements are
   documented in `README.md`, `docs/rq3-artifact-guide.md`, and `STATUS.md`.
-

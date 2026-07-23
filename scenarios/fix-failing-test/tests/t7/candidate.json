@@ -1,1 +1,1 @@
-{"skill": "fix-failing-test", "base_image": "skillrace/skillgen-base:latest", "prompt": "The test suite in /workspace fails. Fix the implementation in strutil.py so that `python3 -m pytest -q` passes. Do NOT edit the tests."}
+{"skill": "fix-failing-test", "base_image": "skillrace/skillgen-base:0.73.1-construction", "prompt": "The test suite in /workspace fails. Fix the implementation in strutil.py so that `python3 -m pytest -q` passes. Do NOT edit the tests."}

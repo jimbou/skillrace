@@ -23,6 +23,33 @@ BASE = {
 }
 
 
+def _accept_all_audit(monkeypatch):
+    def accept(**kwargs):
+        return (
+            [
+                {
+                    "property_id": prop["id"],
+                    "decision": "accept",
+                    "reason": "supported",
+                }
+                for prop in kwargs["properties"]
+            ],
+            0.0,
+            {
+                "operation_id": "offline-audit",
+                "model": kwargs["model"],
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_tokens": 0,
+                "cost_provider_credits": 0.0,
+                "terminal_receipt_sha256": "a" * 64,
+                "call_terminal_receipt_sha256": "b" * 64,
+            },
+        )
+
+    monkeypatch.setattr(compiler, "audit_checks", accept)
+
+
 @pytest.mark.parametrize(
     ("candidate_field", "replacement"),
     [
@@ -61,6 +88,29 @@ def test_compile_fingerprint_changes_for_every_non_candidate_input(
 def test_compile_fingerprint_changes_with_prompt_version(monkeypatch):
     original = compile_fingerprint(**BASE)
     monkeypatch.setattr(compiler, "CHECK_PROMPT_VERSION", "compile-check-next")
+    assert compile_fingerprint(**BASE) != original
+
+
+def test_compile_fingerprint_changes_with_model_call_policy(monkeypatch):
+    original = compile_fingerprint(**BASE)
+    monkeypatch.setattr(
+        compiler,
+        "CHECK_MODEL_CALL_POLICY",
+        {**compiler.CHECK_MODEL_CALL_POLICY, "timeout_seconds": 121},
+    )
+    assert compile_fingerprint(**BASE) != original
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "SEMANTIC_AUDIT_PROMPT_VERSION",
+        "SEMANTIC_AUDIT_POLICY_VERSION",
+    ],
+)
+def test_compile_fingerprint_changes_with_semantic_audit_versions(monkeypatch, field):
+    original = compile_fingerprint(**BASE)
+    monkeypatch.setattr(compiler, field, getattr(compiler, field) + "-next")
     assert compile_fingerprint(**BASE) != original
 
 
@@ -173,6 +223,7 @@ def test_matching_fingerprint_reauthors_missing_or_tampered_script(
         return expected_script, 0.1
 
     monkeypatch.setattr(compiler, "author_check", fake_author)
+    _accept_all_audit(monkeypatch)
 
     manifest, cost = compiler.compile_case(
         case, BASE["properties"], BASE["model"], image="candidate:built"
@@ -204,6 +255,7 @@ def test_stale_compile_fingerprint_reauthors_and_writes_atomically(
         return "#!/usr/bin/env bash\ncd /workspace\nexit 0\n", 0.25
 
     monkeypatch.setattr(compiler, "author_check", fake_author)
+    _accept_all_audit(monkeypatch)
     writes = []
 
     def record_atomic_write(path, value):
@@ -270,6 +322,7 @@ def test_external_candidate_image_is_never_removed(tmp_path, monkeypatch):
             0.0,
         ),
     )
+    _accept_all_audit(monkeypatch)
 
     compiler.compile_case(
         case, BASE["properties"], BASE["model"], image="candidate:built"
@@ -297,6 +350,7 @@ def test_compile_manifest_records_applicability(tmp_path, monkeypatch):
             0.0,
         ),
     )
+    _accept_all_audit(monkeypatch)
 
     manifest, _ = compiler.compile_case(
         case,
@@ -307,3 +361,52 @@ def test_compile_manifest_records_applicability(tmp_path, monkeypatch):
     )
 
     assert manifest["applicability"] == applicability
+
+
+def test_post_run_python_cache_binds_final_tree_and_snapshot(tmp_path, monkeypatch):
+    calls = []
+
+    def author(**kwargs):
+        calls.append(kwargs["prop"]["id"])
+        return (
+            "import sys\nsys.exit(0)\n",
+            0.1,
+            {
+                "operation_id": f"op-{len(calls)}",
+                "model": "model-a",
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "cache_read_tokens": 0,
+                "cost_provider_credits": 0.1,
+                "terminal_receipt_sha256": "a" * 64,
+                "call_terminal_receipt_sha256": "b" * 64,
+            },
+        )
+
+    monkeypatch.setattr(compiler, "author_python_check", author)
+    kwargs = {
+        "run_dir": tmp_path,
+        "properties": [{"id": "p1", "nl": "works", "reads": "state"}],
+        "candidate": {"skill": "demo", "prompt": "fix", "provenance": {}},
+        "tools": ["python3"],
+        "final_tree": ["app.py"],
+        "snapshot_identity": "sha256:one",
+        "model": "model-a",
+    }
+
+    first, first_cost = compiler.compile_post_run_checks(**kwargs)
+    cached, cached_cost = compiler.compile_post_run_checks(**kwargs)
+    changed, changed_cost = compiler.compile_post_run_checks(
+        **{
+            **kwargs,
+            "final_tree": ["app.py", "new.py"],
+            "snapshot_identity": "sha256:two",
+        }
+    )
+
+    assert calls == ["p1", "p1"]
+    assert first_cost == pytest.approx(0.1)
+    assert cached_cost == 0.0
+    assert changed_cost == pytest.approx(0.1)
+    assert first["fingerprint"] == cached["fingerprint"]
+    assert changed["fingerprint"] != first["fingerprint"]

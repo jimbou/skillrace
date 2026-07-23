@@ -1,4 +1,4 @@
-FROM skillrace/skillgen-base:latest
+FROM skillrace/skillgen-base:0.73.1-construction
 WORKDIR /workspace
 RUN cat > acc.py <<'IMPL'
 def add_item(item, bucket=[]):

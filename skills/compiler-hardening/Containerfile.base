@@ -1,0 +1,12 @@
+ARG SKILLGEN_BASE_IMAGE=skillrace/skillgen-base:0.73.1-construction
+FROM ${SKILLGEN_BASE_IMAGE}
+RUN sed -i \
+        -e 's#http://deb.debian.org/debian-security#https://mirrors.aliyun.com/debian-security#g' \
+        -e 's#http://deb.debian.org/debian#https://mirrors.aliyun.com/debian#g' \
+        /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends build-essential binutils cmake \
+    && rm -rf /var/lib/apt/lists/*
+COPY repo/ /workspace/
+COPY SKILL.md /skills/compiler-hardening/SKILL.md
+RUN cd /workspace && git add -A && git commit -q -m "base: compiler-hardening" || true

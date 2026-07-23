@@ -1,0 +1,37 @@
+{
+  "model": "qwen3.5-plus",
+  "requested_model": "qwen3.5-plus",
+  "turns": 3,
+  "in": 5266,
+  "out": 226,
+  "cache_read": 0,
+  "total_tokens": 5492,
+  "billing_status": "unknown",
+  "billing_currency": null,
+  "cost_provider_credits": null,
+  "price_provider_credits": null,
+  "cost_usd": null,
+  "by_turn": [
+    {
+      "model": "qwen3.5-plus",
+      "input": 1639,
+      "output": 112,
+      "total": 1751,
+      "cache_read": 0
+    },
+    {
+      "model": "qwen3.5-plus",
+      "input": 1779,
+      "output": 50,
+      "total": 1829,
+      "cache_read": 0
+    },
+    {
+      "model": "qwen3.5-plus",
+      "input": 1848,
+      "output": 64,
+      "total": 1912,
+      "cache_read": 0
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+**Success!** 
+
+Created `/workspace/provider-probe.txt` with content: `skillrace-provider-probe`
+
+The file was written (24 bytes) and verified by reading it back.

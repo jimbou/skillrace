@@ -18,7 +18,7 @@ sweep, or per-skill choice of the strongest Greybox configuration.
 ## Shared experimental boundary
 
 For one method/skill campaign, every system receives exactly 30 counted agent
-executions with `qwen3.6-flash`. Every candidate uses the same realization/build/repair
+executions with `glm-4.5-flash`. Every candidate uses the same realization/build/repair
 pipeline, basic mechanical sanity gate, Pi runner, pre-run property compiler, fixed
 checks, and isolated mechanical oracle execution.
 
@@ -118,5 +118,6 @@ The artifact tests assert that:
 
 The source of truth for the full study is
 `docs/superpowers/specs/2026-07-11-skillrace-evaluation-design.md`; the checked-in
-machine protocol is `experiments/protocols/issta-main.draft.json` until the final
+GLM machine protocol is `experiments/protocols/issta-main.glm-4.5-flash.draft.json`
+and the DeepSeek track has its matching model-specific protocol until the final
 pre-result freeze.

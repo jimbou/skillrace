@@ -1,0 +1,2 @@
+{"skill":"rest-api-caller","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","build-static","self-consistency"],"property_ids":["request-matches-contract","response-fields-correct","http-failures-reported","credentials-not-hardcoded"],"contingency":"high","family":"http-client"}
+

@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1.7
+# Slow, source-rebuildable bootstrap. Build once, then reuse its immutable image ID.
+ARG PI_BASE_IMAGE=skillrace/pi-base:0.62.0
+FROM ${PI_BASE_IMAGE}
+
+LABEL org.opencontainers.image.title="skillrace-python-pytest-bootstrap" \
+      org.opencontainers.image.description="Pinned Python 3.11.2 and pytest 7.2.1 workspace bootstrap"
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      python3=3.11.2-1+b1 \
+      python3-pytest=7.2.1-2 \
+ && rm -rf /var/lib/apt/lists/* \
+ && ln -sf /usr/bin/python3 /usr/local/bin/python
+
+WORKDIR /
+RUN rm -rf /workspace /skills/* /logs/* \
+ && mkdir -p /workspace /skills /logs \
+ && git config --global user.email "base@skillrace.local" \
+ && git config --global user.name "skillrace"
+
+WORKDIR /workspace
+RUN git init -q -b main \
+ && printf '__pycache__/\n*.pyc\n' > .gitignore \
+ && git add -A \
+ && GIT_AUTHOR_DATE=2026-07-11T00:00:00Z \
+    GIT_COMMITTER_DATE=2026-07-11T00:00:00Z \
+    git commit -q -m "skillgen base: empty workspace"

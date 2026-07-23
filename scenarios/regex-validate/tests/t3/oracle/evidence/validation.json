@@ -2,10 +2,10 @@
   "schema": "skillrace-oracle-evidence/1",
   "test_id": "regex-validate/t3",
   "state": "validated",
-  "contract_identity_sha256": "f07931f68e90bcdf411eddbd26b9a508a7ed79834dcd8a7a2b5357ab7640912e",
+  "contract_identity_sha256": "c28d4fba7526704cd2d11dd921a21984dd3830de723827fc6f90dbf44f82b7c1",
   "reason": "Docker reference and negative oracle audit passed",
-  "validated_at": "2026-07-12T00:14:08.136167+00:00",
-  "image_digest": "sha256:ba8efe853f858230969de89fe1aaf66648b8a42e3d2d16de510b1039084387af",
+  "validated_at": "2026-07-12T17:36:24.487190+00:00",
+  "image_digest": "sha256:f18e44f0a03a29fdc53e9ff9da23cbd1722d64d12f19e648b59c1414cfbb8344",
   "docker_version": "29.6.1",
   "reference": {
     "passed": true,
@@ -18,7 +18,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.114519,
+        "duration_seconds": 0.090524,
         "script_sha256": "fa7b08db65c52110e6a5cc8946a42b26084cc4c91334cf34ec871e79030cb428",
         "isolation": "fresh-container-per-criterion"
       },
@@ -29,7 +29,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.123899,
+        "duration_seconds": 0.08824,
         "script_sha256": "3494fb1b389d9192f170df82faebaebb74286fd6ec721680c8260fc8096a3d97",
         "isolation": "fresh-container-per-criterion"
       },
@@ -40,7 +40,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.12442,
+        "duration_seconds": 0.092646,
         "script_sha256": "b722e8c1cfe9b42ecced173a09557c924b3c78e0ade180dd17c7a88521795154",
         "isolation": "fresh-container-per-criterion"
       }
@@ -56,7 +56,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "ModuleNotFoundError: No module named 'validate'",
-        "duration_seconds": 0.092304,
+        "duration_seconds": 0.063024,
         "script_sha256": "fa7b08db65c52110e6a5cc8946a42b26084cc4c91334cf34ec871e79030cb428",
         "isolation": "fresh-container-per-criterion"
       },
@@ -67,7 +67,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "ModuleNotFoundError: No module named 'validate'",
-        "duration_seconds": 0.084764,
+        "duration_seconds": 0.083194,
         "script_sha256": "3494fb1b389d9192f170df82faebaebb74286fd6ec721680c8260fc8096a3d97",
         "isolation": "fresh-container-per-criterion"
       },
@@ -78,7 +78,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "ModuleNotFoundError: No module named 'validate'",
-        "duration_seconds": 0.110279,
+        "duration_seconds": 0.081492,
         "script_sha256": "b722e8c1cfe9b42ecced173a09557c924b3c78e0ade180dd17c7a88521795154",
         "isolation": "fresh-container-per-criterion"
       }
@@ -95,7 +95,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "AssertionError: ('should accept', 'a@b.co')",
-          "duration_seconds": 0.104024,
+          "duration_seconds": 0.088858,
           "script_sha256": "fa7b08db65c52110e6a5cc8946a42b26084cc4c91334cf34ec871e79030cb428",
           "isolation": "fresh-container-per-criterion"
         },
@@ -106,7 +106,7 @@
           ],
           "exit_code": 0,
           "final_output_line": "ok",
-          "duration_seconds": 0.109367,
+          "duration_seconds": 0.085771,
           "script_sha256": "3494fb1b389d9192f170df82faebaebb74286fd6ec721680c8260fc8096a3d97",
           "isolation": "fresh-container-per-criterion"
         },
@@ -117,7 +117,7 @@
           ],
           "exit_code": 0,
           "final_output_line": "ok",
-          "duration_seconds": 0.093588,
+          "duration_seconds": 0.074918,
           "script_sha256": "b722e8c1cfe9b42ecced173a09557c924b3c78e0ade180dd17c7a88521795154",
           "isolation": "fresh-container-per-criterion"
         }
@@ -137,7 +137,7 @@
           ],
           "exit_code": 0,
           "final_output_line": "ok",
-          "duration_seconds": 0.101105,
+          "duration_seconds": 0.081737,
           "script_sha256": "fa7b08db65c52110e6a5cc8946a42b26084cc4c91334cf34ec871e79030cb428",
           "isolation": "fresh-container-per-criterion"
         },
@@ -148,7 +148,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "AssertionError: ('anchoring: should reject', ' a@b.co')",
-          "duration_seconds": 0.104274,
+          "duration_seconds": 0.065861,
           "script_sha256": "3494fb1b389d9192f170df82faebaebb74286fd6ec721680c8260fc8096a3d97",
           "isolation": "fresh-container-per-criterion"
         },
@@ -159,7 +159,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "AssertionError: ('should reject', 'a@b')",
-          "duration_seconds": 0.102147,
+          "duration_seconds": 0.083884,
           "script_sha256": "b722e8c1cfe9b42ecced173a09557c924b3c78e0ade180dd17c7a88521795154",
           "isolation": "fresh-container-per-criterion"
         }
@@ -179,7 +179,7 @@
           ],
           "exit_code": 0,
           "final_output_line": "ok",
-          "duration_seconds": 0.11341,
+          "duration_seconds": 0.09988,
           "script_sha256": "fa7b08db65c52110e6a5cc8946a42b26084cc4c91334cf34ec871e79030cb428",
           "isolation": "fresh-container-per-criterion"
         },
@@ -190,7 +190,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "AssertionError: ('anchoring: should reject', ' a@b.co')",
-          "duration_seconds": 0.108387,
+          "duration_seconds": 0.111659,
           "script_sha256": "3494fb1b389d9192f170df82faebaebb74286fd6ec721680c8260fc8096a3d97",
           "isolation": "fresh-container-per-criterion"
         },
@@ -201,7 +201,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "AssertionError: ('should reject', 'a@b')",
-          "duration_seconds": 0.114949,
+          "duration_seconds": 0.089925,
           "script_sha256": "b722e8c1cfe9b42ecced173a09557c924b3c78e0ade180dd17c7a88521795154",
           "isolation": "fresh-container-per-criterion"
         }

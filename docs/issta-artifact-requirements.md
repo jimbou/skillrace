@@ -47,14 +47,14 @@ Official sources:
 
 - The 30-minute path must use recorded/fake model responses and a small deterministic
   Docker smoke; it cannot depend on a live commercial API.
-- The one-day path should use a frozen multi-family subset, while the full 22-skill
+- The one-day path should use a frozen multi-family subset, while the full 30-skill
   RQ1 and ten-scenario RQ3 commands remain documented separately.
 - Raw headline artifacts, model-call journals, protocol/skill/image hashes, confirmation
   ledgers, exclusions, and analysis outputs must ship with the artifact.
-- The exact qwen3.6-flash service configuration and reviewer credential procedure must
+- The exact GLM and DeepSeek track configurations and reviewer credential procedure must
   be documented without storing a credential in the artifact.
-- The repository currently has a valid CloseAI credential and model listing, but model
-  completions return `insufficient_balance`. Live pilots and regenerated RQ3 base skills
-  remain inadmissible until funded access is restored.
+- Yunwu direct and Pi probes currently succeed for both selected models. These tiny
+  development probes are archived separately and do not authorize a headline run before
+  the remaining image, schedule, pilot, and freeze gates pass.
 - Third-party public skills need a license/provenance inventory. A repository-wide
   license must distinguish original SkillRACE code from vendored skill text and fixtures.

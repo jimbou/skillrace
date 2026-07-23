@@ -1,0 +1,37 @@
+{
+  "model": "grok-4-1-fast-reasoning",
+  "requested_model": "grok-4-1-fast-reasoning",
+  "turns": 3,
+  "in": 2403,
+  "out": 88,
+  "cache_read": 1728,
+  "total_tokens": 4219,
+  "billing_status": "unknown",
+  "billing_currency": null,
+  "cost_provider_credits": null,
+  "price_provider_credits": null,
+  "cost_usd": null,
+  "by_turn": [
+    {
+      "model": "grok-4-1-fast-reasoning",
+      "input": 910,
+      "output": 28,
+      "total": 938,
+      "cache_read": 0
+    },
+    {
+      "model": "grok-4-1-fast-reasoning",
+      "input": 1407,
+      "output": 30,
+      "total": 1629,
+      "cache_read": 192
+    },
+    {
+      "model": "grok-4-1-fast-reasoning",
+      "input": 86,
+      "output": 30,
+      "total": 1652,
+      "cache_read": 1536
+    }
+  ]
+}

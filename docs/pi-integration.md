@@ -10,26 +10,29 @@ as an **Open Question (OQ)** with the chosen fallback — never guessed silently
 > **and** not verbatim in the docs is called out as an OQ so it gets confirmed
 > against a real Pi install during Milestone 0.
 
-> **Verified against a real install (June 2026).** The agent package is
-> **`@mariozechner/pi-coding-agent@0.62.0`** (pinned; pi.dev's `@earendil-works`
+> **Verified against real Yunwu runs (July 2026).** The agent package is
+> **`@mariozechner/pi-coding-agent@0.73.1`** (pinned; pi.dev's `@earendil-works`
 > scope is the *future* name per an npm deprecation notice) on **`node:20`**. The
-> provider used is **CloseAI** (OpenAI-compatible). The trace is captured via
+> provider used is **Yunwu** (OpenAI-compatible). The trace is captured via
 > **`--print --session <file>`** (the `--session` JSONL is the trace; `--mode json`
 > also exists). See [environments.md → Reference implementation](./environments.md#reference-implementation-as-built--verified-june-2026).
 > OQ-1/2/4/5/6 are now resolved (§6).
 
 ---
 
-## 1. The one place Pi is used
+## 1. The two isolated places Pi is used
 
-**Pi is used by exactly one component: the Runner (Component 1), to execute the
-agent under test.** Nothing else in SkillRACE touches Pi.
+Pi is used in two deliberately separate roles:
+
+1. the Runner executes the agent under test with the selected skill; and
+2. the optional SkillRACE patch backend performs one patch-only repair after a
+   definite failure, before a separately launched exact replay.
 
 This is a deliberate architectural decision (**D-PI-1**) with a big payoff:
 
 - The agent under test is "whatever agent the skill targets" (tex §1) — that is
   precisely a Pi coding agent driven by a `SKILL.md`. The Runner orchestrates it.
-- Every *cheap-model judgment step* (segmentation, summarization, merge decisions,
+- Every other *cheap-model judgment step* (segmentation, summarization, merge decisions,
   guard extraction, SBE compilation) is a **direct provider API call** (e.g. the
   Anthropic Messages API), **not** a Pi run. Those steps need temperature 0,
   deterministic caching, and tight prompt control — all of which the design owns
@@ -50,7 +53,7 @@ The Runner shells out to the Pi CLI **inside the per-run Docker container**. The
 **as-built / verified** invocation:
 
 ```bash
-pi --provider closeai --model qwen3.6-flash --print \
+pi --provider yunwu --model glm-4.5-flash --print \
    --session /logs/session.jsonl --skill /skills/<name> "<prompt>" </dev/null
 ```
 
@@ -61,18 +64,40 @@ pi --provider closeai --model qwen3.6-flash --print \
 - `--skill <path>` loads the skill under test ([skills](https://pi.dev/docs/latest/skills));
   in practice the skill is **baked into the per-skill base image** so this path is
   in-image and exactly one skill is discoverable.
-- `--provider`/`--model` select the model; here CloseAI + a traceable model.
+- `--provider`/`--model` select the model; here Yunwu + a traceable model.
 - `--mode json` (text/json/rpc) also exists ([json](https://pi.dev/docs/latest/json))
   if we want the event stream on stdout for live monitoring; `--session` is enough
   for the durable trace.
 
-**Why CLI-in-container and not the in-process SDK** (**D-PI-2**): the SDK
+**Why CLI-in-container for the agent under test** (**D-PI-2**): the SDK
 (`createAgentSession`, [sdk](https://pi.dev/docs/latest/sdk)) runs in-process,
 which is harder to sandbox and resource-cap per run. A child `pi` process inside
 Docker gives clean isolation, a kill switch (wall-clock cap), and a captured
 stdout stream. The SDK remains a viable alternative if in-process control is later
-needed; the trace contract is identical either way because both emit the same
-session entries.
+needed. The much narrower patch-only repair role does use the SDK inside its own
+fresh container, as described below; that does not change the agent-under-test
+execution path.
+
+### 2.5 Guided SDK use for patch-only repair
+
+SkillRACE's optional Pi patcher mounts a writable copy of the original skill and one
+read-only `repair-context.json`. The initial prompt contains only the repair objective
+and the two paths. Pi must read the complete `SKILL.md` and repair context before it can
+mutate anything. The SDK enables only `read`, `grep`, `edit`, and `write`; a reviewed
+inline policy extension limits reads to the two mounted inputs, permits exactly one
+mutation of `/workspace/SKILL.md`, and blocks all later tool calls. Before both direct
+reads complete, it blocks `grep` and duplicate reads. Once both mandatory reads
+complete, it dynamically disables `read` and `grep`, leaving only `edit` and `write`.
+Skills, project extensions, prompt templates, themes, and context-file discovery are
+disabled.
+
+The patcher has no bash or other execution tool, no checker or confirmation image, and
+no hidden replay information. It therefore cannot rerun the failed task while patching.
+Pi is asked to stop after the edit, an SDK abort boundary applies after ten turns, and
+the outer container retains the independent 300-second timeout. Session/event data is
+used transiently to extract input/output/cache tokens, turns, tool calls, blocked calls,
+remaining required reads, provider credits and failure location, then deleted. Exact
+replay remains a later orchestrator operation.
 
 ### 2.2 Two capture paths (one durable, one streaming)
 
@@ -120,15 +145,13 @@ a wall-clock timeout** (Decision **D-RUN-1**), which needs no Pi-side mechanism 
 1. **Wall-clock timeout** (primary): the Runner wraps the `docker run` in `timeout
    --signal=KILL <wall_clock_cap_s>` and `docker kill`s the container on expiry —
    independent of Pi, so a hung tool can't run forever.
-2. **Optional token/cost hard cap** (backstop): the `pi-agent-budget` extension baked
-   into `pi-base` enforces a per-run USD limit ([packages](https://pi.dev/docs/latest);
-   the extension is installed once, not written by us). Trips
-   `termination.reason="token_budget"`.
+2. **No hidden token/cost stop:** the host records usage and provider credits, while
+   the wall-clock boundary is the only hard stop in the frozen protocol.
 
-Recorded in `run.json.runner.{wall_clock_cap_s,token_cap_usd}` and
-`run.json.termination`. **No custom TypeScript extension is needed** — combined with
-reasoning being captured natively (§2.3), this leaves the system effectively
-**zero-TS** (we only *install* the off-the-shelf budget extension). Pathological fast
+Recorded in `run.json.runner.wall_clock_cap_s` and `run.json.termination`. **No custom
+TypeScript extension is needed for the agent under test** — combined with reasoning
+being captured natively (§2.3), this keeps the tested execution path extension-free.
+Pathological fast
 loops that finish within the timeout are caught downstream as a *property* violation,
 not hidden by a cap ([environments.md](./environments.md#termination--budget)).
 
@@ -137,12 +160,10 @@ not hidden by a cap ([environments.md](./environments.md#termination--budget)).
 ## 3. Tooling and skills
 
 - **Tools.** The agent under test uses Pi's own toolset (`read`, `bash`, `write`,
-  `edit`, …). SkillRACE registers **no** custom tools and **no custom extension**
-  into the agent — doing so would change the agent's behavior and invalidate the
-  test. (`defineTool`/`customTools` from [sdk](https://pi.dev/docs/latest/sdk) and
-  `pi.registerTool` from [extensions](https://pi.dev/docs/latest/extensions) are
-  therefore unused; the only extension present is the off-the-shelf
-  `pi-agent-budget`, for cost tracking/limits, which does not add agent capabilities.)
+  `edit`, …). SkillRACE registers **no** custom tool or extension into that tested
+  agent. The separate patch-only process uses a policy extension, but the extension
+  adds no semantic repair capability; it only narrows paths, tool ordering and the
+  one-mutation boundary.
 - **Skills.** A skill is a directory with `SKILL.md` + YAML frontmatter
   (`name`, `description`, optional `allowed-tools`, etc.) plus scripts/assets
   ([skills](https://pi.dev/docs/latest/skills)). The Runner pins the skill by
@@ -194,7 +215,8 @@ The Gondolin micro-VM extension mentioned on the same page is **not** used in v1
 
 ## 5. What SkillRACE does NOT use from Pi
 
-- **No SDK in-process embedding** in v1 (D-PI-2) — CLI child process instead.
+- **No SDK embedding for the agent under test** in v1 (D-PI-2) — it remains a CLI
+  child process. The isolated patch-only backend is the documented exception.
 - **No custom agent tools** injected into the agent under test (§3).
 - **No Pi-side model judgments** — segmentation/summarization/merge/guards/SBE all
   call the provider API directly, not Pi (D-PI-1).
@@ -232,8 +254,8 @@ pin the agent to 0; treated as a nice-to-have, not a requirement.)
 **Need:** a hard per-run step/turn cap (tex §3).
 **Docs:** not exposed by SDK ([sdk](https://pi.dev/docs/latest/sdk)).
 **RESOLVED (by design):** we **drop the step cap** and bound runs with a wall-clock
-`timeout` + an optional `pi-agent-budget` token cap (Decision **D-RUN-1**, §2.4).
-No custom extension, no dependence on an undocumented extension-`abort`. Pathological
+`timeout` (Decision **D-RUN-1**, §2.4). No custom extension and no dependence on an
+undocumented extension-`abort`. Pathological
 fast loops within the timeout are caught as a *property* violation rather than hidden
 by a cap.
 
@@ -255,11 +277,10 @@ path.
 `thinking_start/delta/end` ([session-format](https://pi.dev/docs/latest/session-format),
 [rpc](https://pi.dev/docs/latest/rpc)); thinking is controlled by `thinkingLevel`
 ([sdk](https://pi.dev/docs/latest/sdk)).
-**RESOLVED (verified):** CloseAI's `qwen3.5-flash` / `qwen3.6-flash` / `glm-5` emit
-`reasoning_content`, which Pi records as `{type:"thinking"}` blocks — every agent
-turn in our runs carried a `thinking` block before its tool call. **Avoid**
-`gemini-*` / `o4-mini` (they hide reasoning → no `thinking` block). Fallback if a
-chosen model redacts thinking: `reasoning` degrades to assistant `text` (D-TRACE-1).
+**RESOLVED (verified):** Yunwu's `glm-4.5-flash` and `deepseek-v4-flash` emit
+reasoning that Pi 0.73.1 records as `{type:"thinking"}` blocks. The archived probes
+exercise multiple tool/result turns and final responses. A model that redacts thinking
+is outside the two frozen headline tracks.
 
 ### OQ-5 (`--skill` semantics)
 **Need:** load exactly the skill under test, nothing else, headlessly.
@@ -276,11 +297,10 @@ loads and steers behavior headlessly.
 **Need:** per-run token/cost accounting to manage the ~100–150 runs/skill budget.
 **Docs:** `AssistantMessage.usage` carries input/output/cache tokens and a `cost`
 breakdown ([session-format](https://pi.dev/docs/latest/session-format)).
-**RESOLVED (by design):** use the off-the-shelf **`pi-agent-budget`** extension
-(baked into `pi-base`) for live cost tracking, per-run/campaign reporting, and an
-optional **hard limit** that doubles as the token-budget termination backstop
-([environments.md](./environments.md#termination--budget)). `meta.usage` summing
-remains a fallback if the extension is unavailable.
+**RESOLVED (implemented):** sum the immutable session trace's input, output, and cache
+usage on the host and price it with the dated Yunwu custom-credit policy. Catalog costs
+are deliberately omitted, so Pi's internal zero does not masquerade as free usage. The
+receipt records provider credits and leaves USD null.
 
 ---
 
@@ -294,9 +314,8 @@ in this file:
    messages array; confirm a session file appears under `~/.pi/agent/sessions/`.
 2. Inspect one `AssistantMessage` for `thinking` content at `thinkingLevel:"medium"`
    (OQ-4 — the only OQ still affecting correctness).
-3. Confirm `pi-agent-budget` installs in `pi-base` and reports per-run cost; confirm
-   a wall-clock `timeout` + `docker kill` tears a long run down cleanly (OQ-2/OQ-6,
-   resolved-by-design — this just confirms the mechanics).
+3. Confirm host-side usage accounting and that wall-clock timeout plus forced container
+   cleanup tears a long run down cleanly (OQ-2/OQ-6).
 4. Confirm `--skill` in a clean container (skill baked into the base) exposes exactly
    one skill (OQ-5).
 5. Force a session branch (via steering) and confirm leaf→root linearization (OQ-3).

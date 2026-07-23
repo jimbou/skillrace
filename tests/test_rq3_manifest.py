@@ -54,14 +54,14 @@ def _inputs(tmp_path, protocol_hash: str):
         "package_hash": _digest("base-package"),
         "generation_id": _digest("base-generation")[:24],
         "model_config": {
-            "model": "qwen3.6-flash",
+            "model": "glm-4.5-flash",
             "temperature": 0.0,
             "reasoning": True,
             "max_tokens": 4000,
             "prompt_version": "skillrace-rq3-base-generation/1",
         },
         "operation_id": f"rq3.base.{_digest('base-operation')}",
-        "provider_model": "qwen3.6-flash",
+        "provider_model": "glm-4.5-flash",
         "provider_response_id_sha256": _digest("base-response"),
         "provider_request_id_sha256": None,
         "billing_status": "known",
@@ -73,7 +73,7 @@ def _inputs(tmp_path, protocol_hash: str):
         "journal_call_terminal_receipt_hash": _digest("base-call-receipt"),
         "input_tokens": 10,
         "output_tokens": 2,
-        "cost_usd": 0.1,
+        "cost_provider_credits": 0.1,
     }
     campaigns = {}
     envelopes = {}
@@ -86,7 +86,7 @@ def _inputs(tmp_path, protocol_hash: str):
         campaign_hash = _digest(f"{producer}-campaign")
         envelope_hash = _digest(f"{producer}-envelope")
         revision_config = {
-            "model": "qwen3.6-flash",
+            "model": "glm-4.5-flash",
             "temperature": 0.0,
             "reasoning": True,
             "max_tokens": 4000,
@@ -108,14 +108,14 @@ def _inputs(tmp_path, protocol_hash: str):
             "budget": 30,
             "counted_executions": 30,
             "complete": True,
-            "model": "qwen3.6-flash",
-            "agent_model": "qwen3.6-flash",
+            "model": "glm-4.5-flash",
+            "agent_model": "glm-4.5-flash",
             "allocation": {
                 "bootstrap": 0 if producer == "random" else 10,
                 "exploration": 30 if producer == "random" else 20,
                 "budget": 30,
             },
-            "cost_usd": 1.0,
+            "cost_provider_credits": 1.0,
         }
         envelopes[producer] = {
             "artifact_hash": envelope_hash,
@@ -125,8 +125,8 @@ def _inputs(tmp_path, protocol_hash: str):
             "used_bytes": 3000,
             "limits": dict(DEFAULT_LIMITS),
             "confirmation_executions": 1,
-            "confirmation_cost_usd": 0.05,
-            "cost_usd": 0.0,
+            "confirmation_cost_provider_credits": 0.05,
+            "cost_provider_credits": 0.0,
         }
         revisions[producer] = {
             "schema": "skillrace-revision/2",
@@ -138,7 +138,7 @@ def _inputs(tmp_path, protocol_hash: str):
             "operation_start_identity": revision_start,
             "operation_id": f"rq3.revision.{canonical_json_hash(revision_start)}",
             "request_hash": _digest(f"{producer}-request"),
-            "provider_model": "qwen3.6-flash",
+            "provider_model": "glm-4.5-flash",
             "provider_response_id_sha256": _digest(f"{producer}-response"),
             "provider_request_id_sha256": None,
             "billing_status": "known",
@@ -150,7 +150,7 @@ def _inputs(tmp_path, protocol_hash: str):
             "journal_call_terminal_event_id": _digest(f"{producer}-call-event"),
             "journal_call_terminal_receipt": "provenance/model-call-operation-terminal.json",
             "journal_call_terminal_receipt_hash": _digest(f"{producer}-call-receipt"),
-            "cost_usd": 0.25,
+            "cost_provider_credits": 0.25,
         }
     return skills, base, campaigns, envelopes, revisions
 
@@ -191,7 +191,7 @@ def _write_raw_execution(
     run_id="hidden-run",
     input_tokens=10,
     output_tokens=2,
-    cost_usd=0.01,
+    cost_provider_credits=0.01,
     wall_seconds=1.5,
 ):
     execution = request.run_dir / "execution"
@@ -203,6 +203,9 @@ def _write_raw_execution(
         json.dumps(
             {
                 "run_id": run_id,
+                "base_image": f"skillrace/skillgen-base:0.73.1-{request.agent_model}",
+                "base_image_id": "sha256:" + "a" * 64,
+                "env_image_id": "sha256:" + "b" * 64,
                 "termination": {"reason": "completed", "seconds": wall_seconds},
             }
         ),
@@ -214,7 +217,7 @@ def _write_raw_execution(
             {
                 "in": input_tokens,
                 "out": output_tokens,
-                "price_usd": cost_usd,
+                "price_provider_credits": cost_provider_credits,
             }
         ),
         encoding="utf-8",
@@ -245,7 +248,7 @@ def _complete_evaluation(tmp_path, monkeypatch):
             "verdicts": verdicts,
             "input_tokens": 10,
             "output_tokens": 2,
-            "cost_usd": 0.01,
+            "cost_provider_credits": 0.01,
             "wall_seconds": 1.5,
             "run_id": run_id,
         }
@@ -261,7 +264,7 @@ def _complete_evaluation(tmp_path, monkeypatch):
         envelopes=envelopes,
         revisions=revisions,
         skills_by_condition=skills,
-        model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+        model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
         public_artifact_roots=[public],
         executor=executor,
     )
@@ -312,7 +315,7 @@ def test_exact_four_conditions_once_each_and_receipt_recovery(tmp_path, monkeypa
             "verdicts": verdicts,
             "input_tokens": 10,
             "output_tokens": 2,
-            "cost_usd": 0.01,
+            "cost_provider_credits": 0.01,
             "wall_seconds": 1.5,
             "run_id": run_id,
         }
@@ -328,7 +331,7 @@ def test_exact_four_conditions_once_each_and_receipt_recovery(tmp_path, monkeypa
         envelopes=envelopes,
         revisions=revisions,
         skills_by_condition=skills,
-        model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+        model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
         public_artifact_roots=[public],
         executor=executor,
     )
@@ -369,11 +372,11 @@ def test_exact_four_conditions_once_each_and_receipt_recovery(tmp_path, monkeypa
     assert all(record["sha256"] for record in result["raw_artifacts"].values())
     assert first_link["raw_artifacts_hash"] == result["raw_artifacts_hash"]
     assert receipt_payload["raw_artifacts_hash"] == result["raw_artifacts_hash"]
-    assert manifest["costs"]["campaign_usd"] == pytest.approx(3.0)
-    assert manifest["costs"]["confirmation_usd"] == pytest.approx(0.15)
-    assert manifest["costs"]["revision_usd"] == pytest.approx(0.75)
-    assert manifest["costs"]["evaluation_usd"] == pytest.approx(0.4)
-    assert manifest["costs"]["total_usd"] == pytest.approx(4.3)
+    assert manifest["costs"]["campaign_provider_credits"] == pytest.approx(3.0)
+    assert manifest["costs"]["confirmation_provider_credits"] == pytest.approx(0.15)
+    assert manifest["costs"]["revision_provider_credits"] == pytest.approx(0.75)
+    assert manifest["costs"]["evaluation_provider_credits"] == pytest.approx(0.4)
+    assert manifest["costs"]["total_provider_credits"] == pytest.approx(4.3)
 
     receipt = output / "evaluations" / "random-feedback" / "runs" / "t1" / "receipt.json"
     receipt.unlink()
@@ -388,7 +391,7 @@ def test_exact_four_conditions_once_each_and_receipt_recovery(tmp_path, monkeypa
         envelopes=envelopes,
         revisions=revisions,
         skills_by_condition=skills,
-        model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+        model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
         public_artifact_roots=[public],
         executor=executor,
     )
@@ -420,7 +423,7 @@ def test_resume_refuses_protocol_or_result_hash_mismatch(tmp_path, monkeypatch):
             "verdicts": verdicts,
             "input_tokens": 10,
             "output_tokens": 2,
-            "cost_usd": 0.01,
+            "cost_provider_credits": 0.01,
             "wall_seconds": 1.5,
             "run_id": "hidden-run",
         }
@@ -436,7 +439,7 @@ def test_resume_refuses_protocol_or_result_hash_mismatch(tmp_path, monkeypatch):
         envelopes=envelopes,
         revisions=revisions,
         skills_by_condition=skills,
-        model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+        model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
         public_artifact_roots=[public],
         executor=executor,
     )
@@ -461,7 +464,7 @@ def test_resume_refuses_protocol_or_result_hash_mismatch(tmp_path, monkeypatch):
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[public],
             executor=lambda _request: pytest.fail("must not re-execute"),
         )
@@ -595,7 +598,7 @@ def test_final_verifier_rejects_executor_results_without_all_raw_artifacts(
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[public],
             executor=lambda _request: {
                 "status": "completed",
@@ -636,7 +639,7 @@ def test_recursive_regrading_preserves_completed_execution_with_unknown_oracle(
             "verdicts": verdicts,
             "input_tokens": 10,
             "output_tokens": 2,
-            "cost_usd": 0.01,
+            "cost_provider_credits": 0.01,
             "wall_seconds": 1.5,
             "run_id": "hidden-run",
         }
@@ -651,7 +654,7 @@ def test_recursive_regrading_preserves_completed_execution_with_unknown_oracle(
         envelopes=envelopes,
         revisions=revisions,
         skills_by_condition=skills,
-        model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+        model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
         public_artifact_roots=[public],
         executor=executor,
     )
@@ -686,7 +689,7 @@ def test_hidden_evaluation_start_record_blocks_reexecution_after_unknown_crash(
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[public],
             executor=lambda _request: (_ for _ in ()).throw(ProcessLost()),
         )
@@ -704,7 +707,7 @@ def test_hidden_evaluation_start_record_blocks_reexecution_after_unknown_crash(
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[public],
             executor=lambda _request: pytest.fail("uncertain external call must not repeat"),
         )
@@ -736,7 +739,7 @@ def test_hidden_resume_refuses_missing_artifacts_after_manifest_committed_comple
             "verdicts": verdicts,
             "input_tokens": 10,
             "output_tokens": 2,
-            "cost_usd": 0.01,
+            "cost_provider_credits": 0.01,
             "wall_seconds": 1.5,
             "run_id": "hidden-run",
         }
@@ -751,7 +754,7 @@ def test_hidden_resume_refuses_missing_artifacts_after_manifest_committed_comple
         envelopes=envelopes,
         revisions=revisions,
         skills_by_condition=skills,
-        model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+        model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
         public_artifact_roots=[public],
         executor=executor,
     )
@@ -770,7 +773,7 @@ def test_hidden_resume_refuses_missing_artifacts_after_manifest_committed_comple
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[public],
             executor=lambda _request: pytest.fail("committed execution must not repeat"),
         )
@@ -792,7 +795,7 @@ def test_manifest_rejects_extra_conditions(tmp_path, monkeypatch):
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[],
             executor=lambda _request: {},
         )
@@ -816,7 +819,7 @@ def test_manifest_rejects_legacy_base_generation_provenance(tmp_path, monkeypatc
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[],
             executor=lambda _request: pytest.fail("legacy base must fail pre-run"),
         )
@@ -844,7 +847,7 @@ def test_manifest_requires_complete_30_run_same_model_campaigns_and_no_secrets(
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[public],
             executor=lambda _request: pytest.fail("must not execute"),
         )
@@ -862,12 +865,12 @@ def test_manifest_requires_complete_30_run_same_model_campaigns_and_no_secrets(
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[public],
             executor=lambda _request: pytest.fail("must not execute"),
         )
 
-    campaigns["greybox"]["agent_model"] = "qwen3.6-flash"
+    campaigns["greybox"]["agent_model"] = "glm-4.5-flash"
     campaigns["skillrace"]["allocation"]["bootstrap"] = 0
     with pytest.raises(ManifestMismatchError, match="allocation"):
         evaluate_hidden_scenario(
@@ -880,7 +883,7 @@ def test_manifest_requires_complete_30_run_same_model_campaigns_and_no_secrets(
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[public],
             executor=lambda _request: pytest.fail("must not execute"),
         )
@@ -897,7 +900,7 @@ def test_manifest_requires_complete_30_run_same_model_campaigns_and_no_secrets(
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[],
             executor=lambda _request: {},
         )
@@ -916,7 +919,7 @@ def test_manifest_requires_complete_30_run_same_model_campaigns_and_no_secrets(
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[public],
             executor=lambda _request: pytest.fail("invalid revision must fail pre-run"),
         )
@@ -952,7 +955,7 @@ def test_manifest_freezes_equal_3600_byte_feedback_contract(
             envelopes=envelopes,
             revisions=revisions,
             skills_by_condition=skills,
-            model_config={"model": "qwen3.6-flash", "wall_clock": 1200},
+            model_config={"model": "glm-4.5-flash", "wall_clock": 1200},
             public_artifact_roots=[public],
             executor=lambda _request: pytest.fail("invalid feedback must fail pre-run"),
         )

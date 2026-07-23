@@ -1,0 +1,1 @@
+Created `connectivity.txt` containing exactly `skillrace pi ok`. Done.

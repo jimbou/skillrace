@@ -17,12 +17,13 @@ files, so you can stop, inspect, and resume anywhere.
 | 0 build base | `docker build` | no | builds image | `skillrace/<skill>:base` |
 | 1 generate | `skillrace.generator` | yes (propose+realize+repair) | builds per-case images | `out/<gen>/cand-*.json` (+ `ideas.json`) |
 | 2 run agent | `skillrace.run_case` | the **agent under test** (pi) | runs container | `runs/<run>/` (trace, diff, run.json) |
-| 3 check properties | `skillrace.check_properties` | yes (authors bash checks) | execs in the live container | `runs/<run>/verdicts.json`, `checks/*.sh` |
+| 3 check properties | `skillrace.check_properties` | yes (authors path-only Python checks) | snapshots the final container; runs isolated children | `runs/<run>/verdicts.json`, `checks/*.py` |
 | 4 segment | `skillrace.segment_agent` | the segmenter agent (pi) | no | `runs/<run>/episodes.json` |
 | 5 fold | `skillrace.tree` | yes (purpose-merge/broaden) | no | `out/skillrace/<skill>/tree.json` |
 
-Prereqs: `CLOSE_API_KEY` set; Docker; `python3 -m skillrace.<x>` run from the repo root.
-The judgment model throughout is `qwen3.6-flash` (the frozen single-model protocol setting).
+Prereqs: `yunwu_key` set; Docker; `python3 -m skillrace.<x>` run from the repo root.
+This walkthrough uses the GLM track, so `glm-4.5-flash` drives every model role. The
+complete study repeats the same commands under the separate DeepSeek track.
 
 ---
 
@@ -60,7 +61,7 @@ python3 -m skillrace.generator \
   --skill-dir skills/mcp-server-patterns \
   --base skillrace/mcp-server-patterns:base \
   --n 2 --k 3 \
-  --model qwen3.6-flash \
+  --model glm-4.5-flash \
   --source random \
   --out out/mcp-gen
 ```
@@ -94,7 +95,7 @@ PY
 python3 -m skillrace.run_case \
   --case out/mcp-gen/cases/cand-2ad8d3c60be3 \
   --skill-dir skills/mcp-server-patterns \
-  --model qwen3.6-flash \
+  --model glm-4.5-flash \
   --out runs/mcp-tools-resources
 ```
 
@@ -108,25 +109,32 @@ timebomb removes it after `--cleanup-grace`, default 30 min, if the checker does
 
 ---
 
-## Step 3 — check the properties (in the same container)
+## Step 3 — check the properties after the agent
 
 ```bash
 python3 -m skillrace.check_properties \
   --run runs/mcp-tools-resources \
-  --props skills/mcp-server-patterns/properties.json \
-  --model qwen3.6-flash
+  --post-run-input runs/mcp-tools-resources/post-run-check-input.json \
+  --model glm-4.5-flash
 ```
 
-For each NL property the model **writes a bash script** that tests it; the script runs
-inside the run's container (which also has `/check/trace.jsonl` + `/check/workspace.diff`)
-and its **exit code is the verdict** (0 = holds, non-zero = violated). The checker **owns
-teardown** — it destroys the container when done (pass `--keep-container` to inspect).
+The campaign engine writes `post-run-check-input.json`; it contains the properties plus
+only the task, environment description, and blinded candidate metadata. For each NL
+property the model receives that metadata, available tools, and final workspace paths,
+then writes a standalone Python check. It never receives file/trace/diff contents,
+method identity, or an earlier verdict. Python exit `0`, `1`, and `2` mean holds,
+violated, and not considered. A syntax failure gets one retry; another failure excludes
+only that property. There is no semantic-audit model call.
 
-- **Writes:** `runs/<run>/checks/<id>.sh` (the authored checks) and `verdicts.json`.
+Each valid program runs in its own fresh networkless child of one immutable final-state
+snapshot. Trace properties may read `/check/trace.jsonl`; the active path does not expose
+the workspace diff. The checker owns teardown (pass `--keep-container` to inspect).
+
+- **Writes:** `runs/<run>/checks/<id>.py`, `checks/manifest.json`, and `verdicts.json`.
 
 ```text
 [✓ holds] uses-official-mcp-sdk
-[✗ VIOLATED] builds-clean   ← inspect checks/builds-clean.sh to see exactly what failed
+[✗ VIOLATED] builds-clean   ← inspect checks/builds-clean.py to see exactly what failed
 ...
 ```
 
@@ -140,7 +148,7 @@ teardown** — it destroys the container when done (pass `--keep-container` to i
 ```bash
 python3 -m skillrace.segment_agent \
   --run runs/mcp-tools-resources \
-  --model qwen3.6-flash
+  --model glm-4.5-flash
 ```
 
 Deterministically renders `raw/session.jsonl` into a `simplified_trace.txt` (flat,
@@ -202,15 +210,17 @@ docker build -t skillrace/$SKILL:base -f skills/$SKILL/Containerfile.base skills
 
 # 1. generate + materialize cases  (see Step 1 for the materialize snippet)
 python3 -m skillrace.generator --skill $SKILL --skill-dir skills/$SKILL \
-  --base skillrace/$SKILL:base --n 2 --k 3 --model qwen3.6-flash --out out/mcp-gen
+  --base skillrace/$SKILL:base --n 2 --k 3 --model glm-4.5-flash --out out/mcp-gen
 
 # 2–5 per case:
 for CASE in cand-AAA cand-BBB; do
   RUN=runs/$CASE
   python3 -m skillrace.run_case   --case out/mcp-gen/cases/$CASE \
-    --skill-dir skills/mcp-server-patterns --model qwen3.6-flash --out $RUN
-  python3 -m skillrace.check_properties --run $RUN --props skills/$SKILL/properties.json --model qwen3.6-flash
-  python3 -m skillrace.segment_agent --run $RUN --model qwen3.6-flash
+    --skill-dir skills/mcp-server-patterns --model glm-4.5-flash --out $RUN
+  # The assembled campaign normally creates this input before invoking the checker.
+  python3 -m skillrace.check_properties --run $RUN \
+    --post-run-input $RUN/post-run-check-input.json --model glm-4.5-flash
+  python3 -m skillrace.segment_agent --run $RUN --model glm-4.5-flash
   python3 -m skillrace.tree --episodes $RUN/episodes.json --session $RUN/raw/session.jsonl \
     --tree $TREE --run-id $CASE --skill $SKILL
 done
@@ -224,7 +234,8 @@ done
 out/<gen>/cand-*.json, ideas.json, cases/<id>/       # Step 1
 runs/<run>/raw/session.jsonl, logs/workspace.diff,   # Step 2
           run.json, cost.json
-runs/<run>/checks/*.sh, verdicts.json                # Step 3
+runs/<run>/checks/*.py, checks/manifest.json,        # Step 3
+          post-run-check-input.json, verdicts.json
 runs/<run>/simplified_trace.txt, episodes.json       # Step 4
 out/skillrace/<skill>/tree.json, tree.cache.json     # Step 5
 ~/.skillrace/cost_ledger.jsonl                        # every model call, all steps
@@ -249,9 +260,9 @@ New / changed components:
 
 | Piece | Module | What it does |
 |-------|--------|--------------|
-| pre-run checks | `skillrace.compile_checks` | authors each property's bash check per CASE from (prompt + built-E0 probe) **before any agent run**; stored at `<case>/checks/`; byte-identical across methods |
+| generated checks | `skillrace.compile_checks` | after the agent, authors one Python check per property from prompt/environment + final paths only; one syntax retry, then property exclusion |
 | fixed core | `skillrace.fixed_checks` | universal invariants (force-push, destructive rm, repetition, budget) — pure Python, zero model |
-| checker | `skillrace.check_properties` | now EXECUTES precompiled checks + fixed core; post-hoc authoring only behind `--author-post-hoc` |
+| checker | `skillrace.check_properties` | snapshots the final state, authors/runs path-only Python checks in fresh children, and also runs the fixed core; RQ3 hidden Bash checks stay separate |
 | guards (C5) | `skillrace.guards` | branch → guard (outcome + opening-reasoning signals, disagreement flags) → property-guided frontier selection → synthesis → **agent-free validation** in the built container |
 | greybox rung | `skillrace.greybox` | VeriGrey feedback/energy/scheduling verbatim over schematized tool events (headline L1); see `docs/design/greybox-verigrey-adaptation.md` |
 | loop | `skillrace.loop` | seed phase + explore phase; per-iteration record in `campaign.json` incl. violations and (skillrace) divergence classification |

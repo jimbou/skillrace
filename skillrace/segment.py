@@ -1,7 +1,7 @@
 """Episode Segmenter — v1 (single direct model call).
 
 Reads a run's trace, renders the simplified trace, asks the judgment model (DIRECT to
-CloseAI, temp 0) to split it into episodes-with-summaries using the baked-in few-shot
+Yunwu, temp 0) to split it into episodes-with-summaries using the baked-in few-shot
 example + the smooth target, validates the spans deterministically, attaches each
 episode's `opening_reasoning` verbatim from the trace, and writes episodes.json.
 
@@ -62,11 +62,11 @@ def segment_text(simplified_text, target, model):
     )
     resp = chat([{"role": "system", "content": SEG_SYS},
                  {"role": "user", "content": user}],
-                model=model, temperature=0.0, reasoning=True, max_tokens=3000,
+                model=model, temperature=0.0, reasoning=False, max_tokens=3000,
                 tag="segment", skill=None)
     obj = extract_json(resp["content"])
     eps = obj["episodes"] if isinstance(obj, dict) else obj
-    return eps, resp["cost_usd"]
+    return eps, resp["cost_provider_credits"]
 
 
 def validate(eps, n):
@@ -105,7 +105,7 @@ def assemble(eps, reasonings):
 def main():
     ap = argparse.ArgumentParser(description="Segment a run into episodes (v1 single-call)")
     ap.add_argument("--run", required=True, help="run dir (uses raw/session.jsonl)")
-    ap.add_argument("--model", default="qwen3.6-flash")
+    ap.add_argument("--model", default="glm-4.5-flash")
     ap.add_argument("--out", help="output path (default <run>/episodes.json)")
     ap.add_argument("--max-repair", type=int, default=1, help="re-segment attempts on invalid spans")
     args = ap.parse_args()
@@ -138,7 +138,7 @@ def main():
     episodes = assemble(eps, reasonings)
     out.write_text(json.dumps({"run": str(run_dir), "n_tool_calls": n,
                                "target_episodes": target, "episodes": episodes}, indent=2))
-    print(f"\nsegmented into {len(episodes)} episodes (cost ${cost:.4f}) -> {out}\n")
+    print(f"\nsegmented into {len(episodes)} episodes (cost ⚡{cost:.4f}) -> {out}\n")
     for e in episodes:
         print(f"  Ep{e['index']} [calls {e['start_call']}-{e['end_call']}] {e['intent']}")
         print(f"        outcome: {e['outcome'][:110]}")

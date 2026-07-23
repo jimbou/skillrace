@@ -2,7 +2,7 @@
   "schema": "d1-suite/1",
   "suite_id": "skillrace-d1-public-v1-draft",
   "status": "draft",
-  "selection_rule": "All externally sourced code-behavior skills prepared before headline runs and carrying clear artifact-redistribution permission; public skills with unsafe or missing license grants and original in-repo development skills are excluded regardless of observed outcome. The current 22 headline skills are the first 22 that satisfy this fixed protocol in popularity order, and the same ordered mining protocol remains active to add 8 additional qualifying public skills.",
+  "selection_rule": "All externally sourced code-behavior skills prepared before headline runs and carrying clear artifact-redistribution permission are included; public skills with unsafe or missing license grants and development-used skills are excluded regardless of observed outcome. The historical 22-skill boundary is preserved exactly. Because the surviving July 5 records do not prove that those 22 were a literal prefix of the raw popularity list, the pre-result July 12 amendment in candidates/D1-continuation-audit.json walks the frozen S5 pool in recorded popularity order, logs its screening and rejection rules, and stops at the first eight additional qualifying, distinct, redistributable candidates.",
   "headline_skills": [
     {"id": "fastapi-endpoint", "family": "api", "contingency": "high", "base_image": "skillrace/fastapi-endpoint:base"},
     {"id": "cli-argparse-fix", "family": "cli", "contingency": "high", "base_image": "skillrace/cli-argparse-fix:base"},
@@ -25,7 +25,15 @@
     {"id": "unit-test-generation", "family": "unit-test", "contingency": "high", "base_image": "skillrace/unit-test-generation:base"},
     {"id": "unit-test-generator", "family": "unit-test", "contingency": "high", "base_image": "skillrace/unit-test-generator:base"},
     {"id": "using-git-worktrees", "family": "git-workflow", "contingency": "medium", "base_image": "skillrace/using-git-worktrees:base"},
-    {"id": "yaml-config", "family": "config", "contingency": "high", "base_image": "skillrace/yaml-config:base"}
+    {"id": "yaml-config", "family": "config", "contingency": "high", "base_image": "skillrace/yaml-config:base"},
+    {"id": "network-config-validation", "family": "network-validation", "contingency": "high", "base_image": "skillrace/network-config-validation:base"},
+    {"id": "rest-api-caller", "family": "http-client", "contingency": "high", "base_image": "skillrace/rest-api-caller:base"},
+    {"id": "csv-workbench", "family": "tabular-analysis", "contingency": "high", "base_image": "skillrace/csv-workbench:base"},
+    {"id": "argparse-scaffolder", "family": "cli-scaffolding", "contingency": "high", "base_image": "skillrace/argparse-scaffolder:base"},
+    {"id": "data-transform", "family": "data-transformation", "contingency": "high", "base_image": "skillrace/data-transform:base"},
+    {"id": "compiler-hardening", "family": "native-build-security", "contingency": "high", "base_image": "skillrace/compiler-hardening:base"},
+    {"id": "validator-agent", "family": "input-validator-generation", "contingency": "high", "base_image": "skillrace/validator-agent:base"},
+    {"id": "log-parser", "family": "log-processing", "contingency": "high", "base_image": "skillrace/log-parser:base"}
   ],
   "excluded_public": [
     {"id": "cli-typer-scripts", "reason": "upstream repository publishes no license grant, so artifact redistribution is not authorized", "license": "NOASSERTION"},
@@ -33,9 +41,9 @@
     {"id": "json-tools", "reason": "the skill declares proprietary terms but its referenced LICENSE.txt is absent, leaving redistribution rights unclear", "license": "proprietary"}
   ],
   "development_only": [
-    {"id": "build-python-cli", "reason": "original in-repo skill used during implementation development"},
-    {"id": "fix-failing-test", "reason": "original in-repo skill used for live prompt and pipeline pilots"},
-    {"id": "frontent-design", "reason": "original development skill with presentational success outside the code-behavior headline boundary"},
-    {"id": "mcp-server-patterns", "reason": "original in-repo skill used during implementation development"}
+    {"id": "build-python-cli", "reason": "original in-repo fixture used during implementation development"},
+    {"id": "fix-failing-test", "reason": "original in-repo fixture used for live prompt and pipeline pilots"},
+    {"id": "frontent-design", "reason": "public-ancestry fixture used during development, with presentational success outside the code-behavior headline boundary"},
+    {"id": "mcp-server-patterns", "reason": "public-ancestry fixture used during implementation development"}
   ]
 }

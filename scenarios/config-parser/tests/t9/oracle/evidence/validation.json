@@ -2,10 +2,10 @@
   "schema": "skillrace-oracle-evidence/1",
   "test_id": "config-parser/t9",
   "state": "validated",
-  "contract_identity_sha256": "72d03a3c94faffe4a6f37a9e36d4b075c3344de9bdda7c9647a8bdd2cd695611",
+  "contract_identity_sha256": "f54fe2cf84012f97fff2b43136ff3c432cf2ccb00eca43223bf1902a6756b136",
   "reason": "Docker reference and negative oracle audit passed",
-  "validated_at": "2026-07-12T00:10:21.828703+00:00",
-  "image_digest": "sha256:403554ac5f088b438d7c0a9e52d0bab4ebfa992341fd2a015800393b093eb032",
+  "validated_at": "2026-07-12T17:35:23.886086+00:00",
+  "image_digest": "sha256:931661e844d0f8b37f31cb9e2d3e582766da68ef3259bffdee1037e17d2661a1",
   "docker_version": "29.6.1",
   "reference": {
     "passed": true,
@@ -18,7 +18,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.10845,
+        "duration_seconds": 0.100567,
         "script_sha256": "04ae54c7309a14b17e41417c3e4d7dc03d35e5705b50a5a624035fbac676686d",
         "isolation": "fresh-container-per-criterion"
       }
@@ -34,7 +34,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "FAIL loadcfg.py missing",
-        "duration_seconds": 0.09701,
+        "duration_seconds": 0.07643,
         "script_sha256": "04ae54c7309a14b17e41417c3e4d7dc03d35e5705b50a5a624035fbac676686d",
         "isolation": "fresh-container-per-criterion"
       }
@@ -51,7 +51,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "FAIL expected exit 0: rc=2",
-          "duration_seconds": 0.109524,
+          "duration_seconds": 0.08519,
           "script_sha256": "04ae54c7309a14b17e41417c3e4d7dc03d35e5705b50a5a624035fbac676686d",
           "isolation": "fresh-container-per-criterion"
         }

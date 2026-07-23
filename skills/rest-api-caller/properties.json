@@ -1,0 +1,7 @@
+[
+  {"id":"request-matches-contract","reads":"state","nl":"The client sends the required HTTP method, path, query parameters, headers, and body to the case's local API fixture, including correct encoding and timeout behavior."},
+  {"id":"response-fields-correct","reads":"state","nl":"The produced artifact parses the actual response and reports exactly the requested fields and values without fabricating a response, silently substituting defaults, or dumping unrelated sensitive data."},
+  {"id":"http-failures-reported","reads":"state","nl":"Malformed JSON, non-success status codes, and connection or timeout failures required by the task are handled deterministically and expose the concrete status or error rather than being reported as success."},
+  {"id":"credentials-not-hardcoded","reads":"state","nl":"When the task includes authentication, credentials are read from the specified environment source and are absent from committed source, output artifacts, and diagnostic logs."}
+]
+

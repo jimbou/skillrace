@@ -1,0 +1,28 @@
+{
+  "schema": "skillrace-experiment-manifest/1",
+  "experiment_id": "development-only-deepseek-skillrace-component-smoke-2026-07-13",
+  "status": "development-only",
+  "campaign_workers": 1,
+  "resources": {"api": 1, "docker": 1, "agent": 1},
+  "confirmation": {"enabled": true},
+  "repair": {"enabled": true, "evidence_max_bytes": 3600},
+  "cells": [
+    {
+      "id": "dev.deepseek-v4-flash.json-parser.skillrace.v3",
+      "output": "deepseek-v4-flash/json-parser/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "json-parser",
+        "skill_dir": "skills/json-parser",
+        "base": "skillrace/json-parser:base-deepseek-v4-flash",
+        "props_path": "skills/json-parser/properties.json",
+        "protocol": "experiments/protocols/pilot.deepseek-v4-flash.json",
+        "development_only": true,
+        "budget": 2,
+        "seed_count": 1,
+        "max_pre_agent_attempts": 3,
+        "wall_clock": 300
+      }
+    }
+  ]
+}

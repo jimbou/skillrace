@@ -11,30 +11,34 @@
 > authenticated GitHub API sweep, not doable from a plain web fetch; the funnel below
 > is therefore partial and will grow.
 
-## Pre-headline boundary correction (2026-07-11; before headline campaigns)
+## Pre-headline suite closure (2026-07-12; before headline campaigns)
 
-The quantitative headline is now the complete set of **22 prepared, redistributable
-public skills**, selected as the **first 22 candidates** that passed the protocol in the
-same fixed popularity-driven candidate order. The four original in-repository skills
-(`build-python-cli`, `fix-failing-test`, `frontent-design`, and
-`mcp-server-patterns`) are development-only because they were used while building and
-piloting the system. `frontent-design` also remains outside the code-behavior boundary
-because its strongest success criteria are presentational proxies.
+The quantitative headline draft now contains **30 prepared, redistributable public
+skills**. The historical 22-skill suite is preserved exactly as the balanced pre-result
+boundary recorded on July 11. The surviving July 5 records do not establish that those
+22 were a literal prefix of the later frozen S5 popularity array, so the artifact does
+not make that stronger claim. Four development-used fixtures (`build-python-cli`,
+`fix-failing-test`, `frontent-design`, and `mcp-server-patterns`) remain outside the
+headline regardless of public ancestry. `frontent-design` is also outside the
+code-behavior boundary because its strongest criteria are presentational proxies.
 
-This correction is independent of performance: no original development skill can
+This closure is independent of performance: no development-used skill can
 enter the headline, and public removals are limited to three pre-result artifact-license
 failures (`cli-typer-scripts`, `json-serialization`, `json-tools`). Their content is
-not redistributed. The already-admitted S4 candidate `condition-based-waiting` was
-prepared from a historical MIT snapshot, producing the first 22 headline skills. It is
-medium contingency: two blind baseline exercises already chose valid synchronization, while a
-fresh skill-enabled stale-state exercise followed the skill and passed 100 repetitions.
+not redistributed. Before any headline execution, the July 12 continuation walked the
+frozen 628-row S5 pool in recorded popularity order and applied the fixed gates. It
+partitioned every row through index 445, then stopped at the eighth additional strict
+admit. The complete machine-readable disposition is
+`candidates/D1-continuation-audit.json`.
 
 The boundary is enforced by `experiments/manifests/rq1-skills.draft.json`,
 `experiments/manifests/third-party-skills.json`, `skillrace.d1_audit`, and
-`skillrace.third_party_audit`. All 22 headline images pass strict runtime smoke.
+`skillrace.third_party_audit`. The suite contains 30 headline skills across 20 families
+(26 high- and four medium-contingency) with 90 predeclared properties.
 
-The same inclusion/exclusion protocol and candidate order remain active. This log is not
-closed until we append 8 additional qualifying public skills to reach a 30-skill target.
+Selection is now closed. Image/runtime verification and immutable freeze hashes remain
+separate pre-experiment gates; no skill may be substituted based on pilot or headline
+performance.
 
 ## Funnel (so far)
 
@@ -46,11 +50,14 @@ closed until we append 8 additional qualifying public skills to reach a 30-skill
 | Excluded — subjective success (X1) | 11 |
 | Excluded — not published / wishlist entry | 4 |
 | Excluded — duplicate task family (X3) | 3 |
-| S5 (skillsmp) crawl | 628 candidates → triaged; see below |
+| S5 (skillsmp) frozen crawl | 628 candidates |
+| S5 continuation rows dispositioned before stop | 446 (indices 0--445) |
+| Strict continuation admits | 8 |
 
-Target suite size is \~30 (protocol §4). The S1+S4 yield is 11 admitted code-behavior
-families; the **S5 (skillsmp) crawl** supplies the rest (a large pool of coding skills,
-triaged in `D1-proposed-admits.md`). No skill is added or dropped after results are seen.
+The target suite size is 30 (protocol §4). The older S1/S4 and balanced S5 work produced
+the preserved 22-skill boundary; the audited S5 continuation supplies eight more. The
+authoritative disposition is `D1-continuation-audit.json`, not the earlier proposal in
+`D1-proposed-admits.md`. No skill is added or dropped after results are seen.
 
 ## Criterion refinement (2026-07-05): code-behavior, not presentational artifacts
 
@@ -116,59 +123,35 @@ across S1/S4.
 `sharing-skills`, `verification-before-completion`, `defense-in-depth` (too thin to
 segment into contingent branches, or success not checkable).
 
-## Prepared & build-verified (offline)
+## Prepared suite and continuation evidence
 
-Fully prepared skill directories (SKILL.md + `Containerfile.base` + `properties.json` +
-`applicability.json`) whose base image **builds offline** against
-`skillrace/skillgen-base` (python3 + pytest + git + pi) or their own base:
+All 30 headline directories contain the exact or explicitly abridged public `SKILL.md`,
+`Containerfile.base`, `properties.json`, `applicability.json`, and `PROVENANCE.md`.
+The suite has 20 families and 90 fixed natural-language properties. Full membership and
+current image status are listed in `candidates/D1-final-suite.md`.
 
-- `fix-failing-test` — base image built ✓
-- `build-python-cli` — base image built ✓
-- `mcp-server-patterns` — base image built ✓ (needs npm at build; already built)
-- `frontent-design` — base image built ✓
-- `test-driven-development` — vendored 2026-07-05 from `obra/superpowers` (abridged;
-  see `PROVENANCE.md`), harness authored, base image built ✓
-- `regex-expert` — **vendored verbatim** from `RightNow-AI/openfang` (via skillsmp S5),
-  harness authored, base image built ✓
-- `sql-queries` — **vendored verbatim** from `anthropics/knowledge-work-plugins` (via
-  skillsmp S5), SQLite-subset harness authored, base image built ✓
+The S5 evidence chain is:
 
-**Final suite: 28 skills authored (24 base-build-verified offline + 4 build-deferred
-for pip/npm deps).** Full grouped list in `candidates/D1-final-suite.md`. Built via the
-instances-per-family strategy (§ user decision): cli ×3, refactor ×3, sql ×4, unit-test
-×2, parser ×2, plus singleton families. The fixed-invariant catalog and applicability
-matrices are in `skills/INVARIANTS.md` and each `skills/*/applicability.json`.
+1. `skillrace.crawl_skillsmp` produced 628 unique, non-OpenClaw candidates in
+   `candidates/skillsmp-pool.json` (SHA-256
+   `af2cb94b19c138e2a705f5312eaa872119bc3bebe599ec443985cf794eea8906`).
+2. The July 5 triage/proposal files remain historical aids, not the authoritative final
+   selection boundary.
+3. `candidates/D1-continuation-audit.json` records every selected or rejected row from
+   index 0 through the stop at 445, with one first-failing reason category and explicit
+   evidence for near-boundary rejections.
+4. `skillrace.d1_selection` rehashes the pool, enforces the complete partition,
+   repository cap, exact eight-admit order, stop rule, prepared files, and final manifest
+   order. `skillrace.d1_audit` composes this with provenance, licensing, property, and
+   image checks.
 
-**Honest ceiling note:** the skillsmp pool cleanly yields ~28 *distinct* code-behavior
-skills; beyond that it is dominated by forks (e.g. many identical superpowers-derived
-TDD copies, some translated) and tool-coupled/presentational entries, which we did NOT
-admit. Reaching a literal 30+ would require broadening sources (direct GitHub
-`.claude/skills` crawl, other marketplaces) rather than padding with near-duplicates.
+The eight continuation admits, in frozen order, are `network-config-validation`,
+`rest-api-caller`, `csv-workbench`, `argparse-scaffolder`, `data-transform`,
+`compiler-hardening`, `validator-agent`, and `log-parser`.
 
-### skillsmp (S5) crawl + triage (done 2026-07-05)
+## Remaining D1 freeze gates
 
-- `skillrace.crawl_skillsmp` pulled **628 unique candidates** (OpenClaw excluded) →
-  `candidates/skillsmp-pool.{md,json}`.
-- `skillrace.triage_candidates` tagged them (verdict + project-coupled + dedup) →
-  `candidates/skillsmp-triaged.md`; a balanced 36-across-12-families proposal is in
-  `candidates/D1-proposed-admits.md` (proposal — confirm per §3).
-- Sample logged decisions from vendoring: `regex-expert`, `sql-queries` **admitted**
-  (portable, checkable, built); `refactor-safely` **excluded** — X (tool-coupled: needs
-  the source repo's custom `refactor_tool`/knowledge-graph MCP tools, not portable);
-  `log-parser` (agentscope) **deferred** — ships bundled `scripts/` that must be vendored
-  with it before it is a faithful test subject.
-
-## Remaining to finalize D1 (network-gated — cannot complete offline)
-
-1. **Crawl to ~30** (S2/S3): GitHub code-search API sweep — needs an authenticated
-   GitHub token; not doable offline.
-2. **Dep-heavy admitted skills** (`docx`, `pdf`, `pptx`, `xlsx` → `pip`; `mcp-builder`,
-   `webapp-testing` → `npm`/Playwright): their bases need package installs that require
-   network. Author their harness now; build-verify when network is available.
-3. **Vendor remaining real SKILL.md** for the S4 process/git skills
-   (`systematic-debugging`, `using-git-worktrees`, `finishing-a-development-branch`,
-   `condition-based-waiting`) from `obra/superpowers`; these build offline once vendored.
-4. Tag the frozen set; record any `build-failed` removals.
-
-**Status:** D1 currently has **5 prepared, build-verified skills**; the path to the full
-suite is documented above and blocked only by network access, not by design.
+Selection and skill preparation are complete. D1 becomes frozen only after all 30
+container images pass strict runtime audit and the manifest records immutable input-tree
+and image identities. A mechanical image failure is reported consistently for all
+methods; it cannot trigger a performance-informed replacement.

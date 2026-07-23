@@ -1,0 +1,23 @@
+{
+  "schema": "skillrace-skillgen-track-images/1",
+  "status": "draft",
+  "pi_version": "0.73.1",
+  "construction_base": "skillrace/skillgen-base:0.73.1-construction",
+  "construction_base_id": "sha256:3b43a9c16498ef11d7f40a87cc32afba159536ee9a26d71f912a3e8ab4eb01c7",
+  "records": [
+    {
+      "model": "glm-4.5-flash",
+      "tag": "skillrace/skillgen-base:0.73.1-glm-4.5-flash",
+      "image_id": "sha256:8e4231ace3178bdd4713715c4dd4bf5b1ebb2102342034ea1054620b1ba2c991",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "model": "deepseek-v4-flash",
+      "tag": "skillrace/skillgen-base:0.73.1-deepseek-v4-flash",
+      "image_id": "sha256:a47450999b2f811b60e3e581f68c0a1806d85d34f7db3eb00cc313e59ad3b3a2",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "runtime_audit": "passed-networkless"
+    }
+  ]
+}

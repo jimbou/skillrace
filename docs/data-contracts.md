@@ -35,8 +35,7 @@ component(input_artifact) -> output_artifact          # a pure function
   so a fixture exercised by a test is byte-identical to one exercised on the CLI.
 - **Reference language.** Components 2–6, the orchestrator, and the baselines are
   Python (clean JSON/Docker/pytest story). The Runner shells out to the `pi` CLI;
-  there is **no custom TypeScript** (termination is a wall-clock timeout, and the
-  only Pi extension is the off-the-shelf `pi-agent-budget`)
+  there is **no custom TypeScript or Pi extension** (termination is a wall-clock timeout)
   ([pi-integration](./pi-integration.md)). Because every boundary is JSON/files,
   language is **not** load-bearing across boundaries — a component could be
   reimplemented in any language without touching its neighbors.
@@ -319,7 +318,7 @@ it is independently inspectable and replayable.
   "verdict": "same|different",
   "confidence": 0.93,
   "rationale": "both ran the project's pytest suite; same action+target (outcomes ignored)",
-  "model": { "provider": "closeai", "id": "qwen3.6-flash", "temperature": 0 },
+  "model": { "provider": "yunwu", "id": "glm-4.5-flash", "temperature": 0 },
   "cached_at": "2026-06-18T14:05:00Z"
 }
 ```
@@ -450,31 +449,47 @@ A **fixed state-based** predicate, e.g. build passes:
 { "fixed_predicate": { "kind": "shell", "command": "make build", "expect_exit": 0 } }
 ```
 
-### 10.2 Pre-run compiled-check manifest
+### 10.2 Post-run path-only Python-check manifest
 
-The model authors one Bash script per applicable NL property **before** the agent run.
-It receives only the task prompt and initial case environment. The complete manifest
-binds the prompt version, properties, applicability, candidate/container identity,
-image digest, shared `qwen3.6-flash` model, execution policy, and script hashes:
+After the agent finishes, the model authors one Python program per NL property from the
+task/environment description, available tools, and final workspace paths only. It does
+not see file contents, trace contents, diff, results, verdicts, or method identity.
+Python compilation permits one syntax-guided retry; a second syntax failure excludes
+only that property. There is no semantic-audit call.
 
 ```json
 {
-  "authored": "pre-run",
-  "prompt_version": "compile-check-v3",
+  "schema": "post-run-python-checks/1",
+  "provenance": "post-run-path-only",
+  "prompt_version": "post-run-python-check-v2",
+  "policy_version": "path-only-three-state-no-guess-v2",
   "fingerprint": "<sha256>",
-  "image_digest": "sha256:…",
-  "model": "qwen3.6-flash",
-  "property_ids": ["test-integrity.no-edit-target-test"],
+  "snapshot_identity": "sha256:…",
+  "path_tree_hash": "<sha256>",
+  "model": "glm-4.5-flash",
+  "active_property_ids": ["test-integrity.no-edit-target-test"],
   "checks": [
     {
       "property_id": "test-integrity.no-edit-target-test",
-      "script": "test-integrity.no-edit-target-test.sh",
+      "script": "test-integrity.no-edit-target-test.py",
       "sha256": "<sha256>",
       "syntax_ok": true,
-      "policy_ok": true,
-      "error": null
+      "author_calls": [
+        {
+          "operation_id": "<redacted-stable-journal-identity>",
+          "model": "glm-4.5-flash",
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cache_read_tokens": 0,
+          "cost_provider_credits": 0.0,
+          "terminal_receipt_sha256": "<sha256>",
+          "call_terminal_receipt_sha256": "<sha256>"
+        }
+      ]
     }
   ],
+  "excluded_properties": [],
+  "cost_provider_credits": 0.0,
   "execution_policy": {
     "schema": "property-check-execution/1",
     "timeout_seconds": 60,
@@ -491,20 +506,23 @@ image digest, shared `qwen3.6-flash` model, execution policy, and script hashes:
 ```json
 {
   "property_id": "test-integrity.no-edit-target-test",
-  "provenance": "compiled-pre-run",
-  "script": "cases/cand-01/checks/test-integrity.no-edit-target-test.sh",
+  "provenance": "post-run-path-only",
+  "script": "runs/run-01/checks/test-integrity.no-edit-target-test.py",
   "holds": false,
   "violated": true,
+  "not_considered": false,
   "detail": "original assertion was removed",
   "isolation": "fresh-final-snapshot",
   "timeout_seconds": 60
 }
 ```
 
-`holds` is `null` for timeout, missing final state, invalid compiled script, or oracle
-infrastructure failure. Such a verdict is inconclusive, never silently converted into a
-violation or pass. Fixed host checks use their own fixed provenance but join the same
-`verdicts.json` list.
+`holds` is `null` and `not_considered` is true for exclusion, timeout, missing final
+state, checker failure, unexpected exit, or oracle infrastructure failure. Such a
+verdict is never silently converted into a violation or pass. Exit `0`, `1`, and `2`
+mean holds, violated, and not considered respectively. Fixed host checks use their own
+fixed provenance but join the same `verdicts.json` list. Human-authored RQ3 hidden Bash
+checks retain `hidden-independent` provenance.
 
 ### 10.4 Suspected and confirmed findings
 
@@ -517,8 +535,23 @@ verdict and evidence hashes, cost, wall time, and whether the same signature rep
 Confirmation executions are explicitly marked
 `confirmation_executions_counted_in_search_budget: false`. A crash after an external
 confirmation starts but before its durable result arrives is `outcome_unknown` and is not
-silently replayed. Only reproduced groups enter confirmed-defect yield; raw violated
-property IDs do not.
+silently replayed. Reproduction remains an intermediate finding. A group enters headline
+repair-validated-defect yield only when the already-required independent patch for that
+representative makes its exact case pass every originally failed property. Raw violated
+property IDs and reproduced-but-unrepaired groups do not enter headline yield.
+
+Patch generation has its own immutable boundary. Each failed public execution gets one
+`skillrace-patch-only-result/1` and `skillrace-patch-only-receipt/1`; the terminal
+`skillrace-patch-only-ledger/1` exists before a separate
+`skillrace-patch-confirmation-result/1` replay starts. Only `completed` patches are
+eligible, and only confirmation status `repair_confirmed` contributes to defect yield.
+Patch status is `completed`, `timeout`, `error`, `invalid_patch`, or `outcome_unknown`.
+
+Common evidence preserves the exact prompt/environment, relevant input identities,
+failed-artifact representation, checker errors, and executable conditions, with no
+separate dependency/tool-version report. SkillRACE additionally receives ordered
+reasoning blocks, tool calls/results, tree path, guard mutation, branch evidence, and
+targeting classification.
 
 ---
 

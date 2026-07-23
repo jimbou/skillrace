@@ -1,0 +1,35 @@
+#0 building with "default" instance using docker driver
+
+#1 [1/4] FROM docker.io/skillrace/skillgen-base:0.73.1-construction
+#1 CACHED
+
+#2 [internal] load build definition from Containerfile.base
+#2 transferring dockerfile: 294B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/skillrace/skillgen-base:0.73.1-construction
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 87B done
+#5 DONE 0.0s
+
+#6 [2/4] COPY repo/ /workspace/
+#6 CACHED
+
+#7 [3/4] COPY SKILL.md /skills/csv-workbench/SKILL.md
+#7 CACHED
+
+#8 [4/4] RUN cd /workspace && git add -A && git commit -q -m "base: csv-workbench" || true
+#8 CACHED
+
+#9 exporting to image
+#9 exporting layers done
+#9 writing image sha256:bad306c5c2fd1151aee7853891dfb8c2daa00c3fb56f376749e7d08d6393abc6 done
+#9 naming to docker.io/skillrace/csv-workbench:base-construction-0.73.1 done
+#9 naming to docker.io/skillrace/csv-workbench:base done
+#9 DONE 0.0s

@@ -21,12 +21,13 @@ def _row(scenario, test, condition, passed, *, strict=None, status="completed", 
         "strict_pass": passed if strict is None else strict,
         "input_tokens": 10,
         "output_tokens": 2,
-        "cost_usd": cost,
+        "cost_provider_credits": cost,
         "wall_seconds": 1.0,
-        "search_cost_usd": 0.0,
-        "confirmation_cost_usd": 0.0,
-        "feedback_production_cost_usd": 0.0,
-        "revision_cost_usd": 0.0,
+        "search_cost_provider_credits": 0.0,
+        "confirmation_cost_provider_credits": 0.0,
+        "repair_cost_provider_credits": 0.0,
+        "feedback_production_cost_provider_credits": 0.0,
+        "revision_cost_provider_credits": 0.0,
     }
 
 
@@ -118,10 +119,10 @@ def test_zero_shot_strict_cost_and_failures_are_reported_separately():
     assert skillrace["functional_pass_rate"] == pytest.approx(0.5)
     assert skillrace["available_case_functional_pass_rate"] == pytest.approx(2 / 3)
     assert skillrace["status_counts"]["error"] == 5
-    assert skillrace["cost_usd"] == pytest.approx(2.0)
-    assert skillrace["search_cost_usd"] == 0.0
-    assert skillrace["confirmation_cost_usd"] == 0.0
-    assert skillrace["inclusive_total_cost_usd"] == pytest.approx(2.0)
+    assert skillrace["cost_provider_credits"] == pytest.approx(2.0)
+    assert skillrace["search_cost_provider_credits"] == 0.0
+    assert skillrace["confirmation_cost_provider_credits"] == 0.0
+    assert skillrace["inclusive_total_cost_provider_credits"] == pytest.approx(2.0)
     assert len(result["scenario_effects"]) == 2
     assert "p_value" not in repr(result)
 
@@ -196,19 +197,24 @@ def test_manifest_loader_verifies_results_and_emits_explicit_missing(tmp_path, m
         "scenario_id": "scenario",
         "replication": 1,
         "campaigns": {
-            "random": {"cost_usd": 1.0},
-            "greybox": {"cost_usd": 2.0},
-            "skillrace": {"cost_usd": 3.0},
+            "random": {"cost_provider_credits": 1.0},
+            "greybox": {"cost_provider_credits": 2.0},
+            "skillrace": {"cost_provider_credits": 3.0},
         },
         "revisions": {
-            "random": {"cost_usd": 0.1},
-            "greybox": {"cost_usd": 0.2},
-            "skillrace": {"cost_usd": 0.3},
+            "random": {"cost_provider_credits": 0.1},
+            "greybox": {"cost_provider_credits": 0.2},
+            "skillrace": {"cost_provider_credits": 0.3},
         },
         "feedback_envelopes": {
-            "random": {"confirmation_cost_usd": 0.05},
-            "greybox": {"confirmation_cost_usd": 0.06},
-            "skillrace": {"confirmation_cost_usd": 0.07},
+            "random": {"confirmation_cost_provider_credits": 0.05},
+            "greybox": {"confirmation_cost_provider_credits": 0.06},
+            "skillrace": {"confirmation_cost_provider_credits": 0.07},
+        },
+        "repairs": {
+            "random": {"costs": {"total_provider_credits": 0.02}},
+            "greybox": {"costs": {"total_provider_credits": 0.03}},
+            "skillrace": {"costs": {"total_provider_credits": 0.04}},
         },
         "evaluations": evaluations,
     }
@@ -224,7 +230,7 @@ def test_manifest_loader_verifies_results_and_emits_explicit_missing(tmp_path, m
                 "grade": {"functional_pass": True, "strict_pass": condition != "zero-shot"},
                 "input_tokens": 10,
                 "output_tokens": 2,
-                "cost_usd": 0.1,
+                "cost_provider_credits": 0.1,
                 "wall_seconds": 1.0,
             }
             path.write_text(json.dumps(result), encoding="utf-8")
@@ -251,10 +257,11 @@ def test_manifest_loader_verifies_results_and_emits_explicit_missing(tmp_path, m
     assert calls == [(tmp_path / "rq3-manifest.json", scenario_dir, False)]
     assert len(rows) == 40
     random_row = [row for row in rows if row["condition"] == "random-feedback"][0]
-    assert random_row["feedback_production_cost_usd"] == 1.0
-    assert random_row["search_cost_usd"] == 1.0
-    assert random_row["confirmation_cost_usd"] == 0.05
-    assert random_row["revision_cost_usd"] == 0.1
+    assert random_row["feedback_production_cost_provider_credits"] == 1.0
+    assert random_row["search_cost_provider_credits"] == 1.0
+    assert random_row["confirmation_cost_provider_credits"] == 0.05
+    assert random_row["repair_cost_provider_credits"] == 0.02
+    assert random_row["revision_cost_provider_credits"] == 0.1
     missing = [row for row in rows if row["condition"] == "skillrace-feedback"]
     assert all(row["status"] == "missing" for row in missing)
     assert all(row["functional_pass"] is None for row in missing)
@@ -262,11 +269,11 @@ def test_manifest_loader_verifies_results_and_emits_explicit_missing(tmp_path, m
         "status_counts"
     ]["missing"] == 10
     assert analyze_rq3(rows)["condition_summaries"]["random-feedback"][
-        "testing_revision_evaluation_cost_usd"
-    ] == pytest.approx(2.15)
+        "testing_revision_evaluation_cost_provider_credits"
+    ] == pytest.approx(2.17)
     assert analyze_rq3(rows)["condition_summaries"]["random-feedback"][
-        "inclusive_total_cost_usd"
-    ] == pytest.approx(2.15)
+        "inclusive_total_cost_provider_credits"
+    ] == pytest.approx(2.17)
 
     result_path = tmp_path / "evaluations" / "zero-shot" / "runs" / "t1" / "result.json"
     result_path.write_text("{}", encoding="utf-8")

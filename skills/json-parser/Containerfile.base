@@ -1,5 +1,18 @@
 # Level-2 per-skill base: json-parser (parser instance, vendored datadrivencons).
-FROM skillrace/skillgen-base:latest
+ARG SKILLGEN_BASE_IMAGE=skillrace/skillgen-base:0.73.1-construction
+FROM ${SKILLGEN_BASE_IMAGE}
+
+RUN sed -i \
+        -e 's#http://deb.debian.org/debian-security#https://mirrors.aliyun.com/debian-security#g' \
+        -e 's#http://deb.debian.org/debian#https://mirrors.aliyun.com/debian#g' \
+        /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends python3-pip \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m pip install --break-system-packages --no-cache-dir \
+        --index-url https://pypi.tuna.tsinghua.edu.cn/simple \
+        --timeout 180 --retries 10 \
+        numpy==2.2.2 pandas==2.2.3
 
 COPY repo/    /workspace/
 COPY SKILL.md /skills/json-parser/SKILL.md

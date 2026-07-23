@@ -22,15 +22,20 @@ from .feedback import (
     validate_feedback_envelope,
 )
 from .io_utils import atomic_write_json, canonical_json_hash, file_hash
-from .rq3_base import FROZEN_BASE_GENERATION_CONFIG
+from .rq3_base import base_generation_config
 from .revise_skill import (
-    FROZEN_REVISION_CONFIG,
     RevisionError,
     package_hash,
+    revision_config,
     revision_request,
     revise_skill_package,
     validate_revision_artifact,
     validate_skill_package,
+)
+from .model_policy import (
+    DEFAULT_DEVELOPMENT_MODEL,
+    require_experiment_model,
+    skillgen_track_image,
 )
 from .scenario_contract import load_scenario, load_test
 from .skill_eval import (
@@ -306,12 +311,14 @@ def campaign_record_from_file(
     *,
     expected_protocol_hash: str,
     expected_base_skill_hash: str,
+    expected_model: str = DEFAULT_DEVELOPMENT_MODEL,
 ) -> dict[str, Any]:
     """Verify one frozen 30-run campaign and return a path-free manifest link."""
 
     path = pathlib.Path(path)
     campaign = _read_artifact_object(path, "campaign artifact")
     method = campaign.get("method")
+    track_model = require_experiment_model(expected_model)
     if method not in PRODUCERS:
         raise ManifestMismatchError("campaign artifact has an invalid producer")
     if campaign.get("schema") == "campaign/2":
@@ -323,6 +330,7 @@ def campaign_record_from_file(
                 expected_method=method,
                 expected_protocol_hash=expected_protocol_hash,
                 expected_base_skill_hash=expected_base_skill_hash,
+                expected_model=track_model,
             )
         except CampaignArtifactError as error:
             raise ManifestMismatchError(f"invalid campaign/2 artifact: {error}") from error
@@ -357,14 +365,14 @@ def campaign_record_from_file(
     if campaign.get("allocation") != expected_allocation:
         raise ManifestMismatchError(f"{method} campaign allocation mismatch")
     if (
-        campaign.get("model") != "qwen3.6-flash"
-        or campaign.get("agent_model") != "qwen3.6-flash"
+        campaign.get("model") != track_model
+        or campaign.get("agent_model") != track_model
     ):
         raise ManifestMismatchError(f"{method} campaign model mismatch")
     costs = campaign.get("costs")
-    if not isinstance(costs, Mapping) or "total_usd" not in costs:
+    if not isinstance(costs, Mapping) or "total_provider_credits" not in costs:
         raise ManifestMismatchError(f"{method} campaign lacks complete cost accounting")
-    cost = _nonnegative_cost(costs["total_usd"], f"{method} campaign total_usd")
+    cost = _nonnegative_cost(costs["total_provider_credits"], f"{method} campaign total_provider_credits")
     return {
         "artifact_hash": canonical_json_hash(campaign),
         "file_hash": file_hash(path),
@@ -373,10 +381,10 @@ def campaign_record_from_file(
         "budget": 30,
         "counted_executions": 30,
         "complete": True,
-        "model": "qwen3.6-flash",
-        "agent_model": "qwen3.6-flash",
+        "model": track_model,
+        "agent_model": track_model,
         "allocation": expected_allocation,
-        "cost_usd": round(cost, 6),
+        "cost_provider_credits": round(cost, 6),
     }
 
 
@@ -411,8 +419,8 @@ def feedback_record_from_file(
         "used_bytes": envelope["accounting"]["used_bytes"],
         "limits": copy.deepcopy(dict(envelope["accounting"]["limits"])),
         "confirmation_executions": envelope["costs"]["confirmation_executions"],
-        "confirmation_cost_usd": envelope["costs"]["confirmation_cost_usd"],
-        "cost_usd": 0.0,
+        "confirmation_cost_provider_credits": envelope["costs"]["confirmation_cost_provider_credits"],
+        "cost_provider_credits": 0.0,
     }
 
 
@@ -421,6 +429,7 @@ def revision_record_from_artifact(
     *,
     expected_base_skill_hash: str,
     expected_envelope_hash: str,
+    expected_model: str = DEFAULT_DEVELOPMENT_MODEL,
 ) -> tuple[dict[str, Any], pathlib.Path]:
     """Verify a revision artifact and return its manifest link and mount-only path."""
 
@@ -433,11 +442,12 @@ def revision_record_from_artifact(
             artifact,
             expected_base_skill_hash=expected_base_skill_hash,
             expected_envelope_hash=expected_envelope_hash,
+            expected_model=expected_model,
         )
     except RevisionError as error:
         raise ManifestMismatchError(f"invalid revision artifact: {error}") from error
     skill = validate_skill_package(artifact / "skill")
-    cost = _nonnegative_cost(record.get("cost_usd"), "revision cost_usd")
+    cost = _nonnegative_cost(record.get("cost_provider_credits"), "revision cost_provider_credits")
     return (
         {
             "artifact_hash": canonical_json_hash(record),
@@ -476,7 +486,7 @@ def revision_record_from_artifact(
             ],
             "input_tokens": int(record.get("input_tokens", 0) or 0),
             "output_tokens": int(record.get("output_tokens", 0) or 0),
-            "cost_usd": round(cost, 6),
+            "cost_provider_credits": round(cost, 6),
         },
         skill,
     )
@@ -489,6 +499,7 @@ def project_feedback_set(
     out_dir: str | pathlib.Path,
     expected_protocol_hash: str,
     expected_base_skill_hash: str,
+    expected_model: str = DEFAULT_DEVELOPMENT_MODEL,
     max_bytes: int = FROZEN_FEEDBACK_MAX_BYTES,
 ) -> tuple[dict[str, pathlib.Path], dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     """Project the same frozen campaign set into three resumable neutral envelopes."""
@@ -509,6 +520,7 @@ def project_feedback_set(
             campaign_path,
             expected_protocol_hash=expected_protocol_hash,
             expected_base_skill_hash=expected_base_skill_hash,
+            expected_model=expected_model,
         )
         campaign = _read_artifact_object(campaign_path, "campaign artifact")
         if campaign.get("method") != producer:
@@ -564,12 +576,14 @@ def revise_feedback_set(
     feedback_paths: Mapping[str, str | pathlib.Path],
     out_dir: str | pathlib.Path,
     chat_fn: Callable[..., Mapping[str, Any]],
+    model: str = DEFAULT_DEVELOPMENT_MODEL,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, pathlib.Path]]:
     """Create or verify the three blind revisions without repeating model calls."""
 
     _exact_mapping(feedback_paths, PRODUCERS, "feedback producers")
     base = validate_skill_package(base_skill_dir)
     base_hash = file_hash(base / "SKILL.md")
+    track_model = require_experiment_model(model)
     output = pathlib.Path(out_dir)
     if output.is_symlink() or (output.exists() and not output.is_dir()):
         raise ManifestMismatchError(f"revision output is not a regular directory: {output}")
@@ -584,7 +598,9 @@ def revise_feedback_set(
         start_path = output / f"{producer}.start.json"
         receipt_path = output / f"{producer}.receipt.json"
         request = revision_request(
-            (base / "SKILL.md").read_text(encoding="utf-8"), envelope
+            (base / "SKILL.md").read_text(encoding="utf-8"),
+            envelope,
+            model=track_model,
         )
         start_payload = {
             "schema": "skillrace-revision-start/1",
@@ -593,7 +609,7 @@ def revise_feedback_set(
             "base_package_hash": package_hash(base),
             "envelope_hash": envelope_record["artifact_hash"],
             "request_hash": canonical_json_hash(request),
-            "model_config": copy.deepcopy(dict(FROZEN_REVISION_CONFIG)),
+            "model_config": revision_config(track_model),
         }
         if receipt_path.exists() and not target.exists():
             raise ManifestMismatchError(
@@ -613,11 +629,14 @@ def revise_feedback_set(
         else:
             atomic_write_json(start_path, start_payload)
         if not target.exists():
-            revise_skill_package(base, envelope, target, chat_fn=chat_fn)
+            revise_skill_package(
+                base, envelope, target, model=track_model, chat_fn=chat_fn
+            )
         record, skill = revision_record_from_artifact(
             target,
             expected_base_skill_hash=base_hash,
             expected_envelope_hash=envelope_record["artifact_hash"],
+            expected_model=track_model,
         )
         start_hash = file_hash(start_path)
         receipt_payload = {
@@ -735,6 +754,10 @@ def _validate_inputs(
             "model_config": model_config,
         }
     )
+    try:
+        track_model = require_experiment_model(model_config.get("model"))
+    except ValueError as error:
+        raise ManifestMismatchError("hidden evaluator model is not a selected track") from error
     base_hash = _require_digest(base_skill.get("skill_hash"), "base skill_hash")
     _require_digest(base_skill.get("artifact_hash"), "base artifact_hash")
     if base_skill.get("schema") != "skillrace-base-generation/2":
@@ -748,7 +771,7 @@ def _validate_inputs(
         or not re.fullmatch(r"[0-9a-f]{24}", generation_id)
     ):
         raise ManifestMismatchError("base generation_id must be 24 lowercase hex characters")
-    if base_skill.get("model_config") != FROZEN_BASE_GENERATION_CONFIG:
+    if base_skill.get("model_config") != base_generation_config(track_model):
         raise ManifestMismatchError("base generation model configuration mismatch")
     operation_id = base_skill.get("operation_id")
     if (
@@ -758,7 +781,7 @@ def _validate_inputs(
     ):
         raise ManifestMismatchError("base generation operation identity mismatch")
     if (
-        base_skill.get("provider_model") != "qwen3.6-flash"
+        base_skill.get("provider_model") != track_model
         or base_skill.get("billing_status") != "known"
     ):
         raise ManifestMismatchError("base generation provider provenance mismatch")
@@ -783,8 +806,6 @@ def _validate_inputs(
         != ".skillrace/model-call-operation-terminal.json"
     ):
         raise ManifestMismatchError("base generation journal receipt path mismatch")
-    if model_config.get("model") != "qwen3.6-flash":
-        raise ManifestMismatchError("hidden evaluator must use frozen qwen3.6-flash")
     if not isinstance(model_config.get("wall_clock"), int) or model_config["wall_clock"] <= 0:
         raise ManifestMismatchError("model_config.wall_clock must be a positive integer")
     for producer in PRODUCERS:
@@ -803,11 +824,11 @@ def _validate_inputs(
                 f"{producer} campaign must be complete with exactly 30 counted executions"
             )
         if (
-            campaign.get("model") != "qwen3.6-flash"
-            or campaign.get("agent_model") != "qwen3.6-flash"
+            campaign.get("model") != track_model
+            or campaign.get("agent_model") != track_model
         ):
             raise ManifestMismatchError(
-                f"{producer} campaign must use the same frozen qwen3.6-flash model"
+                f"{producer} campaign must use the same frozen track model"
             )
         expected_allocation = {
             "budget": 30,
@@ -855,8 +876,8 @@ def _validate_inputs(
                 f"{producer} feedback confirmation execution count is invalid"
             )
         _nonnegative_cost(
-            envelope.get("confirmation_cost_usd"),
-            f"{producer} feedback confirmation_cost_usd",
+            envelope.get("confirmation_cost_provider_credits"),
+            f"{producer} feedback confirmation_cost_provider_credits",
         )
         revision = revisions[producer]
         if revision.get("schema") != "skillrace-revision/2":
@@ -871,7 +892,7 @@ def _validate_inputs(
         _require_digest(
             revision.get("revised_skill_hash"), f"{producer} revised skill hash"
         )
-        if revision.get("model_config") != FROZEN_REVISION_CONFIG:
+        if revision.get("model_config") != revision_config(track_model):
             raise ManifestMismatchError(
                 f"{producer} revision model configuration differs from the frozen reviser"
             )
@@ -893,7 +914,7 @@ def _validate_inputs(
             ),
             "envelope_hash": envelope_hash,
             "request_hash": request_hash,
-            "model_config": FROZEN_REVISION_CONFIG,
+            "model_config": revision_config(track_model),
         }
         if dict(start_identity) != expected_start:
             raise ManifestMismatchError(
@@ -904,7 +925,7 @@ def _validate_inputs(
         ):
             raise ManifestMismatchError(f"{producer} revision operation identity mismatch")
         if (
-            revision.get("provider_model") != "qwen3.6-flash"
+            revision.get("provider_model") != track_model
             or revision.get("billing_status") != "known"
             or revision.get("journal_tag") != "rq3.revise"
             or not isinstance(revision.get("journal_skill"), str)
@@ -958,6 +979,46 @@ def _skill_hashes(
             raise ManifestMismatchError(f"{condition} mounted skill hash mismatch")
         result[condition] = actual
     return result
+
+
+def _normalized_repair_records(
+    repairs: Mapping[str, Mapping[str, Any]] | None,
+    campaigns: Mapping[str, Mapping[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    if repairs is None:
+        return {
+            producer: {
+                "schema": "skillrace-failure-repairs/1",
+                "method": producer,
+                "source_campaign_hash": campaigns[producer].get("artifact_hash"),
+                "failed_public_executions": 0,
+                "repair_executions": 0,
+                "repair_executions_counted_in_search_budget": False,
+                "repairs": [],
+                "costs": {"patch_provider_credits": 0.0, "replay_provider_credits": 0.0, "total_provider_credits": 0.0},
+            }
+            for producer in PRODUCERS
+        }
+    _exact_mapping(repairs, PRODUCERS, "repair producers")
+    normalized: dict[str, dict[str, Any]] = {}
+    for producer in PRODUCERS:
+        record = repairs[producer]
+        if (
+            not isinstance(record, Mapping)
+            or record.get("schema") != "skillrace-failure-repairs/1"
+            or record.get("method") != producer
+            or record.get("repair_executions_counted_in_search_budget") is not False
+            or not isinstance(record.get("repairs"), list)
+            or record.get("repair_executions") != len(record["repairs"])
+        ):
+            raise ManifestMismatchError(f"{producer} repair record is malformed")
+        costs = record.get("costs")
+        if not isinstance(costs, Mapping):
+            raise ManifestMismatchError(f"{producer} repair cost record is malformed")
+        _nonnegative_cost(costs.get("total_provider_credits"), f"{producer} repair total cost")
+        normalized[producer] = copy.deepcopy(dict(record))
+    _reject_secret_fields(normalized, "repair records")
+    return normalized
 
 
 def _manifest_hash(value: Mapping[str, Any]) -> str:
@@ -1027,6 +1088,7 @@ def _new_manifest(
     replication: int,
     base_skill: Mapping[str, Any],
     campaigns: Mapping[str, Mapping[str, Any]],
+    repairs: Mapping[str, Mapping[str, Any]],
     envelopes: Mapping[str, Mapping[str, Any]],
     revisions: Mapping[str, Mapping[str, Any]],
     skill_hashes: Mapping[str, str],
@@ -1086,6 +1148,7 @@ def _new_manifest(
         "one_execution_per_hidden_test": True,
         "base_skill": copy.deepcopy(dict(base_skill)),
         "campaigns": {name: copy.deepcopy(dict(campaigns[name])) for name in PRODUCERS},
+        "repairs": {name: copy.deepcopy(dict(repairs[name])) for name in PRODUCERS},
         "feedback_envelopes": {
             name: copy.deepcopy(dict(envelopes[name])) for name in PRODUCERS
         },
@@ -1095,29 +1158,37 @@ def _new_manifest(
         "model_config": copy.deepcopy(dict(model_config)),
         "evaluations": evaluations,
         "costs": {
-            "campaign_usd": round(
-                sum(float(campaigns[name].get("cost_usd", 0.0) or 0.0) for name in PRODUCERS),
+            "campaign_provider_credits": round(
+                sum(float(campaigns[name].get("cost_provider_credits", 0.0) or 0.0) for name in PRODUCERS),
                 6,
             ),
-            "confirmation_usd": round(
+            "confirmation_provider_credits": round(
                 sum(
-                    float(envelopes[name].get("confirmation_cost_usd", 0.0) or 0.0)
+                    float(envelopes[name].get("confirmation_cost_provider_credits", 0.0) or 0.0)
                     for name in PRODUCERS
                 ),
                 6,
             ),
-            "revision_usd": round(
-                sum(float(revisions[name].get("cost_usd", 0.0) or 0.0) for name in PRODUCERS),
+            "repair_provider_credits": round(
+                sum(
+                    float(repairs[name].get("costs", {}).get("total_provider_credits", 0.0) or 0.0)
+                    for name in PRODUCERS
+                ),
                 6,
             ),
-            "evaluation_usd": 0.0,
-            "total_usd": 0.0,
+            "revision_provider_credits": round(
+                sum(float(revisions[name].get("cost_provider_credits", 0.0) or 0.0) for name in PRODUCERS),
+                6,
+            ),
+            "evaluation_provider_credits": 0.0,
+            "total_provider_credits": 0.0,
         },
     }
-    manifest["costs"]["total_usd"] = round(
-        manifest["costs"]["campaign_usd"]
-        + manifest["costs"]["confirmation_usd"]
-        + manifest["costs"]["revision_usd"],
+    manifest["costs"]["total_provider_credits"] = round(
+        manifest["costs"]["campaign_provider_credits"]
+        + manifest["costs"]["confirmation_provider_credits"]
+        + manifest["costs"]["repair_provider_credits"]
+        + manifest["costs"]["revision_provider_credits"],
         6,
     )
     manifest["manifest_hash"] = _manifest_hash(manifest)
@@ -1134,6 +1205,7 @@ def _assert_resume_identity(current: Mapping[str, Any], expected: Mapping[str, A
         "one_execution_per_hidden_test",
         "base_skill",
         "campaigns",
+        "repairs",
         "feedback_envelopes",
         "revisions",
         "scenario_contract_identity",
@@ -1238,12 +1310,16 @@ def _validate_result(
     if cost_path.is_file():
         raw_cost = _read_json_object(cost_path, "raw hidden cost")
         expected_cost = float(
-            raw_cost.get("usd", raw_cost.get("price_usd", 0.0)) or 0.0
+            raw_cost.get(
+                "cost_provider_credits",
+                raw_cost.get("provider_credits", raw_cost.get("price_provider_credits", 0.0)),
+            )
+            or 0.0
         )
         if (
             result.get("input_tokens") != int(raw_cost.get("in", 0) or 0)
             or result.get("output_tokens") != int(raw_cost.get("out", 0) or 0)
-            or result.get("cost_usd") != expected_cost
+            or result.get("cost_provider_credits") != expected_cost
         ):
             raise ManifestMismatchError("raw hidden cost/result mismatch")
 
@@ -1252,6 +1328,19 @@ def _validate_result(
         raw_run = _read_json_object(run_path, "raw hidden run")
         if result.get("run_id") != raw_run.get("run_id"):
             raise ManifestMismatchError("raw hidden run/result identity mismatch")
+        start = _read_json_object(run_root / "start.json", "hidden execution start")
+        model_config = start.get("model_config")
+        model = model_config.get("model") if isinstance(model_config, Mapping) else None
+        if (
+            raw_run.get("base_image") != skillgen_track_image(str(model))
+            or not re.fullmatch(
+                r"sha256:[0-9a-f]{64}", str(raw_run.get("base_image_id", ""))
+            )
+            or not re.fullmatch(
+                r"sha256:[0-9a-f]{64}", str(raw_run.get("env_image_id", ""))
+            )
+        ):
+            raise ManifestMismatchError("raw hidden run model-runtime identity mismatch")
         termination = raw_run.get("termination")
         if isinstance(termination, Mapping):
             seconds = float(termination.get("seconds", 0.0) or 0.0)
@@ -1318,7 +1407,7 @@ def _normalize_executor_result(raw: Any) -> dict[str, Any]:
         "verdicts": verdicts,
         "input_tokens": int(raw.get("input_tokens", 0) or 0),
         "output_tokens": int(raw.get("output_tokens", 0) or 0),
-        "cost_usd": float(raw.get("cost_usd", 0.0) or 0.0),
+        "cost_provider_credits": float(raw.get("cost_provider_credits", 0.0) or 0.0),
         "wall_seconds": float(raw.get("wall_seconds", 0.0) or 0.0),
         "run_id": raw.get("run_id"),
         "agent_id": raw.get("agent_id") or raw.get("run_id"),
@@ -1336,12 +1425,13 @@ def _update_costs(manifest: dict[str, Any], output: pathlib.Path) -> None:
             result_path = output / "evaluations" / condition / "runs" / name / "result.json"
             if result_path.is_file():
                 result = _read_json_object(result_path, "hidden result")
-                evaluation_cost += float(result.get("cost_usd", 0.0) or 0.0)
-    manifest["costs"]["evaluation_usd"] = round(evaluation_cost, 6)
-    manifest["costs"]["total_usd"] = round(
-        manifest["costs"]["campaign_usd"]
-        + manifest["costs"]["confirmation_usd"]
-        + manifest["costs"]["revision_usd"]
+                evaluation_cost += float(result.get("cost_provider_credits", 0.0) or 0.0)
+    manifest["costs"]["evaluation_provider_credits"] = round(evaluation_cost, 6)
+    manifest["costs"]["total_provider_credits"] = round(
+        manifest["costs"]["campaign_provider_credits"]
+        + manifest["costs"]["confirmation_provider_credits"]
+        + manifest["costs"]["repair_provider_credits"]
+        + manifest["costs"]["revision_provider_credits"]
         + evaluation_cost,
         6,
     )
@@ -1468,6 +1558,7 @@ def verify_rq3_evaluation_artifacts(
     public_inputs = {
         "base_skill": manifest.get("base_skill"),
         "campaigns": manifest.get("campaigns"),
+        "repairs": manifest.get("repairs"),
         "envelopes": manifest.get("feedback_envelopes"),
         "revisions": manifest.get("revisions"),
     }
@@ -1481,6 +1572,9 @@ def verify_rq3_evaluation_artifacts(
         public_inputs["revisions"],
         {condition: pathlib.Path(".") for condition in EVALUATION_CONDITIONS},
         model_config,
+    )
+    repairs = _normalized_repair_records(
+        public_inputs["repairs"], public_inputs["campaigns"]
     )
     protocol_hash = _require_digest(manifest.get("protocol_hash"), "protocol hash")
     replication = manifest.get("replication")
@@ -1638,7 +1732,7 @@ def verify_rq3_evaluation_artifacts(
                 raise ManifestMismatchError(
                     f"hidden result/manifest grade mismatch for {condition}/{test_id}"
                 )
-            evaluation_cost += float(result.get("cost_usd", 0.0) or 0.0)
+            evaluation_cost += float(result.get("cost_provider_credits", 0.0) or 0.0)
             summary_rows.append(
                 {
                     "status": result["status"],
@@ -1658,7 +1752,7 @@ def verify_rq3_evaluation_artifacts(
         raise ManifestMismatchError("RQ3 cost record is malformed")
     campaign_cost = round(
         sum(
-            float(manifest["campaigns"][name].get("cost_usd", 0.0) or 0.0)
+            float(manifest["campaigns"][name].get("cost_provider_credits", 0.0) or 0.0)
             for name in PRODUCERS
         ),
         6,
@@ -1667,7 +1761,7 @@ def verify_rq3_evaluation_artifacts(
         sum(
             float(
                 manifest["feedback_envelopes"][name].get(
-                    "confirmation_cost_usd", 0.0
+                    "confirmation_cost_provider_credits", 0.0
                 )
                 or 0.0
             )
@@ -1677,19 +1771,31 @@ def verify_rq3_evaluation_artifacts(
     )
     revision_cost = round(
         sum(
-            float(manifest["revisions"][name].get("cost_usd", 0.0) or 0.0)
+            float(manifest["revisions"][name].get("cost_provider_credits", 0.0) or 0.0)
+            for name in PRODUCERS
+        ),
+        6,
+    )
+    repair_cost = round(
+        sum(
+            float(repairs[name].get("costs", {}).get("total_provider_credits", 0.0) or 0.0)
             for name in PRODUCERS
         ),
         6,
     )
     evaluation_cost = round(evaluation_cost, 6)
     expected_costs = {
-        "campaign_usd": campaign_cost,
-        "confirmation_usd": confirmation_cost,
-        "revision_usd": revision_cost,
-        "evaluation_usd": evaluation_cost,
-        "total_usd": round(
-            campaign_cost + confirmation_cost + revision_cost + evaluation_cost,
+        "campaign_provider_credits": campaign_cost,
+        "confirmation_provider_credits": confirmation_cost,
+        "repair_provider_credits": repair_cost,
+        "revision_provider_credits": revision_cost,
+        "evaluation_provider_credits": evaluation_cost,
+        "total_provider_credits": round(
+            campaign_cost
+            + confirmation_cost
+            + repair_cost
+            + revision_cost
+            + evaluation_cost,
             6,
         ),
     }
@@ -1711,6 +1817,7 @@ def evaluate_hidden_scenario(
     skills_by_condition: Mapping[str, pathlib.Path],
     model_config: Mapping[str, Any],
     public_artifact_roots: Sequence[str | pathlib.Path],
+    repairs: Mapping[str, Mapping[str, Any]] | None = None,
     executor: Callable[[HiddenExecutionRequest], Mapping[str, Any]] = execute_hidden_request,
 ) -> dict[str, Any]:
     """Run exactly four conditions once/test with atomic, receipt-based resumption.
@@ -1731,6 +1838,7 @@ def evaluate_hidden_scenario(
         skills_by_condition,
         model_config,
     )
+    normalized_repairs = _normalized_repair_records(repairs, campaigns)
     hidden = _load_hidden_scenario_identity(scenario_dir)
     if len(hidden.tests) != 10 or tuple(test.test_id for test in hidden.tests) != tuple(
         f"{hidden.scenario_id}/t{number}" for number in range(1, 11)
@@ -1775,6 +1883,7 @@ def evaluate_hidden_scenario(
         replication,
         base_skill,
         campaigns,
+        normalized_repairs,
         envelopes,
         revisions,
         hashes,
@@ -1988,7 +2097,7 @@ def evaluate_hidden_scenario(
                 "raw_artifacts_hash": raw_artifacts_hash,
                 "input_tokens": normalized["input_tokens"],
                 "output_tokens": normalized["output_tokens"],
-                "cost_usd": normalized["cost_usd"],
+                "cost_provider_credits": normalized["cost_provider_credits"],
                 "wall_seconds": normalized["wall_seconds"],
                 "run_id": normalized["run_id"],
                 "agent_id": normalized["agent_id"],

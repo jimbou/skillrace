@@ -1,0 +1,24 @@
+ontinue the SkillRACE Next work from:
+
+  skillrace_next/docs/2026-07-23-adaptive-episode-tree-session-handoff.md
+
+  Read the linked design and implementation plan. Continue from Task 4; do not restart or redesign.
+
+  Preserve uncommitted changes in:
+  - tests_next/live/test_episode_creator_live.py
+  - tests_next/live/test_tree_merge_live.py
+
+  Do not touch the unrelated untracked:
+  - skillrace_next/study/base-images/manifest.json
+
+  First use TDD to fix the Pi runtime bug that marks traces with stopReason="error" as completed when Docker exits zero. Use tests_next/unit/test_pi_runtime.py and skillrace_next/runtime/pi.py. Run focused and full offline tests, then commit only that
+  runtime task.
+
+  When Qwen is stable, rerun the complete paid episode gate with --live. Manually inspect both models’ nine-call deepClone segmentation for 7–9 concrete, span-grounded episodes.
+
+  Only after that passes, run the real-study tree gate with both lab/deepseek-v4-flash and lab/qwen3.6-flash. Verify equivalent deepClone implementation episodes merge, while deepClone, findMissingNumber, and toKebabCase implementation nodes remain distinct.
+
+  Stop on persistent provider failure. Do not mock, skip, or reinterpret a live gate. Preserve sanitized evidence, scan for credentials, verify Docker cleanup, commit live tests only after passing, and update CURRENT_STATUS.md and
+  FULL_STUDY_REMAINING_TODO.md.
+
+  Work only in skillrace_next/, tests_next/, and out/live-contracts/. Never import the legacy skillrace package or perform cutover.

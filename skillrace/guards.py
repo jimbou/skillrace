@@ -228,13 +228,13 @@ def extract_guard(
     )
     resp = chat([{"role": "system", "content": system_prompt},
                  {"role": "user", "content": user}],
-                model=model, temperature=0.0, reasoning=True, max_tokens=900,
+                model=model, temperature=0.0, reasoning=False, max_tokens=900,
                 tag="guards.extract", skill=skill)
     g = extract_json(resp["content"])
     g["branch_key"] = branch_key(branch)
     g["parent_id"] = branch["parent_id"]
     g["children"] = branch["children"]
-    return g, resp["cost_usd"]
+    return g, resp["cost_provider_credits"]
 
 
 def load_guard_state(tree_path, *, signal_mode="reasoning-and-outcomes"):
@@ -380,7 +380,7 @@ def select_target(frontier, properties, model, skill=None):
             "Return ONLY the JSON.")
     resp = chat([{"role": "system", "content": SELECT_SYS},
                  {"role": "user", "content": user}],
-                model=model, temperature=0.0, reasoning=True, max_tokens=500,
+                model=model, temperature=0.0, reasoning=False, max_tokens=500,
                 tag="guards.select", skill=skill)
     sel = extract_json(resp["content"])
     idx = int(sel.get("frontier_index", 0))
@@ -388,7 +388,7 @@ def select_target(frontier, properties, model, skill=None):
     mut = sel.get("mutation") or frontier[idx]["mutations"][0]
     return {"item": frontier[idx], "mutation": mut,
             "targeted_property": sel.get("targeted_property"),
-            "rationale": sel.get("rationale", "")}, resp["cost_usd"]
+            "rationale": sel.get("rationale", "")}, resp["cost_provider_credits"]
 
 
 # ------------------------------------------------------------------ 5b + 5c synthesis
@@ -412,6 +412,7 @@ def synthesize(
     out_dir,
     *,
     requested_base_image=None,
+    base_image_identity=None,
     proposal_id=None,
     provenance=None,
 ):
@@ -428,9 +429,9 @@ def synthesize(
             "Return ONLY the JSON.")
     resp = chat([{"role": "system", "content": SYNTH_SYS},
                  {"role": "user", "content": user}],
-                model=model, temperature=0.0, reasoning=True, max_tokens=1200,
+                model=model, temperature=0.0, reasoning=False, max_tokens=1200,
                 tag="guards.synthesize", skill=skill)
-    cost += resp["cost_usd"]
+    cost += resp["cost_provider_credits"]
     draft = extract_json(resp["content"])
     task_nl, env_nl, validate_sh = draft["task"], draft["env"], draft["validate_sh"]
 
@@ -468,7 +469,7 @@ def synthesize(
                        **extra_provenance,
                        "source": "skillrace",
                        "requested_base_image": requested_base_image or base_image,
-                       "base_image_identity": base_image,
+                       "base_image_identity": base_image_identity or base_image,
                        "branch_key": g["branch_key"],
                        "target_parent": g.get("parent_id"),
                        "guard": g["condition"],
@@ -487,7 +488,9 @@ def synthesize(
                        "attempts": artifact["build_attempts"]}
     (case / "candidate.json").write_text(json.dumps({
         "candidate_id": cid, "skill": skill, "prompt": artifact["prompt"],
-        "base_image": base_image, "containerfile": artifact["containerfile"],
+        "base_image": base_image,
+        "base_image_identity": base_image_identity or base_image,
+        "containerfile": artifact["containerfile"],
         "built_image": artifact["built_image"], "sanity": artifact["sanity"],
         "provenance": candidate_provenance,
     }, indent=2))
@@ -511,7 +514,7 @@ def main():
     ap.add_argument("--base", required=True)
     ap.add_argument("--props", required=True)
     ap.add_argument("--out", required=True, help="dir for the synthesized case")
-    ap.add_argument("--model", default="qwen3.6-flash")
+    ap.add_argument("--model", default="glm-4.5-flash")
     ap.add_argument("--extract-only", action="store_true",
                     help="only extract/refresh guards + print the frontier")
     args = ap.parse_args()
@@ -550,11 +553,11 @@ def main():
     cost += c
     mark_tried(state, state_path, g["branch_key"], target["mutation"])
     if case:
-        print(f"\nVALIDATED candidate (no agent spent) -> {case}  (${cost:.4f})")
+        print(f"\nVALIDATED candidate (no agent spent) -> {case}  (⚡{cost:.4f})")
         print(f"  → run: python -m skillrace.run_case --case {case} "
               f"--skill-dir {args.skill_dir} --out runs/<name>")
     else:
-        print(f"\nsynthesis FAILED after retries: {info.get('error')}  (${cost:.4f})")
+        print(f"\nsynthesis FAILED after retries: {info.get('error')}  (⚡{cost:.4f})")
 
 
 if __name__ == "__main__":

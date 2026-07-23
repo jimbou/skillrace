@@ -2,10 +2,10 @@
   "schema": "skillrace-oracle-evidence/1",
   "test_id": "regex-validate/t4",
   "state": "validated",
-  "contract_identity_sha256": "0b0ec2a6360f1174c7e42a9fa9627830d34bc17cbedaa5f49d1fd24dcee7667f",
+  "contract_identity_sha256": "0ddb6af2fbe38731f4fe367020d8e17902cf306e5eccd2d2b20b17ea273e738a",
   "reason": "Docker reference and negative oracle audit passed",
-  "validated_at": "2026-07-12T00:14:17.202205+00:00",
-  "image_digest": "sha256:ba8efe853f858230969de89fe1aaf66648b8a42e3d2d16de510b1039084387af",
+  "validated_at": "2026-07-12T17:36:32.147320+00:00",
+  "image_digest": "sha256:f18e44f0a03a29fdc53e9ff9da23cbd1722d64d12f19e648b59c1414cfbb8344",
   "docker_version": "29.6.1",
   "reference": {
     "passed": true,
@@ -18,7 +18,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.107613,
+        "duration_seconds": 0.089897,
         "script_sha256": "62c32b04449de1a4adf159ab79b36e3b8ae989ee155ad72669f62e03cd74c5ad",
         "isolation": "fresh-container-per-criterion"
       },
@@ -29,7 +29,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.106614,
+        "duration_seconds": 0.106031,
         "script_sha256": "cf8b9ecd6156f6dc494ac0e5f4ecb447d07913bad1bfe0334f4bf17625dd7e2a",
         "isolation": "fresh-container-per-criterion"
       },
@@ -40,7 +40,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.122581,
+        "duration_seconds": 0.078396,
         "script_sha256": "a50a77aa0d9b008522d816181c612bdf4be076d443e40e0ccd759350ae896937",
         "isolation": "fresh-container-per-criterion"
       }
@@ -56,7 +56,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "ModuleNotFoundError: No module named 'validate'",
-        "duration_seconds": 0.083003,
+        "duration_seconds": 0.066937,
         "script_sha256": "62c32b04449de1a4adf159ab79b36e3b8ae989ee155ad72669f62e03cd74c5ad",
         "isolation": "fresh-container-per-criterion"
       },
@@ -67,7 +67,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "ModuleNotFoundError: No module named 'validate'",
-        "duration_seconds": 0.102907,
+        "duration_seconds": 0.09127,
         "script_sha256": "cf8b9ecd6156f6dc494ac0e5f4ecb447d07913bad1bfe0334f4bf17625dd7e2a",
         "isolation": "fresh-container-per-criterion"
       },
@@ -78,7 +78,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "ModuleNotFoundError: No module named 'validate'",
-        "duration_seconds": 0.103072,
+        "duration_seconds": 0.069645,
         "script_sha256": "a50a77aa0d9b008522d816181c612bdf4be076d443e40e0ccd759350ae896937",
         "isolation": "fresh-container-per-criterion"
       }
@@ -95,7 +95,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "AssertionError: ('should accept', '0.0.0.0')",
-          "duration_seconds": 0.103632,
+          "duration_seconds": 0.084884,
           "script_sha256": "62c32b04449de1a4adf159ab79b36e3b8ae989ee155ad72669f62e03cd74c5ad",
           "isolation": "fresh-container-per-criterion"
         },
@@ -106,7 +106,7 @@
           ],
           "exit_code": 0,
           "final_output_line": "ok",
-          "duration_seconds": 0.109393,
+          "duration_seconds": 0.093516,
           "script_sha256": "cf8b9ecd6156f6dc494ac0e5f4ecb447d07913bad1bfe0334f4bf17625dd7e2a",
           "isolation": "fresh-container-per-criterion"
         },
@@ -117,7 +117,7 @@
           ],
           "exit_code": 0,
           "final_output_line": "ok",
-          "duration_seconds": 0.10165,
+          "duration_seconds": 0.080773,
           "script_sha256": "a50a77aa0d9b008522d816181c612bdf4be076d443e40e0ccd759350ae896937",
           "isolation": "fresh-container-per-criterion"
         }
@@ -137,7 +137,7 @@
           ],
           "exit_code": 0,
           "final_output_line": "ok",
-          "duration_seconds": 0.108159,
+          "duration_seconds": 0.072151,
           "script_sha256": "62c32b04449de1a4adf159ab79b36e3b8ae989ee155ad72669f62e03cd74c5ad",
           "isolation": "fresh-container-per-criterion"
         },
@@ -148,7 +148,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "AssertionError: ('anchoring: should reject', ' 0.0.0.0')",
-          "duration_seconds": 0.100309,
+          "duration_seconds": 0.076784,
           "script_sha256": "cf8b9ecd6156f6dc494ac0e5f4ecb447d07913bad1bfe0334f4bf17625dd7e2a",
           "isolation": "fresh-container-per-criterion"
         },
@@ -159,7 +159,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "AssertionError: ('should reject', '256.0.0.1')",
-          "duration_seconds": 0.092506,
+          "duration_seconds": 0.082081,
           "script_sha256": "a50a77aa0d9b008522d816181c612bdf4be076d443e40e0ccd759350ae896937",
           "isolation": "fresh-container-per-criterion"
         }
@@ -179,7 +179,7 @@
           ],
           "exit_code": 0,
           "final_output_line": "ok",
-          "duration_seconds": 0.11494,
+          "duration_seconds": 0.100875,
           "script_sha256": "62c32b04449de1a4adf159ab79b36e3b8ae989ee155ad72669f62e03cd74c5ad",
           "isolation": "fresh-container-per-criterion"
         },
@@ -190,7 +190,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "AssertionError: ('anchoring: should reject', ' 0.0.0.0')",
-          "duration_seconds": 0.111708,
+          "duration_seconds": 0.099204,
           "script_sha256": "cf8b9ecd6156f6dc494ac0e5f4ecb447d07913bad1bfe0334f4bf17625dd7e2a",
           "isolation": "fresh-container-per-criterion"
         },
@@ -201,7 +201,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "AssertionError: ('should reject', '256.0.0.1')",
-          "duration_seconds": 0.124944,
+          "duration_seconds": 0.099164,
           "script_sha256": "a50a77aa0d9b008522d816181c612bdf4be076d443e40e0ccd759350ae896937",
           "isolation": "fresh-container-per-criterion"
         }

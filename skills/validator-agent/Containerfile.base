@@ -1,0 +1,14 @@
+ARG SKILLGEN_BASE_IMAGE=skillrace/skillgen-base:0.73.1-construction
+FROM ${SKILLGEN_BASE_IMAGE}
+RUN sed -i \
+        -e 's#http://deb.debian.org/debian-security#https://mirrors.aliyun.com/debian-security#g' \
+        -e 's#http://deb.debian.org/debian#https://mirrors.aliyun.com/debian#g' \
+        /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends g++ \
+    && rm -rf /var/lib/apt/lists/*
+COPY repo/ /workspace/
+COPY SKILL.md /skills/validator-agent/SKILL.md
+COPY tutorials/ /skills/validator-agent/tutorials/
+COPY tutorials/ /workspace/tutorials/
+RUN cd /workspace && git add -A && git commit -q -m "base: validator-agent" || true

@@ -60,7 +60,7 @@ def _campaign(method: str) -> dict:
                     "targeting": "serendipitous",
                 },
                 "seconds": 3.0,
-                "compile_cost_usd": 0.02,
+                "compile_cost_provider_credits": 0.02,
             },
             {
                 "attempt_id": "attempt-000003",
@@ -98,7 +98,7 @@ def _confirmations(campaign: dict) -> dict:
                 "reproduction_count": 1,
             }
         ],
-        "costs": {"total_usd": 0.02},
+        "costs": {"total_provider_credits": 0.02},
     }
 
 

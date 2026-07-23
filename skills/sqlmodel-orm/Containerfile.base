@@ -1,9 +1,10 @@
 # Level-2 per-skill base: sqlmodel-orm (sql instance, vendored fastapi). NETWORK-GATED build.
-FROM skillrace/skillgen-base:latest
+ARG SKILLGEN_BASE_IMAGE=skillrace/skillgen-base:0.73.1-construction
+FROM ${SKILLGEN_BASE_IMAGE}
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3-pip \
     && rm -rf /var/lib/apt/lists/* \
-    && python3 -m pip install --break-system-packages --no-cache-dir sqlmodel==0.0.39
+    && python3 -m pip install --break-system-packages --no-cache-dir --timeout 180 --retries 10 sqlmodel==0.0.39
 COPY repo/    /workspace/
 COPY SKILL.md /skills/sqlmodel-orm/SKILL.md
 RUN cd /workspace && git add -A && git commit -q -m "base: sqlmodel-orm" || true

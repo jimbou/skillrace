@@ -1,0 +1,25 @@
+{
+  "providers": {
+    "yunwu": {
+      "baseUrl": "https://yunwu.ai/v1",
+      "api": "openai-completions",
+      "apiKey": "yunwu_key",
+      "authHeader": true,
+      "models": [
+        {
+          "id": "qwen3-coder-flash",
+          "name": "Yunwu Qwen3 Coder Flash",
+          "reasoning": false,
+          "input": ["text"],
+          "contextWindow": 128000,
+          "maxTokens": 8192,
+          "compat": {
+            "supportsDeveloperRole": false,
+            "supportsReasoningEffort": false,
+            "requiresAssistantAfterToolResult": true
+          }
+        }
+      ]
+    }
+  }
+}

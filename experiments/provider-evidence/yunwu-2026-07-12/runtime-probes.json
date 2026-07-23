@@ -1,0 +1,78 @@
+{
+  "schema": "yunwu-runtime-probes/1",
+  "recorded_at": "2026-07-12",
+  "development_only": true,
+  "pi_version": "0.73.1",
+  "direct_ledger": {
+    "path": "experiments/provider-evidence/yunwu-2026-07-12/direct-probes.jsonl",
+    "sha256": "8c0052b461e406ecda33cd83aa81e3c112d905e7ead5db1859dd30949eb2ae41"
+  },
+  "tracks": [
+    {
+      "model": "glm-4.5-flash",
+      "image_tag": "skillrace/pi-base:0.73.1-glm-4.5-flash",
+      "image_id": "sha256:6674bc053bbc07098debfc085510e2198049189c056ef5670756e33282c74589",
+      "model_config": "images/pi-base/models.yunwu.glm-4.5-flash.json",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "direct_probe": {
+        "operation_id": "development.yunwu-direct-probe.20260712-v2.glm-4.5-flash",
+        "event_id": "db6b2c5d6f56cf8c7a5b948c70a3a1ed75cbc65b65c6b86bdd09e77009dff400",
+        "provider_model": "glm-4.5-flash",
+        "http_status": 200,
+        "reasoning_tokens": 60,
+        "cost_provider_credits": 0.00000542,
+        "cost_usd": null
+      },
+      "pi_probe": {
+        "path": "experiments/provider-evidence/yunwu-2026-07-12/pi-probes/glm-4.5-flash-pi-0.73.1",
+        "session_sha256": "c847291cfd380524007e9a88d592c4b2ab4e7158d6e2e3f1f527bf014e5973f6",
+        "cost_sha256": "966452d3430e56cc5c8b4ec5f5f9d3a92370431ddc92d5871bee0ae8f81ee4a7",
+        "stdout_sha256": "717771e51b2b1e1b5092370d568739bb06fc1b1886672978bd752c1aeafb69a3",
+        "assistant_turns": 3,
+        "thinking_turns": 2,
+        "thinking_characters": 667,
+        "tool_calls": ["bash", "read"],
+        "cost_provider_credits": 0.00008834
+      }
+    },
+    {
+      "model": "deepseek-v4-flash",
+      "image_tag": "skillrace/pi-base:0.73.1-deepseek-v4-flash",
+      "image_id": "sha256:e9455dce106a28922d1ca245688d9b52e5c941c41c8d06cdf8f35995c91c28bb",
+      "model_config": "images/pi-base/models.yunwu.deepseek-v4-flash.json",
+      "model_config_sha256": "c4a05daca772ee68435f5a17924d30ccfa44ae66f17f2be2675c526ee0cf7ee4",
+      "direct_probe": {
+        "operation_id": "development.yunwu-direct-probe.20260712-v2.deepseek-v4-flash",
+        "event_id": "c1707bf1446637c3982d610fcdd772729fc249eb9d71c89cfa21ecf0ca7ddcd4",
+        "provider_model": "deepseek-v4-flash",
+        "http_status": 200,
+        "reasoning_tokens": 32,
+        "cost_provider_credits": 0.000088,
+        "cost_usd": null
+      },
+      "pi_probe": {
+        "path": "experiments/provider-evidence/yunwu-2026-07-12/pi-probes/deepseek-v4-flash-pi-0.73.1",
+        "session_sha256": "ba874aa94ca90b39d8577705f47db7957c82c2f1631fdd0e2831b08a3e4b1275",
+        "cost_sha256": "20af807acd8027c43e39d64c4587bac8d557f145d2f48f2b54d17a7dd92a2f78",
+        "stdout_sha256": "171261cfd8e36521beab676e565f1a9b742418c5aa5bc90005ae394519f7e44c",
+        "assistant_turns": 3,
+        "thinking_turns": 3,
+        "thinking_characters": 248,
+        "tool_calls": ["bash", "bash"],
+        "cost_provider_credits": 0.00452648
+      }
+    }
+  ],
+  "failed_diagnostics": [
+    {
+      "name": "glm-null-tool-history-http-500",
+      "session_sha256": "8f2cc0216860475aa3544d75882b821137ef76ea52db22e288cce93e591396c6",
+      "disposition": "development-only; excluded from pilots and headline results"
+    },
+    {
+      "name": "glm-0.62-repeated-tool-loop",
+      "session_sha256": "ae4624eee3a281ccb683b911f431dfc89f77f824b2a3b1b950ef8bc861cb63dc",
+      "disposition": "development-only; excluded from pilots and headline results"
+    }
+  ]
+}

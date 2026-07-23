@@ -279,11 +279,11 @@ def _costs(
     counted = [row for row in attempts if row.get("consume_budget") is True]
     explicit = campaign.get("costs")
     explicit = explicit if isinstance(explicit, Mapping) else {}
-    model_cost = _number(explicit.get("model_cost_usd"))
-    model_cost += sum(_number(row.get("compile_cost_usd")) for row in attempts)
+    model_cost = _number(explicit.get("model_cost_provider_credits"))
+    model_cost += sum(_number(row.get("compile_cost_provider_credits")) for row in attempts)
     state = campaign.get("generator_state")
     if isinstance(state, Mapping):
-        model_cost += _number(state.get("gen_cost_usd"))
+        model_cost += _number(state.get("gen_cost_provider_credits"))
     confirmation_costs = confirmations.get("costs") if isinstance(confirmations, Mapping) else {}
     confirmation_costs = confirmation_costs if isinstance(confirmation_costs, Mapping) else {}
     return {
@@ -294,9 +294,9 @@ def _costs(
             if isinstance(confirmations, Mapping)
             else 0
         ),
-        "confirmation_cost_usd": round(_number(confirmation_costs.get("total_usd")), 6),
-        "model_cost_usd": round(model_cost, 6),
-        "agent_cost_usd": round(_number(explicit.get("agent_cost_usd")), 6),
+        "confirmation_cost_provider_credits": round(_number(confirmation_costs.get("total_provider_credits")), 6),
+        "model_cost_provider_credits": round(model_cost, 6),
+        "agent_cost_provider_credits": round(_number(explicit.get("agent_cost_provider_credits")), 6),
         "wall_seconds": round(
             _number(explicit.get("wall_seconds"))
             or sum(_number(row.get("seconds")) for row in attempts),

@@ -1,0 +1,35 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Containerfile.base
+#1 transferring dockerfile: 388B done
+#1 DONE 0.0s
+
+#2 [1/4] FROM docker.io/skillrace/skillgen-base:0.73.1-construction
+#2 CACHED
+
+#3 [internal] load metadata for docker.io/skillrace/skillgen-base:0.73.1-construction
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 87B done
+#5 DONE 0.0s
+
+#6 [3/4] COPY SKILL.md /skills/sql-query-generator/SKILL.md
+#6 CACHED
+
+#7 [2/4] COPY repo/    /workspace/
+#7 CACHED
+
+#8 [4/4] RUN cd /workspace && git add -A && git commit -q -m "base: sql-query-generator" || true
+#8 CACHED
+
+#9 exporting to image
+#9 exporting layers done
+#9 writing image sha256:2b474fd81d9c5d4906e4c59c14a106e4f18399e8ebb0af508eef7986abf2128a 0.0s done
+#9 naming to docker.io/skillrace/sql-query-generator:base-construction-0.73.1 done
+#9 naming to docker.io/skillrace/sql-query-generator:base done
+#9 DONE 0.0s

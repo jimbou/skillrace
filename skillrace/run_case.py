@@ -11,7 +11,7 @@ inputs you choose (which case, which agent model, where to put the run).
 Usage:
   python -m skillrace.run_case --case out/genagent/cases/case2 \
       --skill-dir skills/fix-failing-test \
-      --model qwen3.6-flash --out runs/ftt-case2
+      --model glm-4.5-flash --out runs/ftt-case2
 """
 from __future__ import annotations
 import argparse
@@ -24,10 +24,14 @@ import subprocess
 import time
 import uuid
 
-from .closeai import PRICES, log_usage
+from .closeai import log_usage, yunwu_api_key
 from .candidate_policy import validate_candidate_containerfile
 from .io_utils import atomic_write_json
 from .runtime_trust import verify_runtime_integrity
+from .model_policy import (
+    has_known_provider_credit_rate,
+    provider_credits_for_known_model,
+)
 
 
 _SKILL_IDENTIFIER_RE = re.compile(r"[a-z0-9](?:[a-z0-9._-]{0,127})?\Z")
@@ -42,9 +46,46 @@ def _docker_build(case_dir, tag):
     return p.returncode == 0, (p.stderr or p.stdout)
 
 
+def docker_image_identity(image: str, *, run=subprocess.run) -> str:
+    """Resolve a Docker reference to the daemon's immutable lowercase image ID."""
+
+    result = run(
+        ["docker", "image", "inspect", "--format", "{{.Id}}", image],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    identity = result.stdout.strip() if result.returncode == 0 else ""
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", identity):
+        detail = (result.stderr or result.stdout or "Docker image inspect failed")[-500:]
+        raise RuntimeError(f"cannot resolve immutable image identity for {image}: {detail}")
+    return identity
+
+
+def validate_candidate_base_binding(candidate, *, resolver=docker_image_identity) -> str:
+    """Require the runnable base tag to match its campaign-frozen image ID."""
+
+    if not isinstance(candidate, dict):
+        raise ValueError("candidate must be an object")
+    base = candidate.get("base_image")
+    expected = candidate.get("base_image_identity")
+    if not isinstance(base, str) or not base:
+        raise ValueError("candidate base_image must be a runnable Docker reference")
+    if not isinstance(expected, str) or not re.fullmatch(
+        r"sha256:[0-9a-f]{64}", expected
+    ):
+        raise ValueError("candidate base_image_identity must be an immutable image ID")
+    actual = resolver(base)
+    if actual != expected:
+        raise ValueError(
+            f"candidate base tag drifted from frozen identity: {base}"
+        )
+    return actual
+
+
 def _trace_cost(trace_path, model):
     """Sum agent in/out tokens from the pi session trace; price via our table."""
-    tin = tout = turns = 0
+    tin = tout = cache_read = turns = 0
     if pathlib.Path(trace_path).exists():
         for line in open(trace_path):
             try:
@@ -56,9 +97,30 @@ def _trace_cost(trace_path, model):
                 u = m.get("usage") or {}
                 tin += u.get("input", 0) or 0
                 tout += u.get("output", 0) or 0
-    pin, pout = PRICES.get(model, (0.0, 0.0))
-    return {"model": model, "turns": turns, "in": tin, "out": tout,
-            "price_usd": round((tin * pin + tout * pout) / 1e6, 6)}
+                cache_read += u.get("cacheRead", 0) or 0
+    priced = has_known_provider_credit_rate(model)
+    exact = (
+        provider_credits_for_known_model(
+            model,
+            tin + cache_read,
+            tout,
+            cached_input_tokens=cache_read,
+        )
+        if priced
+        else None
+    )
+    return {
+        "model": model,
+        "turns": turns,
+        "in": tin,
+        "out": tout,
+        "cache_read": cache_read,
+        "billing_status": "known" if priced else "unknown",
+        "billing_currency": "YUNWU_CREDIT" if priced else None,
+        "cost_provider_credits": exact,
+        "price_provider_credits": round(exact, 6) if exact is not None else None,
+        "cost_usd": None,
+    }
 
 
 def preserve_status_script(agent_command: str, cleanup_command: str) -> str:
@@ -109,7 +171,7 @@ def build_agent_command(
         f"cd {workspace_arg} || exit 125; "
         f"test -x {pi_arg} || exit 127; "
         f": > {marker_arg} || exit 125; "
-        f"{pi_arg} --provider closeai --model {model_arg} --print "
+        f"{pi_arg} --provider yunwu --model {model_arg} --print "
         f"--session /logs/session.jsonl --skill {skill_path} "
         '"$PI_PROMPT" </dev/null'
     )
@@ -163,18 +225,18 @@ def build_agent_exec_args(run_id, command):
         raise ValueError("agent command must be safe text")
     return [
         "docker", "exec",
-        "-e", "CLOSE_API_KEY",
+        "-e", "yunwu_key",
         "-e", "PI_PROMPT",
         run_id, "/bin/bash", "-c", command,
     ]
 
 
 def build_agent_exec_environment(api_key, prompt, *, base_environment=None):
-    for name, value in (("CLOSE_API_KEY", api_key), ("PI_PROMPT", prompt)):
+    for name, value in (("yunwu_key", api_key), ("PI_PROMPT", prompt)):
         if not isinstance(value, str) or "\x00" in value:
             raise ValueError(f"{name} must be safe text")
     environment = dict(os.environ if base_environment is None else base_environment)
-    environment["CLOSE_API_KEY"] = api_key
+    environment["yunwu_key"] = api_key
     environment["PI_PROMPT"] = prompt
     return environment
 
@@ -197,7 +259,7 @@ def main():
     ap.add_argument("--case", required=True, help="case dir (Dockerfile + candidate.json)")
     ap.add_argument("--skill-dir", required=True,
                     help="host repository skill directory mounted read-only")
-    ap.add_argument("--model", default="qwen3.6-flash", help="agent-under-test model")
+    ap.add_argument("--model", default="glm-4.5-flash", help="agent-under-test model")
     ap.add_argument("--out", required=True, help="run output dir")
     ap.add_argument("--wall-clock", type=int, default=1800,
                     help="hard timeout for the agent run (default 30 min; design-iteration "
@@ -206,8 +268,9 @@ def main():
                     help="seconds after the run before a detached timebomb force-removes "
                          "the left-alive container (+ env image) if the checker hasn't")
     args = ap.parse_args()
-    if not os.environ.get("CLOSE_API_KEY"):
-        raise SystemExit("CLOSE_API_KEY must be set")
+    api_key = yunwu_api_key()
+    if not api_key:
+        raise SystemExit("yunwu_key must be set")
 
     case = pathlib.Path(args.case)
     cand = json.loads((case / "candidate.json").read_text())
@@ -216,8 +279,9 @@ def main():
         raise SystemExit("candidate Dockerfile does not match candidate.json")
     try:
         validate_candidate_containerfile(dockerfile, cand["base_image"])
+        base_image_id = validate_candidate_base_binding(cand)
     except ValueError as error:
-        raise SystemExit(f"candidate Dockerfile policy rejection: {error}") from error
+        raise SystemExit(f"candidate base/Dockerfile policy rejection: {error}") from error
     raw_skill = cand.get("skill") or cand["base_image"].split("/")[-1].split(":")[0]
     skill = validate_skill_identifier(raw_skill)
     prompt = cand["prompt"]
@@ -235,9 +299,10 @@ def main():
     if not ok:
         raise SystemExit(f"env build failed:\n{berr[-1500:]}")
     try:
-        verify_runtime_integrity(cand["base_image"], env_tag)
+        verify_runtime_integrity(base_image_id, env_tag)
     except Exception as error:
         raise SystemExit(f"pre-agent runtime integrity failure: {error}") from error
+    env_image_id = docker_image_identity(env_tag)
 
     # 2) run the agent under test (skill is baked into the base at /skills/<skill>).
     #    capture the session trace + a post-run workspace diff. --rm + --name so a
@@ -268,7 +333,7 @@ def main():
     try:
         p = subprocess.run(build_agent_exec_args(run_id, agent_command),
                            env=build_agent_exec_environment(
-                               os.environ["CLOSE_API_KEY"], prompt
+                               api_key, prompt
                            ),
                            capture_output=True, text=True, timeout=args.wall_clock)
         rc, stdout = p.returncode, p.stdout
@@ -310,7 +375,8 @@ def main():
     (out / "agent_stdout.txt").write_text(stdout or "")
     manifest = {
         "run_id": run_id, "skill": skill, "prompt": prompt,
-        "base_image": cand.get("base_image"), "env_image": env_tag,
+        "base_image": cand.get("base_image"), "base_image_id": base_image_id,
+        "env_image": env_tag, "env_image_id": env_image_id,
         # the live container the Property Checker will exec into, then destroy:
         "container": run_id if container_alive else None,
         "container_alive": container_alive,
@@ -323,7 +389,7 @@ def main():
     print(f"\ndone rc={rc} ({termination}) in {dt:.1f}s")
     print(f"  trace:   {out}/raw/session.jsonl")
     print(f"  diff:    {out}/logs/workspace.diff")
-    print(f"  cost:    {cost['turns']} turns, in/out={cost['in']}/{cost['out']}, ${cost['price_usd']}")
+    print(f"  cost:    {cost['turns']} turns, in/out={cost['in']}/{cost['out']}, ⚡{cost['price_provider_credits']}")
     print(f"  run.json: {out}/run.json")
     if container_alive:
         print(f"  container LEFT RUNNING for the property checker: {run_id}")

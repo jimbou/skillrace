@@ -1,0 +1,72 @@
+{
+  "schema": "yunwu-rate-card-evidence/1",
+  "retrieved_at": "2026-07-12T14:16:46.015262Z",
+  "sources": {
+    "pricing": {
+      "url": "https://yunwu.ai/api/pricing_new",
+      "sha256": "7d0b0893bfeaab660d62eab98d3f5f41b6fe9141fab1861cd9e1bd6b4d1c4be4",
+      "bytes": 287051
+    },
+    "status": {
+      "url": "https://yunwu.ai/api/status",
+      "sha256": "416357292b8c54752b004ccefee95b6152cefbd669a81abdb369ce220384f194",
+      "bytes": 402021
+    },
+    "pricing_ui": {
+      "url": "https://users.yunwu.ai/_next/static/chunks/1519s9ltr9uh9.js",
+      "sha256": "1e0e0e516c61f9e7e99c17ff777221cc7927947eb9ab4f9ec09f314af5e985eb",
+      "bytes": 101623
+    }
+  },
+  "currency": {
+    "provider_status_type": "CUSTOM",
+    "billing_currency": "YUNWU_CREDIT",
+    "symbol": "⚡",
+    "custom_exchange_rate": 1,
+    "display_in_currency": true,
+    "quota_per_unit": 500000,
+    "purchase_price": 0.5,
+    "purchase_original_price": 0.5,
+    "provider_usd_exchange_rate": 7.3,
+    "usd_conversion_policy": "not-derived"
+  },
+  "group": {
+    "id": "default",
+    "ratio": 1
+  },
+  "formula": {
+    "quota_type": 0,
+    "unit": "provider credits per million tokens",
+    "input": "2 * model_ratio * group_ratio",
+    "output": "2 * model_ratio * completion_ratio * group_ratio",
+    "cache_read": "input_rate * cache_ratio when advertised"
+  },
+  "models": [
+    {
+      "id": "glm-4.5-flash",
+      "quota_type": 0,
+      "model_ratio": 0.01,
+      "completion_ratio": 4,
+      "cache_ratio": null,
+      "enabled_groups": ["default", "纯AZ", "官转"],
+      "endpoint_types": ["openai"],
+      "input_provider_credits_per_million": 0.02,
+      "output_provider_credits_per_million": 0.08,
+      "cache_read_provider_credits_per_million": 0.02,
+      "cache_policy": "catalog has no distinct cache ratio; conservatively charge the ordinary input rate"
+    },
+    {
+      "id": "deepseek-v4-flash",
+      "quota_type": 0,
+      "model_ratio": 0.5,
+      "completion_ratio": 2,
+      "cache_ratio": 0.02,
+      "enabled_groups": ["default", "企业级高可用大模型", "纯AZ", "官转"],
+      "endpoint_types": ["openai", "anthropic"],
+      "input_provider_credits_per_million": 1.0,
+      "output_provider_credits_per_million": 2.0,
+      "cache_read_provider_credits_per_million": 0.02,
+      "cache_policy": "catalog cache_ratio multiplied by the ordinary input rate"
+    }
+  ]
+}

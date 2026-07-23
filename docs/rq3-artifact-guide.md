@@ -16,20 +16,24 @@ write a better skill? It compares four skill versions on the same ten hidden tes
    public stage. The hidden `tests/` directory is absent.
 2. It runs Random for 30 fresh executions, VeriGrey-inspired for 10 bootstrap plus
    20 guided executions, and SkillRACE for 10 bootstrap plus 20 guided executions.
-3. It groups suspected defects by property and normalized failure signature. One
+3. Every raw public failure receives one independent original-skill patch and exact-case
+   replay. SkillRACE's patcher receives its bounded native reasoning/tree/guard context;
+   baseline patchers receive the common bounded failure core. Repairs are recorded but
+   never enter the aggregate feedback envelope.
+4. It groups suspected defects by property and normalized failure signature. One
    representative from each group is rerun once. These confirmation executions and
    their costs are recorded separately and never consume the 30-execution budget.
-4. It projects each method's confirmed findings, explored situations, and useful
+5. It projects each method's confirmed findings, explored situations, and useful
    search evidence into the same ordered envelope. The frozen cap is exactly 3,600
    canonical-JSON UTF-8 bytes, not a mislabeled tokenizer estimate. Deterministic
    section round-robin allocation prevents generic explored-case text from consuming
    the whole envelope before method-specific evidence is considered.
-5. It makes one revision call per feedback condition with the same Qwen model,
+6. It makes one revision call per feedback condition with the same track model,
    temperature, prompt template, and output limit. Only the envelope differs.
-6. Only after all public work passes a hidden-content audit does it open the ten
+7. Only after all public work passes a hidden-content audit does it open the ten
    hidden tests. Every condition runs each test exactly once through the same runner
    and hidden-independent executable checks.
-7. It recursively verifies the resulting manifest and every linked start, result,
+8. It recursively verifies the resulting manifest and every linked start, result,
    receipt, campaign, cost, feedback, revision, and hidden-evaluation hash.
 
 ## How failures are counted
@@ -55,38 +59,38 @@ stops. It does not silently spend a second call and pretend exactly-once executi
 ## Base-skill provenance gate
 
 A headline run requires the zero-shot skill's generation prompt, raw response, frozen
-model configuration, provider call ID when available, actual provider token counts,
+model configuration, hashed provider identities, actual provider token counts,
 cost, hashes, start record, and terminal receipt. The ten historical checked-in skills
 currently carry honest `regeneration-required` markers because their original model
 calls did not retain this evidence. They must be regenerated before expensive RQ3
 campaigns; the orchestrator intentionally fails closed until then.
 
-Generate a replacement package without overwriting the historical one:
+The model-track driver does not overwrite those templates. It creates a private prepared
+scenario beneath the track result root and makes exactly one generation call for each
+scenario/model pair. Thus the two complete tracks contain twenty base-generation calls.
+The normalized benchmark-template hash—covering all hidden tests, references, mutants,
+and public campaign inputs while excluding only the intentionally different base
+skill—must be identical across tracks.
+
+For a development-only single-package check:
 
 ```bash
 python -m skillrace.rq3_base generate \
   --scenario-id <name> \
   --purpose scenarios/<name>/scenario.md \
-  --out scenarios/<name>/base_skill.generated
+  --out /tmp/<model>/<name>/base_skill \
+  --model glm-4.5-flash
 ```
 
-After reviewing the generated skill, replace `base_skill/`, update the
-`base_skill_sha256` in `scenario.json`, rerun the scenario contract gate, and freeze
-the resulting provenance before any headline outcomes are inspected.
+The headline driver performs the copy, hash binding, validation, and exactly-once resume
+automatically; manual replacement of `scenarios/<name>/base_skill/` is forbidden.
 
 ## Main commands
 
 ```bash
-python -m skillrace.rq3_pipeline run \
-  --scenario scenarios/<name> \
-  --scenarios-root scenarios \
-  --protocol experiments/protocols/issta-main.json \
-  --out out/rq3/<name>
-
-python -m skillrace.rq3_pipeline verify \
-  --scenario scenarios/<name> \
-  --out out/rq3/<name>
+scripts/run_model_track.sh glm-4.5-flash rq3
+scripts/run_model_track.sh deepseek-v4-flash rq3
 ```
 
-The checked-in headline protocol remains intentionally unavailable until the final
-artifact freeze. Development or draft results must not be reported as headline data.
+The checked-in protocols and schedules remain `draft` until the final artifact freeze.
+Development or draft results must not be reported as headline data.

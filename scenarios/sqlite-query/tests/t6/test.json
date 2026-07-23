@@ -1,9 +1,9 @@
 {
   "schema": "skillrace-hidden-test/1",
   "test_id": "sqlite-query/t6",
-  "candidate_sha256": "8af8ad3233cc3c5e0f1c6fae39a91c3ab1c7fa89d8316af7aa185d87a7686252",
-  "dockerfile_sha256": "a78283d1388608849d8a9066df43030d8338304f5747b8570acbd4b946d46c99",
-  "content_identity_sha256": "7acd244c1bec34eb12030342af3890b07bde5ebbb644e9894dba11bb318f6978",
+  "candidate_sha256": "bfa4c06072695c85647f7c51bbe861e89b5c3b7185bce83538041c077d97d9c3",
+  "dockerfile_sha256": "28c64977d4547defec04c8b403fce09cd8d321d215ed95e0806e1e6a296c4cf1",
+  "content_identity_sha256": "593643442eeeb2eb2ebb04663fb8dd82a793f9df80c8df70ed90ec0f1de668b0",
   "duplicate_justification": null,
   "entrypoint": "python3 answer.py",
   "criteria": [
@@ -51,5 +51,5 @@
   ],
   "validation_evidence": "oracle/evidence/validation.json",
   "reference_sha256": "9e862065979383bc4528474ef864eab44f485236f27e571de540519419e83f1f",
-  "contract_identity_sha256": "9b255b3337a1b27b9fdef9000d10fa70d7340e1844589b5d76fd22b70bb50a98"
+  "contract_identity_sha256": "77cca0e4901399eaa6efe599320869a660488121d78fb907fba55dcd6943eb4a"
 }

@@ -19,9 +19,11 @@ from skillrace.scenario_contract import (
     main,
     public_leakage_matches,
     refresh_hashes,
+    reset_runtime_evidence,
     tree_hash,
     validate_root,
 )
+from skillrace.model_policy import HIDDEN_TEMPLATE_BASE_IMAGE
 
 
 ROOT = Path(__file__).parents[1] / "scenarios"
@@ -69,6 +71,11 @@ def test_every_hidden_test_has_stable_hashes_semantics_and_oracle_records():
         assert contract.dockerfile_sha256 == hashlib.sha256(
             (test_dir / "Dockerfile").read_bytes()
         ).hexdigest()
+        candidate = json.loads((test_dir / "candidate.json").read_text())
+        assert candidate["base_image"] == HIDDEN_TEMPLATE_BASE_IMAGE
+        assert (test_dir / "Dockerfile").read_text().startswith(
+            f"FROM {HIDDEN_TEMPLATE_BASE_IMAGE}\n"
+        )
         assert any(criterion.kind == "functional" for criterion in contract.criteria)
         assert all(criterion.expected_status in {"zero", "nonzero"} for criterion in contract.criteria)
         assert all(criterion.expected_output for criterion in contract.criteria)
@@ -358,6 +365,44 @@ def test_refresh_refuses_to_preserve_stale_validated_evidence(tmp_path: Path):
     with pytest.raises(ContractError, match="stale validated evidence"):
         refresh_hashes(test_dir)
     assert json.loads(evidence_path.read_text(encoding="utf-8"))["state"] == "validated"
+
+
+def test_explicit_reset_makes_runtime_evidence_pending_before_input_refresh(tmp_path: Path):
+    test_dir = _minimal_test_tree(tmp_path)
+    evidence_path = test_dir / "oracle/evidence/validation.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema": "skillrace-oracle-evidence/1",
+                "test_id": "demo/t1",
+                "state": "validated",
+                "reason": "old runtime",
+                "contract_identity_sha256": json.loads(
+                    (test_dir / "test.json").read_text()
+                )["contract_identity_sha256"],
+                "validated_at": "2026-07-11T00:00:00+00:00",
+                "image_digest": "sha256:old",
+                "docker_version": "test",
+                "reference": {"passed": True},
+                "starting": {"rejected": True},
+                "negative_implementations": {"wrong": {"killed_assigned": True}},
+            }
+        )
+    )
+
+    changed = reset_runtime_evidence(test_dir, reason="base runtime changed")
+
+    assert changed == (evidence_path.resolve(),)
+    reset = json.loads(evidence_path.read_text())
+    assert reset == {
+        "schema": "skillrace-oracle-evidence/1",
+        "test_id": "demo/t1",
+        "state": "pending-docker",
+        "contract_identity_sha256": None,
+        "reason": "base runtime changed",
+        "reference": None,
+        "negative_implementations": None,
+    }
 
 
 def test_audit_failed_is_nonzero_and_not_reported_as_pending(tmp_path: Path, capsys):

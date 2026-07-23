@@ -52,21 +52,28 @@ def records_from_rq3_manifest(
     rows: list[dict[str, Any]] = []
     for condition in EVALUATION_CONDITIONS:
         if condition == "zero-shot":
-            search_cost = confirmation_cost = revision_cost = 0.0
+            search_cost = confirmation_cost = repair_cost = revision_cost = 0.0
         else:
             producer = condition.removesuffix("-feedback")
             campaigns = manifest.get("campaigns", {})
             revisions = manifest.get("revisions", {})
             if not isinstance(campaigns, Mapping) or not isinstance(revisions, Mapping):
                 raise AnalysisError("RQ3 manifest lacks campaign/revision cost links")
-            search_cost = float(campaigns.get(producer, {}).get("cost_usd", 0.0) or 0.0)
+            search_cost = float(campaigns.get(producer, {}).get("cost_provider_credits", 0.0) or 0.0)
             feedback = manifest.get("feedback_envelopes", {})
             if not isinstance(feedback, Mapping):
                 raise AnalysisError("RQ3 manifest lacks feedback cost links")
             confirmation_cost = float(
-                feedback.get(producer, {}).get("confirmation_cost_usd", 0.0) or 0.0
+                feedback.get(producer, {}).get("confirmation_cost_provider_credits", 0.0) or 0.0
             )
-            revision_cost = float(revisions.get(producer, {}).get("cost_usd", 0.0) or 0.0)
+            repairs = manifest.get("repairs", {})
+            if not isinstance(repairs, Mapping):
+                raise AnalysisError("RQ3 manifest lacks repair cost links")
+            repair_cost = float(
+                repairs.get(producer, {}).get("costs", {}).get("total_provider_credits", 0.0)
+                or 0.0
+            )
+            revision_cost = float(revisions.get(producer, {}).get("cost_provider_credits", 0.0) or 0.0)
         tests = evaluations[condition].get("tests")
         if not isinstance(tests, Mapping):
             raise AnalysisError(f"{condition} manifest tests are malformed")
@@ -96,12 +103,13 @@ def records_from_rq3_manifest(
                         "strict_pass": None,
                         "input_tokens": 0,
                         "output_tokens": 0,
-                        "cost_usd": 0.0,
+                        "cost_provider_credits": 0.0,
                         "wall_seconds": 0.0,
-                        "search_cost_usd": search_cost,
-                        "confirmation_cost_usd": confirmation_cost,
-                        "feedback_production_cost_usd": search_cost,
-                        "revision_cost_usd": revision_cost,
+                        "search_cost_provider_credits": search_cost,
+                        "confirmation_cost_provider_credits": confirmation_cost,
+                        "repair_cost_provider_credits": repair_cost,
+                        "feedback_production_cost_provider_credits": search_cost,
+                        "revision_cost_provider_credits": revision_cost,
                     }
                 )
                 continue
@@ -133,12 +141,13 @@ def records_from_rq3_manifest(
                     "strict_pass": grade.get("strict_pass"),
                     "input_tokens": result.get("input_tokens", 0),
                     "output_tokens": result.get("output_tokens", 0),
-                    "cost_usd": result.get("cost_usd", 0.0),
+                    "cost_provider_credits": result.get("cost_provider_credits", 0.0),
                     "wall_seconds": result.get("wall_seconds", 0.0),
-                    "search_cost_usd": search_cost,
-                    "confirmation_cost_usd": confirmation_cost,
-                    "feedback_production_cost_usd": search_cost,
-                    "revision_cost_usd": revision_cost,
+                    "search_cost_provider_credits": search_cost,
+                    "confirmation_cost_provider_credits": confirmation_cost,
+                    "repair_cost_provider_credits": repair_cost,
+                    "feedback_production_cost_provider_credits": search_cost,
+                    "revision_cost_provider_credits": revision_cost,
                 }
             )
     return rows
@@ -206,12 +215,13 @@ def _validate_rows(records: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]
                 raise AnalysisError(f"analysis row {index} has invalid {field}")
             row[field] = value
         for field in (
-            "cost_usd",
+            "cost_provider_credits",
             "wall_seconds",
-            "search_cost_usd",
-            "confirmation_cost_usd",
-            "feedback_production_cost_usd",
-            "revision_cost_usd",
+            "search_cost_provider_credits",
+            "confirmation_cost_provider_credits",
+            "repair_cost_provider_credits",
+            "feedback_production_cost_provider_credits",
+            "revision_cost_provider_credits",
         ):
             value = row.get(field, 0.0)
             if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
@@ -268,26 +278,28 @@ def _condition_summary(
     status["missing"] += len(expected_cells - present)
     functional = [row["functional_pass"] for row in rows if row.get("functional_pass") is not None]
     strict = [row["strict_pass"] for row in rows if row.get("strict_pass") is not None]
-    upstream: dict[tuple[str, int], tuple[float, float, float]] = {}
+    upstream: dict[tuple[str, int], tuple[float, float, float, float]] = {}
     for row in rows:
         key = (str(row["scenario_id"]), int(row["replication"]))
         value = (
             float(
                 row.get(
-                    "search_cost_usd",
-                    row.get("feedback_production_cost_usd", 0.0),
+                    "search_cost_provider_credits",
+                    row.get("feedback_production_cost_provider_credits", 0.0),
                 )
             ),
-            float(row.get("confirmation_cost_usd", 0.0)),
-            float(row.get("revision_cost_usd", 0.0)),
+            float(row.get("confirmation_cost_provider_credits", 0.0)),
+            float(row.get("repair_cost_provider_credits", 0.0)),
+            float(row.get("revision_cost_provider_credits", 0.0)),
         )
         if key in upstream and upstream[key] != value:
             raise AnalysisError(f"inconsistent testing/revision cost for {key}")
         upstream[key] = value
     search_cost = sum(value[0] for value in upstream.values())
     confirmation_cost = sum(value[1] for value in upstream.values())
-    revision_cost = sum(value[2] for value in upstream.values())
-    evaluation_cost = sum(float(row.get("cost_usd", 0.0)) for row in rows)
+    repair_cost = sum(value[2] for value in upstream.values())
+    revision_cost = sum(value[3] for value in upstream.values())
+    evaluation_cost = sum(float(row.get("cost_provider_credits", 0.0)) for row in rows)
     scheduled = len(expected_cells)
     functional_passes = sum(value is True for value in functional)
     strict_passes = sum(value is True for value in strict)
@@ -313,19 +325,30 @@ def _condition_summary(
         "status_counts": {name: status.get(name, 0) for name in STATUS_VALUES},
         "input_tokens": sum(int(row.get("input_tokens", 0)) for row in rows),
         "output_tokens": sum(int(row.get("output_tokens", 0)) for row in rows),
-        "evaluation_cost_usd": round(evaluation_cost, 6),
-        "search_cost_usd": round(search_cost, 6),
-        "confirmation_cost_usd": round(confirmation_cost, 6),
-        "feedback_production_cost_usd": round(search_cost, 6),
-        "revision_cost_usd": round(revision_cost, 6),
-        "testing_revision_evaluation_cost_usd": round(
-            search_cost + confirmation_cost + revision_cost + evaluation_cost, 6
+        "evaluation_cost_provider_credits": round(evaluation_cost, 6),
+        "search_cost_provider_credits": round(search_cost, 6),
+        "confirmation_cost_provider_credits": round(confirmation_cost, 6),
+        "repair_cost_provider_credits": round(repair_cost, 6),
+        "feedback_production_cost_provider_credits": round(search_cost, 6),
+        "revision_cost_provider_credits": round(revision_cost, 6),
+        "testing_revision_evaluation_cost_provider_credits": round(
+            search_cost
+            + confirmation_cost
+            + repair_cost
+            + revision_cost
+            + evaluation_cost,
+            6,
         ),
-        "inclusive_total_cost_usd": round(
-            search_cost + confirmation_cost + revision_cost + evaluation_cost, 6
+        "inclusive_total_cost_provider_credits": round(
+            search_cost
+            + confirmation_cost
+            + repair_cost
+            + revision_cost
+            + evaluation_cost,
+            6,
         ),
         # Backward-compatible alias for the per-hidden-evaluation portion.
-        "cost_usd": round(evaluation_cost, 6),
+        "cost_provider_credits": round(evaluation_cost, 6),
         "wall_seconds": round(sum(float(row.get("wall_seconds", 0.0)) for row in rows), 3),
     }
 

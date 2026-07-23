@@ -1,0 +1,21 @@
+{
+  "providers": {
+    "yunwu": {
+      "baseUrl": "https://yunwu.ai/v1",
+      "api": "openai-completions",
+      "apiKey": "yunwu_key",
+      "authHeader": true,
+      "models": [
+        {
+          "id": "deepseek-v4-flash",
+          "name": "Yunwu DeepSeek V4 Flash",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 128000,
+          "maxTokens": 8192,
+          "compat": { "supportsDeveloperRole": false, "supportsReasoningEffort": false }
+        }
+      ]
+    }
+  }
+}

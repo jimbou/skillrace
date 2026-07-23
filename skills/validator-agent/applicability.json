@@ -1,0 +1,2 @@
+{"skill":"validator-agent","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","build-static","self-consistency"],"property_ids":["valid-inputs-accepted","invalid-inputs-rejected","complete-input-consumed","validator-constraints-faithful"],"contingency":"high","family":"input-validator-generation"}
+

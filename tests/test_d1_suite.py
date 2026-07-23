@@ -5,6 +5,10 @@ from pathlib import Path
 import pytest
 
 from skillrace.d1_audit import SuiteValidationError, validate_suite
+from skillrace.d1_selection import (
+    SelectionAuditError,
+    validate_continuation_audit,
+)
 from skillrace.third_party_audit import (
     ThirdPartyValidationError,
     validate_third_party_manifest,
@@ -14,19 +18,20 @@ from skillrace.third_party_audit import (
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "experiments/manifests/rq1-skills.draft.json"
 THIRD_PARTY = ROOT / "experiments/manifests/third-party-skills.json"
+CONTINUATION = ROOT / "candidates/D1-continuation-audit.json"
 
 
 def _manifest():
     return json.loads(MANIFEST.read_text())
 
 
-def test_draft_manifest_contains_22_redistributable_public_headline_skills():
+def test_draft_manifest_contains_30_redistributable_public_headline_skills():
     report = validate_suite(MANIFEST, repo_root=ROOT)
-    assert report["headline_skills"] == 22
+    assert report["headline_skills"] == 30
     assert report["development_only"] == 4
     assert report["excluded_public"] == 3
     assert report["missing_images"] == []
-    assert report["families"] >= 10
+    assert report["families"] >= 18
 
 
 def test_original_development_skill_cannot_enter_headline(tmp_path):
@@ -107,12 +112,13 @@ def test_third_party_manifest_pins_every_public_source_and_local_skill_hash():
     )
     assert report == {
         "schema": "third-party-skills-validation/1",
-        "records": 25,
-        "headline": 22,
+        "records": 33,
+        "headline": 30,
         "excluded": 3,
-        "exact": 24,
+        "exact": 32,
         "abridged": 1,
-        "embedded_licenses": 18,
+        "embedded_licenses": 25,
+        "development_licenses": 1,
     }
 
 
@@ -123,6 +129,37 @@ def test_third_party_source_url_must_be_commit_pinned(tmp_path):
     path.write_text(json.dumps(data))
     with pytest.raises(ThirdPartyValidationError, match="commit-pinned source_url"):
         validate_third_party_manifest(path, suite_manifest=MANIFEST, repo_root=ROOT)
+
+
+def test_continuation_audit_partitions_every_popularity_row_through_stop():
+    report = validate_continuation_audit(
+        CONTINUATION,
+        suite_manifest=MANIFEST,
+        repo_root=ROOT,
+    )
+    assert report["historical_headline"] == 22
+    assert report["selected"] == 8
+    assert report["screened_rows"] == 446
+    assert report["stop_pool_index"] == 445
+    assert report["selected_ids"] == [
+        "network-config-validation",
+        "rest-api-caller",
+        "csv-workbench",
+        "argparse-scaffolder",
+        "data-transform",
+        "compiler-hardening",
+        "validator-agent",
+        "log-parser",
+    ]
+
+
+def test_continuation_audit_rejects_an_unaccounted_popularity_row(tmp_path):
+    data = json.loads(CONTINUATION.read_text())
+    data["rejection_groups"][0]["pool_indices"].pop()
+    path = tmp_path / "continuation.json"
+    path.write_text(json.dumps(data))
+    with pytest.raises(SelectionAuditError, match="exact partition"):
+        validate_continuation_audit(path, suite_manifest=MANIFEST, repo_root=ROOT)
 
 
 def test_unsafe_license_cannot_enter_headline_partition(tmp_path):

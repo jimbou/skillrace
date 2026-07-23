@@ -1,6 +1,6 @@
 """Hybrid, SKILL-AGNOSTIC test generator.
 
-WE control diversity (one direct CloseAI call proposes K natural-language test IDEAS,
+WE control diversity (one direct Yunwu call proposes K natural-language test IDEAS,
 with a digest so repeated runs stay distinct). The PI AGENT then realizes each idea:
 it reads the skill, writes a (prompt, env Dockerfile FROM <base>), BUILDS it to confirm
 it works, confirms the env is a genuine unsolved start, and saves the working ones.
@@ -26,8 +26,9 @@ import shutil
 import subprocess
 import time
 
-from .closeai import PRICES, log_usage
+from .closeai import log_usage
 from .generator import skill_context, propose_batch
+from .model_policy import PROVIDER_CREDIT_RATES
 
 AGENT_PROMPT = """\
 You are realizing a set of {k} TEST CASES for a coding-agent skill. The skill is in \
@@ -84,13 +85,13 @@ def main():
     ap.add_argument("--skill-dir", required=True)
     ap.add_argument("--base", required=True)
     ap.add_argument("--k", type=int, default=3)
-    ap.add_argument("--model", default="qwen3.6-flash", help="model for BOTH the proposer and the agent")
+    ap.add_argument("--model", default="glm-4.5-flash", help="model for BOTH the proposer and the agent")
     ap.add_argument("--temperature", type=float, default=0.9, help="proposer temperature")
     ap.add_argument("--out", required=True)
     ap.add_argument("--timeout", type=int, default=1800)
     args = ap.parse_args()
-    if not os.environ.get("CLOSE_API_KEY"):
-        raise SystemExit("CLOSE_API_KEY must be set")
+    if not os.environ.get("yunwu_key"):
+        raise SystemExit("yunwu_key must be set")
 
     out = pathlib.Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -105,7 +106,7 @@ def main():
     print(f"proposing {args.k} ideas ({args.model}) ...")
     skill_name = pathlib.Path(args.skill_dir).name
     ideas, presp = propose_batch(ctx, [], args.k, args.model, args.temperature,
-                                 reasoning=True, skill=skill_name)
+                                 reasoning=False, skill=skill_name)
     prop_in = presp["usage"].get("prompt_tokens", 0)
     prop_out = presp["usage"].get("completion_tokens", 0)
     (out / "ideas.json").write_text(json.dumps(ideas, indent=2))
@@ -119,7 +120,7 @@ def main():
 
     # --- step 2: the AGENT realizes each idea (build + verify + save) ---
     trace = (out / "gen_trace.jsonl").resolve()
-    cmd = ["pi", "--provider", "closeai", "--model", args.model, "--print",
+    cmd = ["pi", "--provider", "yunwu", "--model", args.model, "--print",
            "--tools", "bash,read,write,edit", "--session", str(trace), prompt]
     print(f"realizing with pi agent ({args.model}) ...")
     t0 = time.time()
@@ -147,7 +148,7 @@ def main():
     agent_in, agent_out, models = _agent_tokens_and_model(trace)
     log_usage("generate.agent", args.model, agent_in, agent_out, skill_name)
     total_in, total_out = prop_in + agent_in, prop_out + agent_out
-    pin, pout = PRICES.get(args.model, (0.0, 0.0))
+    pin, pout = PROVIDER_CREDIT_RATES.get(args.model, (0.0, 0.0))
     price = (total_in * pin + total_out * pout) / 1e6
     cases = sorted((out / "cases").glob("*/candidate.json"))
 
@@ -161,13 +162,13 @@ def main():
     if models and not any(args.model in m for m in models):
         print("  !! WARNING: agent used a different model than requested")
     print(f"tokens: proposer in/out={prop_in}/{prop_out}  agent in/out={agent_in}/{agent_out}")
-    print(f"TOTAL in={total_in}  out={total_out}  price=${price:.4f} "
-          f"(priced at {args.model} = ${pin}/{pout} per 1M in/out)")
+    print(f"TOTAL in={total_in}  out={total_out}  cost=⚡{price:.4f} "
+          f"(priced at {args.model} = ⚡{pin}/{pout} per 1M in/out)")
     (out / "accounting.json").write_text(json.dumps(
         {"model": args.model, "models_used": sorted(models), "seconds": round(dt, 1),
          "proposer": {"in": prop_in, "out": prop_out},
          "agent": {"in": agent_in, "out": agent_out},
-         "total": {"in": total_in, "out": total_out, "price_usd": round(price, 6)},
+         "total": {"in": total_in, "out": total_out, "price_provider_credits": round(price, 6)},
          "cases": len(cases)}, indent=2))
 
 

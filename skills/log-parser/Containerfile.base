@@ -1,0 +1,6 @@
+ARG SKILLGEN_BASE_IMAGE=skillrace/skillgen-base:0.73.1-construction
+FROM ${SKILLGEN_BASE_IMAGE}
+COPY repo/ /workspace/
+COPY SKILL.md log_parser.py /skills/log-parser/
+RUN cd /workspace && git add -A && git commit -q -m "base: log-parser" || true
+

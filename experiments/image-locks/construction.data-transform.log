@@ -1,0 +1,143 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Containerfile.base
+#1 transferring dockerfile: 890B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/skillrace/skillgen-base:0.73.1-construction
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/5] FROM docker.io/skillrace/skillgen-base:0.73.1-construction
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 88B done
+#5 DONE 0.0s
+
+#6 [2/5] RUN sed -i         -e 's#http://deb.debian.org/debian-security#https://mirrors.aliyun.com/debian-security#g'         -e 's#http://deb.debian.org/debian#https://mirrors.aliyun.com/debian#g'         /etc/apt/sources.list.d/debian.sources     && apt-get update     && apt-get install -y --no-install-recommends python3-pip     && rm -rf /var/lib/apt/lists/*     && python3 -m pip install --break-system-packages --no-cache-dir         --index-url https://pypi.tuna.tsinghua.edu.cn/simple         --timeout 180 --retries 10         numpy==2.2.2 pandas==2.2.3 scikit-learn==1.6.1
+#6 17.65 Get:1 https://mirrors.aliyun.com/debian bookworm InRelease [151 kB]
+#6 20.17 Get:2 https://mirrors.aliyun.com/debian bookworm-updates InRelease [55.4 kB]
+#6 21.43 Get:3 https://mirrors.aliyun.com/debian-security bookworm-security InRelease [48.0 kB]
+#6 22.95 Get:4 https://mirrors.aliyun.com/debian bookworm/main amd64 Packages [8790 kB]
+#6 173.1 Get:5 https://mirrors.aliyun.com/debian bookworm-updates/main amd64 Packages [6924 B]
+#6 173.5 Get:6 https://mirrors.aliyun.com/debian-security bookworm-security/main amd64 Packages [316 kB]
+#6 177.1 Fetched 9367 kB in 2min 57s (52.9 kB/s)
+#6 177.1 Reading package lists...
+#6 177.5 Reading package lists...
+#6 177.9 Building dependency tree...
+#6 178.0 Reading state information...
+#6 178.1 The following additional packages will be installed:
+#6 178.1   python3-distutils python3-lib2to3 python3-setuptools python3-wheel
+#6 178.1 Suggested packages:
+#6 178.1   python-setuptools-doc
+#6 178.1 Recommended packages:
+#6 178.1   build-essential python3-dev
+#6 178.2 The following NEW packages will be installed:
+#6 178.2   python3-distutils python3-lib2to3 python3-pip python3-setuptools
+#6 178.2   python3-wheel
+#6 184.8 0 upgraded, 5 newly installed, 0 to remove and 13 not upgraded.
+#6 184.8 Need to get 2085 kB of archives.
+#6 184.8 After this operation, 10.6 MB of additional disk space will be used.
+#6 184.8 Get:1 https://mirrors.aliyun.com/debian bookworm/main amd64 python3-lib2to3 all 3.11.2-3 [76.3 kB]
+#6 186.6 Get:2 https://mirrors.aliyun.com/debian bookworm/main amd64 python3-distutils all 3.11.2-3 [131 kB]
+#6 188.3 Get:3 https://mirrors.aliyun.com/debian bookworm/main amd64 python3-setuptools all 66.1.1-1+deb12u2 [522 kB]
+#6 196.0 Get:4 https://mirrors.aliyun.com/debian bookworm/main amd64 python3-wheel all 0.38.4-2 [30.8 kB]
+#6 196.4 Get:5 https://mirrors.aliyun.com/debian bookworm/main amd64 python3-pip all 23.0.1+dfsg-1 [1325 kB]
+#6 214.1 debconf: delaying package configuration, since apt-utils is not installed
+#6 214.1 Fetched 2085 kB in 36s (58.3 kB/s)
+#6 214.1 Selecting previously unselected package python3-lib2to3.
+#6 214.1 (Reading database ... 
+(Reading database ... 5%
+(Reading database ... 10%
+(Reading database ... 15%
+(Reading database ... 20%
+(Reading database ... 25%
+(Reading database ... 30%
+(Reading database ... 35%
+(Reading database ... 40%
+(Reading database ... 45%
+(Reading database ... 50%
+(Reading database ... 55%
+(Reading database ... 60%
+(Reading database ... 65%
+(Reading database ... 70%
+(Reading database ... 75%
+(Reading database ... 80%
+(Reading database ... 85%
+(Reading database ... 90%
+(Reading database ... 95%
+(Reading database ... 100%
+(Reading database ... 11002 files and directories currently installed.)
+#6 214.1 Preparing to unpack .../python3-lib2to3_3.11.2-3_all.deb ...
+#6 214.1 Unpacking python3-lib2to3 (3.11.2-3) ...
+#6 214.1 Selecting previously unselected package python3-distutils.
+#6 214.1 Preparing to unpack .../python3-distutils_3.11.2-3_all.deb ...
+#6 214.1 Unpacking python3-distutils (3.11.2-3) ...
+#6 214.1 Selecting previously unselected package python3-setuptools.
+#6 214.1 Preparing to unpack .../python3-setuptools_66.1.1-1+deb12u2_all.deb ...
+#6 214.1 Unpacking python3-setuptools (66.1.1-1+deb12u2) ...
+#6 214.2 Selecting previously unselected package python3-wheel.
+#6 214.2 Preparing to unpack .../python3-wheel_0.38.4-2_all.deb ...
+#6 214.2 Unpacking python3-wheel (0.38.4-2) ...
+#6 214.2 Selecting previously unselected package python3-pip.
+#6 214.2 Preparing to unpack .../python3-pip_23.0.1+dfsg-1_all.deb ...
+#6 214.2 Unpacking python3-pip (23.0.1+dfsg-1) ...
+#6 214.3 Setting up python3-lib2to3 (3.11.2-3) ...
+#6 214.4 Setting up python3-distutils (3.11.2-3) ...
+#6 214.4 Setting up python3-setuptools (66.1.1-1+deb12u2) ...
+#6 214.7 Setting up python3-wheel (0.38.4-2) ...
+#6 214.8 Setting up python3-pip (23.0.1+dfsg-1) ...
+#6 215.8 Looking in indexes: https://pypi.tuna.tsinghua.edu.cn/simple
+#6 243.7 Collecting numpy==2.2.2
+#6 244.5   Downloading https://pypi.tuna.tsinghua.edu.cn/packages/5b/86/caec78829311f62afa6fa334c8dfcd79cffb4d24bcf96ee02ae4840d462b/numpy-2.2.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (16.4 MB)
+#6 356.8      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.4/16.4 MB 164.7 kB/s eta 0:00:00
+#6 362.4 Collecting pandas==2.2.3
+#6 363.6   Downloading https://pypi.tuna.tsinghua.edu.cn/packages/cd/5f/4dba1d39bb9c38d574a9a22548c540177f78ea47b32f99c0ff2ec499fac5/pandas-2.2.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (13.1 MB)
+#6 430.5      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.1/13.1 MB 177.5 kB/s eta 0:00:00
+#6 435.6 Collecting scikit-learn==1.6.1
+#6 436.5   Downloading https://pypi.tuna.tsinghua.edu.cn/packages/a8/f3/62fc9a5a659bb58a03cdd7e258956a5824bdc9b4bb3c5d932f55880be569/scikit_learn-1.6.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (13.5 MB)
+#6 603.6      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.5/13.5 MB 58.7 kB/s eta 0:00:00
+#6 604.7 Collecting python-dateutil>=2.8.2
+#6 606.1   Downloading https://pypi.tuna.tsinghua.edu.cn/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+#6 609.7      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 229.9/229.9 kB 61.1 kB/s eta 0:00:00
+#6 616.0 Collecting pytz>=2020.1
+#6 617.4   Downloading https://pypi.tuna.tsinghua.edu.cn/packages/ec/dd/96da98f892250475bdf2328112d7468abdd4acc7b902b6af23f4ed958ea0/pytz-2026.2-py2.py3-none-any.whl (510 kB)
+#6 627.9      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 510.1/510.1 kB 47.7 kB/s eta 0:00:00
+#6 629.3 Collecting tzdata>=2022.7
+#6 630.4   Downloading https://pypi.tuna.tsinghua.edu.cn/packages/e5/6d/b53b99a9f2766d095985947a5782f1702cabb129a34f7a802d7197af832f/tzdata-2026.3-py2.py3-none-any.whl (348 kB)
+#6 637.4      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 348.2/348.2 kB 48.6 kB/s eta 0:00:00
+#6 663.6 Collecting scipy>=1.6.0
+#6 665.5   Downloading https://pypi.tuna.tsinghua.edu.cn/packages/09/7d/af933f0f6e0767995b4e2d705a0665e454d1c19402aa7e895de3951ebb04/scipy-1.17.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (35.3 MB)
+#6 1140.8      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 35.3/35.3 MB 161.2 kB/s eta 0:00:00
+#6 1142.7 Collecting joblib>=1.2.0
+#6 1143.1   Downloading https://pypi.tuna.tsinghua.edu.cn/packages/7b/91/984aca2ec129e2757d1e4e3c81c3fcda9d0f85b74670a094cc443d9ee949/joblib-1.5.3-py3-none-any.whl (309 kB)
+#6 1145.5      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 309.1/309.1 kB 125.6 kB/s eta 0:00:00
+#6 1146.7 Collecting threadpoolctl>=3.1.0
+#6 1148.9   Downloading https://pypi.tuna.tsinghua.edu.cn/packages/32/d5/f9a850d79b0851d1d4ef6456097579a9005b31fea68726a4ae5f2d82ddd9/threadpoolctl-3.6.0-py3-none-any.whl (18 kB)
+#6 1150.1 Collecting six>=1.5
+#6 1150.9   Downloading https://pypi.tuna.tsinghua.edu.cn/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl (11 kB)
+#6 1151.1 Installing collected packages: pytz, tzdata, threadpoolctl, six, numpy, joblib, scipy, python-dateutil, scikit-learn, pandas
+#6 1159.5 Successfully installed joblib-1.5.3 numpy-2.2.2 pandas-2.2.3 python-dateutil-2.9.0.post0 pytz-2026.2 scikit-learn-1.6.1 scipy-1.17.1 six-1.17.0 threadpoolctl-3.6.0 tzdata-2026.3
+#6 1159.5 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+#6 DONE 1159.8s
+
+#7 [3/5] COPY repo/ /workspace/
+#7 DONE 0.0s
+
+#8 [4/5] COPY SKILL.md /skills/data-transform/SKILL.md
+#8 DONE 0.0s
+
+#9 [5/5] RUN cd /workspace && git add -A && git commit -q -m "base: data-transform" || true
+#9 DONE 0.1s
+
+#10 exporting to image
+#10 exporting layers
+#10 exporting layers 1.2s done
+#10 writing image sha256:8ae27d136c29a401e2c77a4f1268ff7825b500e0d30bacf0d7e6c458a29f2f70 done
+#10 naming to docker.io/skillrace/data-transform:base-construction-0.73.1 done
+#10 naming to docker.io/skillrace/data-transform:base done
+#10 DONE 1.2s

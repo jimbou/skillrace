@@ -15,11 +15,44 @@ from skillrace.run_case import (
     build_plain_exec_args,
     build_workspace_cleanup_command,
     build_workspace_setup_command,
+    docker_image_identity,
+    validate_candidate_base_binding,
     finalize_run,
     preserve_status_script,
     validate_skill_identifier,
 )
 import skillrace.run_case as runner
+
+
+def test_docker_image_identity_is_strict_and_immutable():
+    class Result:
+        returncode = 0
+        stdout = "sha256:" + "a" * 64 + "\n"
+        stderr = ""
+
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return Result()
+
+    assert docker_image_identity("demo:base", run=fake_run) == "sha256:" + "a" * 64
+    assert calls[0][0] == [
+        "docker", "image", "inspect", "--format", "{{.Id}}", "demo:base"
+    ]
+
+
+def test_candidate_base_tag_must_still_resolve_to_frozen_identity():
+    frozen = "sha256:" + "a" * 64
+    candidate = {"base_image": "demo:base", "base_image_identity": frozen}
+
+    assert validate_candidate_base_binding(
+        candidate, resolver=lambda image: frozen
+    ) == frozen
+    with pytest.raises(ValueError, match="drifted"):
+        validate_candidate_base_binding(
+            candidate, resolver=lambda image: "sha256:" + "b" * 64
+        )
 
 
 def test_cleanup_runs_without_masking_agent_failure(tmp_path):
@@ -159,7 +192,7 @@ def test_long_lived_container_has_no_secret_and_cannot_run_candidate_hooks(tmp_p
         "run-id", tmp_path / "logs", "candidate:built", skill_dir
     )
     joined = " ".join(args)
-    assert "CLOSE_API_KEY" not in joined and "PI_PROMPT" not in joined
+    assert "yunwu_key" not in joined and "PI_PROMPT" not in joined
     assert args[args.index("--entrypoint") + 1] == "/bin/sleep"
     assert "--no-healthcheck" in args
     assert f"{skill_dir.resolve()}:/trusted-skill:ro" in args
@@ -171,10 +204,10 @@ def test_secret_and_prompt_are_scoped_to_trusted_agent_exec_only():
         "secret-key", "repair it", base_environment={"PATH": "/bin"}
     )
     assert args[:2] == ["docker", "exec"]
-    assert "CLOSE_API_KEY" in args and "PI_PROMPT" in args
+    assert "yunwu_key" in args and "PI_PROMPT" in args
     assert "secret-key" not in repr(args)
     assert "repair it" not in repr(args)
-    assert environment["CLOSE_API_KEY"] == "secret-key"
+    assert environment["yunwu_key"] == "secret-key"
     assert environment["PI_PROMPT"] == "repair it"
     assert environment["PATH"] == "/bin"
     assert args[-3:] == ["/bin/bash", "-c", "trusted command"]
@@ -187,5 +220,5 @@ def test_workspace_git_setup_and_cleanup_use_separate_secret_free_execs():
     for command in (setup, cleanup):
         args = build_plain_exec_args("run-id", command)
         joined = " ".join(args)
-        assert "CLOSE_API_KEY" not in joined and "PI_PROMPT" not in joined
+        assert "yunwu_key" not in joined and "PI_PROMPT" not in joined
         assert args[-3:] == ["/bin/bash", "-c", command]

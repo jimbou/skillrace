@@ -4,7 +4,7 @@ Produces diverse, BUILDABLE `(prompt, env)` test cases for a skill with **no
 behavioral feedback** — the floor baseline, and the bootstrap that seeds SkillRACE's
 tree. Same component for both roles; only `provenance.source` differs.
 
-Three model-driven steps (all DIRECT to CloseAI so temperature is controllable;
+Three model-driven steps (all DIRECT to Yunwu so temperature is controllable;
 the agent-under-test is the only thing that runs via pi — D-PI-1):
 
   1. PROPOSE  (batch of K, high temp): SKILL.md + digest -> K natural-language IDEAS,
@@ -19,6 +19,7 @@ See docs/generator.md.
 from __future__ import annotations
 import argparse
 import contextlib
+import dataclasses
 import json
 import pathlib
 import re
@@ -47,14 +48,39 @@ SETUP_COMMIT = ('RUN cd /workspace && git add -A && '
                 'git commit -q -m "skillrace: test setup" || true')
 DEFAULT_BUILD_RETRIES = 4
 DEFAULT_BUILD_TIMEOUT = 600
+DEFAULT_REALIZATION_TIMEOUT = 300
+GENERATION_CALL_TIMEOUT = 180
+REALIZER_MAX_TOKENS = 4000
+BUILD_REPAIR_MAX_TOKENS = 3000
 
 
 class GenerationFailure(RuntimeError):
     """One generator-owned proposal attempt failed before an agent could start."""
 
-    def __init__(self, message: str, *, reason: str = "generation-failure"):
+    def __init__(
+        self,
+        message: str,
+        *,
+        reason: str = "generation-failure",
+        cost_provider_credits: float = 0.0,
+    ):
         super().__init__(message)
         self.reason = reason
+        self.cost_provider_credits = float(cost_provider_credits or 0.0)
+
+
+@dataclasses.dataclass(frozen=True)
+class RealizationOutcome:
+    """Tuple-compatible result that also preserves a failed realization diagnostic."""
+
+    candidate: dict | None
+    cost_provider_credits: float
+    error: dict | None
+
+    def __iter__(self):
+        # Preserve the long-standing ``candidate, cost = ...`` public interface.
+        yield self.candidate
+        yield self.cost_provider_credits
 
 PROPOSER_SYS = (
     "You design diverse TEST-CASE IDEAS for a coding-agent skill. Each idea is a "
@@ -92,11 +118,15 @@ REALIZER_SYS = (
     "  1. PROMPT — the exact instruction to give the coding agent (1-4 sentences).\n"
     "  2. TAIL  — Dockerfile instruction lines that BUILD the described environment "
     "ON TOP OF the base. EVERY shell command must be a Dockerfile instruction "
-    "starting with RUN (or COPY/ENV/WORKDIR). Write files with a RUN heredoc, e.g.:\n"
+    "starting with RUN; WORKDIR is also allowed. Use RUN heredocs to create every "
+    "project file because the Docker build context contains no project inputs, e.g.:\n"
     "    RUN cat > /workspace/<path> <<'EOF'\n    ...file contents...\n    EOF\n"
     "The base already provides the toolchain, git, the skill, and a /workspace "
     "project; CREATE from scratch anything the environment describes that isn't "
     "standard tooling (files/tests/configs, specific deps/versions, repo state). The "
+    "required_paths contract may name only files explicitly listed as existing in "
+    "the base or files created by this TAIL. Code snippets in SKILL.md or README files are documentation, "
+    "not existing project files. Keep required_paths and created paths exactly aligned. The "
     "TAIL must contain NO `FROM` line, no prose, no code fences.\n"
     "Stay faithful to the skill's purpose (read SKILL.md). The environment must be a "
     "GENUINE, UNSOLVED starting point: infer from the skill what 'unsolved' means and "
@@ -105,20 +135,33 @@ REALIZER_SYS = (
     "genuinely fails; a thing to build does not yet exist).\n"
     "  3. SANITY — an inspectable mechanical pre-agent contract. required_paths are "
     "absolute paths that the built environment must contain. required_tools are "
-    "command names. task_probe is a non-destructive invocation/collection command "
+    "executable command names: for example, python3 and pip are command names, while "
+    "pandas and jsonschema are Python modules and must never appear in required_tools. "
+    "task_probe is a non-destructive invocation/collection command "
     "with explicit allowed_exit_codes. unsolved_check is a shell command that exits "
     "0 only if the requested work still remains unsolved, or null when that cannot "
-    "be decided mechanically. Do not use network access in any probe.\n"
+    "be decided mechanically. Every non-null sanity command must actually execute "
+    "successfully with valid shell/language syntax in the built initial environment; "
+    "in particular, unsolved_check must exit 0 in the initial image. Prefer a short "
+    "heredoc script over an invalid one-line try/except. Do not use network access in "
+    "any probe.\n"
     'Return ONLY JSON: {"prompt":"...","tail":"...Dockerfile lines...",'
     '"sanity":{"required_paths":["/workspace/..."],"required_tools":["..."],'
     '"task_probe":{"command":"...","allowed_exit_codes":[0]},'
-    '"unsolved_check":"... or null"}}' + _RUNTIME_BOUNDARY_PROMPT
+    '"unsolved_check":"shell command"}}. Use the actual JSON value null (not the '
+    'string "null") when no mechanical unsolved check is possible.'
+    + _RUNTIME_BOUNDARY_PROMPT
 )
 
 REPAIR_SYS = (
     "You fix Dockerfile instruction lines (a TAIL applied on top of a base image) "
-    "that FAILED to build. Given the failing tail and the build error, output ONLY "
-    "the corrected instruction lines — no FROM line, no prose, no code fences."
+    "that FAILED to build. Return the COMPLETE REPLACEMENT TAIL, not merely the "
+    "changed lines. Make the SMALLEST NECESSARY CORRECTION and preserve every working "
+    "file-creation, dependency, repository-state, and setup instruction from the "
+    "failing tail; dropping unrelated setup can make a build pass while silently "
+    "destroying the requested environment. Given the failing tail and the build "
+    "error, output ONLY the corrected instruction lines — no FROM line, no prose, "
+    "no code fences."
     + _RUNTIME_BOUNDARY_PROMPT
 )
 
@@ -146,7 +189,7 @@ def skill_context(skill_dir: pathlib.Path) -> str:
 
 # ---------------------------------------------------------------- model steps
 
-def propose_batch(ctx, digest, k, model, temperature, reasoning=True, skill=None):
+def propose_batch(ctx, digest, k, model, temperature, reasoning=False, skill=None):
     """Call 1 -> list of {summary, task, env} (natural language ideas)."""
     avoid = "\n".join(f"- {s}" for s in digest) or "(none yet)"
     user = (
@@ -160,45 +203,87 @@ def propose_batch(ctx, digest, k, model, temperature, reasoning=True, skill=None
     resp = chat([{"role": "system", "content": PROPOSER_SYS},
                  {"role": "user", "content": user}],
                 model=model, temperature=temperature, max_tokens=2500, reasoning=reasoning,
-                tag="generate.propose", skill=skill)
-    items = extract_json(resp["content"])
-    if not isinstance(items, list):
-        raise ValueError("proposer did not return a JSON array")
-    out = [{"summary": it["summary"].strip(), "task": it["task"].strip(),
-            "env": it["env"].strip()}
-           for it in items if all(key in it for key in ("summary", "task", "env"))]
+                tag="generate.propose", skill=skill, retries=1,
+                timeout_seconds=GENERATION_CALL_TIMEOUT)
+    try:
+        items = extract_json(resp["content"])
+        if not isinstance(items, list):
+            raise ValueError("proposer did not return a JSON array")
+        out = [{"summary": it["summary"].strip(), "task": it["task"].strip(),
+                "env": it["env"].strip()}
+               for it in items if all(key in it for key in ("summary", "task", "env"))]
+    except Exception as error:
+        raise GenerationFailure(
+            f"invalid proposer response: {error}",
+            reason="invalid-proposer-response",
+            cost_provider_credits=resp.get("cost_provider_credits", 0.0),
+        ) from error
     return out, resp
 
 
-def realize(ctx, task, env, model, reasoning=True):
+def realize(
+    ctx,
+    task,
+    env,
+    model,
+    reasoning=False,
+    *,
+    timeout_seconds=GENERATION_CALL_TIMEOUT,
+):
     """Return the shared ``(prompt, tail, sanity, cost)`` realization contract."""
     user = (f"{ctx}\n\nTEST-CASE IDEA:\n- task: {task}\n- environment: {env}\n\n"
             "Return ONLY the requested prompt/tail/sanity JSON object.")
     resp = chat([{"role": "system", "content": REALIZER_SYS},
                  {"role": "user", "content": user}],
-                model=model, temperature=0.0, max_tokens=2200, reasoning=reasoning)
-    obj = extract_json(resp["content"])
-    prompt, tail = obj["prompt"].strip(), normalize_tail(_strip_fences(obj["tail"]))
-    validate_generated_tail(tail)
-    sanity = validate_sanity_spec(obj.get("sanity"))
-    if _has_extra_from(tail):
-        raise ValueError("realized tail contains a FROM instruction")
-    return prompt, tail, sanity, resp["cost_usd"]
+                model=model, temperature=0.0, max_tokens=REALIZER_MAX_TOKENS,
+                reasoning=reasoning, retries=1, timeout_seconds=timeout_seconds,
+                tag="generate.realize")
+    try:
+        obj = extract_json(resp["content"])
+        prompt, tail = obj["prompt"].strip(), normalize_tail(_strip_fences(obj["tail"]))
+        validate_generated_tail(tail)
+        sanity = validate_sanity_spec(obj.get("sanity"))
+        if _has_extra_from(tail):
+            raise ValueError("realized tail contains a FROM instruction")
+    except Exception as error:
+        raise GenerationFailure(
+            f"invalid realizer response: {error}",
+            reason="invalid-realization-response",
+            cost_provider_credits=resp.get("cost_provider_credits", 0.0),
+        ) from error
+    return prompt, tail, sanity, float(resp["cost_provider_credits"] or 0.0)
 
 
-def repair_tail(ctx, tail, build_err, model, reasoning=True):
+def repair_tail(
+    ctx,
+    tail,
+    build_err,
+    model,
+    reasoning=False,
+    *,
+    timeout_seconds=GENERATION_CALL_TIMEOUT,
+):
     """Fix a failing tail using the build error. Returns (fixed_tail, cost)."""
     user = (f"{ctx}\n\nThis TAIL (Dockerfile lines on top of the base) FAILED to "
             f"build:\n--- TAIL ---\n{tail}\n--- BUILD ERROR (last lines) ---\n"
             f"{build_err[-1500:]}\n\nOutput the corrected instruction lines only.")
     resp = chat([{"role": "system", "content": REPAIR_SYS},
                  {"role": "user", "content": user}],
-                model=model, temperature=0.0, max_tokens=2000, reasoning=reasoning)
-    fixed = normalize_tail(_strip_fences(resp["content"]))
-    validate_generated_tail(fixed)
-    if _has_extra_from(fixed):
-        raise ValueError("repaired tail contains a FROM instruction")
-    return fixed, resp["cost_usd"]
+                model=model, temperature=0.0, max_tokens=BUILD_REPAIR_MAX_TOKENS,
+                reasoning=reasoning, retries=1, timeout_seconds=timeout_seconds,
+                tag="generate.build-repair")
+    try:
+        fixed = normalize_tail(_strip_fences(resp["content"]))
+        validate_generated_tail(fixed)
+        if _has_extra_from(fixed):
+            raise ValueError("repaired tail contains a FROM instruction")
+    except Exception as error:
+        raise GenerationFailure(
+            f"invalid build-repair response: {error}",
+            reason="invalid-build-repair-response",
+            cost_provider_credits=resp.get("cost_provider_credits", 0.0),
+        ) from error
+    return fixed, float(resp["cost_provider_credits"] or 0.0)
 
 
 # ---------------------------------------------------------------- assembly + build
@@ -252,7 +337,8 @@ def realize_and_build(
     *,
     build_retries=DEFAULT_BUILD_RETRIES,
     build_timeout=DEFAULT_BUILD_TIMEOUT,
-    reasoning=True,
+    realization_timeout=DEFAULT_REALIZATION_TIMEOUT,
+    reasoning=False,
     validator=None,
     repair_hint="",
     failed_image_remover=None,
@@ -263,15 +349,35 @@ def realize_and_build(
     after a successful build (SkillRACE's target guard).  It does not replace the
     shared sanity gate, which the campaign executes later for every method.
     """
+    if realization_timeout <= 0:
+        raise ValueError("realization_timeout must be positive")
+    deadline = time.monotonic() + realization_timeout
+    timeout_error = (
+        f"candidate realization timed out after {realization_timeout:g} seconds"
+    )
+
     prompt, tail, sanity, cost = realize(
-        ctx, task, env, model, reasoning=reasoning
+        ctx,
+        task,
+        env,
+        model,
+        reasoning=reasoning,
+        timeout_seconds=min(GENERATION_CALL_TIMEOUT, realization_timeout),
     )
     tag = f"skillrace/{candidate_id}:built"
     last_error = None
     built_once = False
     for attempt in range(build_retries + 1):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            last_error = timeout_error
+            break
         containerfile = containerfile_for(base_image, tail)
-        ok, output = build_image(containerfile, tag, timeout=build_timeout)
+        ok, output = build_image(
+            containerfile,
+            tag,
+            timeout=min(build_timeout, remaining),
+        )
         built_once = built_once or ok
         if ok and validator is not None:
             try:
@@ -295,6 +401,10 @@ def realize_and_build(
                 cost,
                 None,
             )
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            last_error = timeout_error
+            break
         if attempt >= build_retries:
             break
         try:
@@ -304,9 +414,14 @@ def realize_and_build(
                 (last_error or "candidate build failed") + repair_hint,
                 model,
                 reasoning=reasoning,
+                timeout_seconds=min(GENERATION_CALL_TIMEOUT, remaining),
             )
             cost = round(cost + repair_cost, 12)
         except Exception as error:
+            cost = round(
+                cost + float(getattr(error, "cost_provider_credits", 0.0) or 0.0),
+                12,
+            )
             last_error = f"repair failed: {error}"
             break
     if built_once:
@@ -385,9 +500,9 @@ class RandomGenerator:
     """Generator protocol (seed/propose/fold/state). Floor baseline + seed phase.
     Produces BUILDABLE candidates (build + model-repair loop). No behavioral feedback."""
 
-    def __init__(self, skill, skill_dir, base_image, model="qwen3.6-flash",
+    def __init__(self, skill, skill_dir, base_image, model="glm-4.5-flash",
                  k=5, temperature=0.9, source="random",
-                 build_retries=DEFAULT_BUILD_RETRIES, reasoning=True,
+                 build_retries=DEFAULT_BUILD_RETRIES, reasoning=False,
                  max_parallel=5, build_timeout=DEFAULT_BUILD_TIMEOUT, outdir=None,
                  base_image_identity=None):
         self.skill = skill
@@ -395,7 +510,10 @@ class RandomGenerator:
         self.skill_input_hash = skill_input_tree_hash(self.skill_dir)
         self.base_image = base_image
         self.base_image_identity = base_image_identity or base_image
-        self.build_base_image = self.base_image_identity
+        # BuildKit cannot use a daemon-local ``sha256:<image-id>`` as FROM; it
+        # treats that string as a registry repository. Build from the runnable
+        # tag and bind it separately to the campaign-frozen immutable image ID.
+        self.build_base_image = self.base_image
         self.outdir = outdir            # if set, proposed NL ideas are persisted here immediately
         self.proposed = []              # all NL ideas proposed so far (before realize+build)
         self.model = model
@@ -409,7 +527,8 @@ class RandomGenerator:
         self.ctx = skill_context(pathlib.Path(skill_dir))
         self.digest = []
         self._buf = []
-        self.cost_usd = 0.0
+        self.cost_provider_credits = 0.0
+        self.cost_accounting = "known"
         self.n_batches = 0
         self.n_skipped = 0
         self.failure_state = None
@@ -426,10 +545,8 @@ class RandomGenerator:
             max_parallel=1,
         )
 
-    def _make_one(self, item, *, proposal_id=None, provenance=None):
-        """idea -> realize -> build (+repair). Returns (Candidate|None, cost_usd).
-        Pure w.r.t. shared state (safe to run in a thread): unique image tag, no
-        mutation of self; cost is returned for the caller to accumulate."""
+    def _make_one_detailed(self, item, *, proposal_id=None, provenance=None):
+        """Realize one reserved idea without discarding a pre-agent failure reason."""
         cid = proposal_id or ("cand-" + uuid.uuid4().hex[:12])
         if not isinstance(cid, str) or not cid:
             raise ValueError("proposal_id must be a nonempty string")
@@ -447,13 +564,22 @@ class RandomGenerator:
             )
         except Exception as e:
             print(f"  [realize skip] {item['summary'][:40]!r}: {e}")
-            return None, 0.0
+            return RealizationOutcome(
+                None,
+                float(getattr(e, "cost_provider_credits", 0.0) or 0.0),
+                {
+                    "type": type(e).__name__,
+                    "reason": getattr(e, "reason", "realization-failure"),
+                    "message": str(e)[:500],
+                },
+            )
         if artifact is not None:
             cand = {
                 "candidate_id": cid,
                 "skill": self.skill,
                 "prompt": artifact["prompt"],
-                "base_image": self.build_base_image,
+                "base_image": self.base_image,
+                "base_image_identity": self.base_image_identity,
                 "containerfile": artifact["containerfile"],
                 "built_image": artifact["built_image"],
                 "sanity": artifact["sanity"],
@@ -469,11 +595,27 @@ class RandomGenerator:
                     **dict(provenance or {}),
                 },
             }
-            return cand, cost
+            return RealizationOutcome(cand, cost, None)
         tail_err = (str(last_error).strip().splitlines() or ["(no output)"])[-1][:160]
         print(f"  [build skip] {item['summary'][:40]!r} after {self.build_retries} "
               f"repairs — last error: {tail_err}")
-        return None, cost
+        return RealizationOutcome(
+            None,
+            cost,
+            {
+                "type": "GenerationFailure",
+                "reason": "realization-failure",
+                "message": str(last_error or "candidate could not be built")[:500],
+            },
+        )
+
+    def _make_one(self, item, *, proposal_id=None, provenance=None):
+        """Compatibility wrapper returning ``(candidate, provider credits)``."""
+
+        outcome = self._make_one_detailed(
+            item, proposal_id=proposal_id, provenance=provenance
+        )
+        return outcome.candidate, outcome.cost_provider_credits
 
     def reserve_batch(
         self,
@@ -481,7 +623,7 @@ class RandomGenerator:
         reservations,
         *,
         batch_path,
-        proposal_cost_usd=0.0,
+        proposal_cost_provider_credits=0.0,
     ):
         """Bind already-proposed ideas to stable identities before realization.
 
@@ -514,7 +656,9 @@ class RandomGenerator:
         request = {
             "items": items,
             "reservations": records,
-            "proposal_cost_usd": float(proposal_cost_usd),
+            "proposal_cost_provider_credits": float(
+                proposal_cost_provider_credits or 0.0
+            ),
         }
         request_hash = canonical_json_hash(request)
         transition = load_state_transition(
@@ -527,10 +671,10 @@ class RandomGenerator:
             post = json.loads(json.dumps(pre))
             post["proposed"].extend(json.loads(json.dumps(items)))
             post["counters"]["batches"] += 1
-            post["cost_usd"] = round(
-                float(post.get("cost_usd", 0.0)) + float(proposal_cost_usd), 12
+            post["cost_provider_credits"] = round(
+                float(post.get("cost_provider_credits", 0.0)) + float(proposal_cost_provider_credits), 12
             )
-            post["gen_cost_usd"] = round(post["cost_usd"], 6)
+            post["gen_cost_provider_credits"] = round(post["cost_provider_credits"], 6)
             transition = publish_state_transition(
                 batch_path,
                 schema="random-reservation-transition/1",
@@ -552,7 +696,7 @@ class RandomGenerator:
             or not isinstance(reservation.get("provenance"), dict)
         ):
             raise ValueError("malformed random proposal reservation")
-        return self._make_one(
+        return self._make_one_detailed(
             reservation["item"],
             proposal_id=reservation.get("candidate_id"),
             provenance=reservation["provenance"],
@@ -592,7 +736,7 @@ class RandomGenerator:
             failures = []
             total_cost = 0.0
             for result in results:
-                total_cost += float(result.get("cost_usd", 0.0))
+                total_cost += float(result.get("cost_provider_credits", 0.0))
                 if isinstance(result.get("candidate"), dict):
                     successes += 1
                     post["digest"].append(
@@ -601,8 +745,8 @@ class RandomGenerator:
                 else:
                     failures.append(str(result.get("error") or "generation failed"))
             post["counters"]["skipped"] += len(failures)
-            post["cost_usd"] = round(float(post["cost_usd"]) + total_cost, 12)
-            post["gen_cost_usd"] = round(post["cost_usd"], 6)
+            post["cost_provider_credits"] = round(float(post["cost_provider_credits"]) + total_cost, 12)
+            post["gen_cost_provider_credits"] = round(post["cost_provider_credits"], 6)
             post["failure_state"] = (
                 None
                 if successes
@@ -645,25 +789,40 @@ class RandomGenerator:
                 if resource_pool is not None
                 else contextlib.nullcontext()
             )
-            with proposal_slot:
-                items, response = propose_batch(
-                    self.ctx,
-                    self.digest,
-                    len(reservations),
-                    self.model,
-                    self.temperature,
-                    reasoning=self.reasoning,
+            try:
+                with proposal_slot:
+                    items, response = propose_batch(
+                        self.ctx,
+                        self.digest,
+                        len(reservations),
+                        self.model,
+                        self.temperature,
+                        reasoning=self.reasoning,
+                    )
+            except Exception as error:
+                self.cost_provider_credits = round(
+                    self.cost_provider_credits
+                    + float(getattr(error, "cost_provider_credits", 0.0) or 0.0),
+                    12,
                 )
+                raise
             if len(items) != len(reservations):
+                proposal_cost = float(
+                    response.get("cost_provider_credits", 0.0) or 0.0
+                )
+                self.cost_provider_credits = round(
+                    self.cost_provider_credits + proposal_cost, 12
+                )
                 raise GenerationFailure(
                     "random epoch proposer returned the wrong batch size",
                     reason="proposal-cardinality",
+                    cost_provider_credits=proposal_cost,
                 )
             records = self.reserve_batch(
                 items,
                 reservations,
                 batch_path=batch_path,
-                proposal_cost_usd=response["cost_usd"],
+                proposal_cost_provider_credits=response["cost_provider_credits"],
             )
             batch_transition = read_state_transition(
                 batch_path, schema="random-reservation-transition/1"
@@ -701,9 +860,10 @@ class RandomGenerator:
                 )
                 try:
                     with worker_slots:
-                        candidate, cost = self.realize_reservation(record)
+                        outcome = self.realize_reservation(record)
+                        candidate, cost = outcome
                     if candidate is None:
-                        error = {
+                        error = getattr(outcome, "error", None) or {
                             "type": "GenerationFailure",
                             "reason": "realization-failure",
                             "message": "realization/build failed",
@@ -712,7 +872,9 @@ class RandomGenerator:
                         error = None
                     return candidate, cost, error
                 except Exception as error:
-                    return None, 0.0, {
+                    return None, float(
+                        getattr(error, "cost_provider_credits", 0.0) or 0.0
+                    ), {
                         "type": type(error).__name__,
                         "reason": getattr(error, "reason", "generation-error"),
                         "message": str(error)[:500],
@@ -725,7 +887,7 @@ class RandomGenerator:
                 {
                     "candidate_id": record["candidate_id"],
                     "candidate": candidate,
-                    "cost_usd": cost,
+                    "cost_provider_credits": cost,
                     "error": error,
                 }
                 for record, (candidate, cost, error) in zip(records, realized)
@@ -745,9 +907,26 @@ class RandomGenerator:
         ]
 
     def _refill(self):
-        items, presp = propose_batch(self.ctx, self.digest, self.k, self.model,
-                                     self.temperature, reasoning=self.reasoning)
-        self.cost_usd += presp["cost_usd"]
+        try:
+            items, presp = propose_batch(
+                self.ctx,
+                self.digest,
+                self.k,
+                self.model,
+                self.temperature,
+                reasoning=self.reasoning,
+            )
+        except Exception as error:
+            self.cost_provider_credits = round(
+                self.cost_provider_credits
+                + float(getattr(error, "cost_provider_credits", 0.0) or 0.0),
+                12,
+            )
+            raise
+        proposal_cost = presp.get("cost_provider_credits")
+        if proposal_cost is None:
+            self.cost_accounting = "unknown-nonzero-possible"
+        self.cost_provider_credits += float(proposal_cost or 0.0)
         self.n_batches += 1
         # Persist + show the NL ideas IMMEDIATELY (one propose call produced them), so
         # they're visible before the slow per-item realize+build phase.
@@ -762,23 +941,33 @@ class RandomGenerator:
         # release the GIL). ex.map preserves item order.
         workers = max(1, min(self.max_parallel, len(items)))
         with ThreadPoolExecutor(max_workers=workers) as ex:
-            results = list(ex.map(self._make_one, items))
-        for it, (cand, cost) in zip(items, results):
-            self.cost_usd += cost
+            results = list(ex.map(self._make_one_detailed, items))
+        failures = []
+        for it, outcome in zip(items, results):
+            cand, cost = outcome
+            self.cost_provider_credits += cost
             if cand is None:
                 self.n_skipped += 1
+                if outcome.error:
+                    failures.append(dict(outcome.error))
             else:
                 self.digest.append(it["summary"])
                 self._buf.append(cand)
         if not self._buf:
+            diagnostic = failures[-1] if failures else {}
             self.failure_state = {
-                "type": "GenerationFailure",
-                "reason": "no-buildable-candidate",
-                "message": "random proposal batch produced no buildable candidate",
+                "type": str(diagnostic.get("type") or "GenerationFailure")[:100],
+                "reason": str(
+                    diagnostic.get("reason") or "no-buildable-candidate"
+                )[:100],
+                "message": str(
+                    diagnostic.get("message")
+                    or "random proposal batch produced no buildable candidate"
+                )[:500],
             }
             raise GenerationFailure(
-                "random proposal batch produced no buildable candidate",
-                reason="no-buildable-candidate",
+                self.failure_state["message"],
+                reason=self.failure_state["reason"],
             )
         self.failure_state = None
 
@@ -836,8 +1025,9 @@ class RandomGenerator:
                 "batches": self.n_batches,
                 "skipped": self.n_skipped,
             },
-            "cost_usd": self.cost_usd,
-            "gen_cost_usd": round(self.cost_usd, 6),
+            "cost_provider_credits": self.cost_provider_credits,
+            "gen_cost_provider_credits": round(self.cost_provider_credits, 6),
+            "cost_accounting": self.cost_accounting,
             "failure_state": json.loads(json.dumps(self.failure_state)),
             "folded_attempt_ids": list(self.folded_attempt_ids),
         }
@@ -873,14 +1063,16 @@ class RandomGenerator:
         self._buf = json.loads(json.dumps(snapshot.get("buffered_candidates", [])))
         self.n_batches = int(counters["batches"])
         self.n_skipped = int(counters["skipped"])
-        self.cost_usd = float(snapshot.get("cost_usd", 0.0))
+        self.cost_provider_credits = float(snapshot.get("cost_provider_credits", 0.0))
+        self.cost_accounting = snapshot.get("cost_accounting", "known")
         self.failure_state = json.loads(json.dumps(snapshot.get("failure_state")))
         self.folded_attempt_ids = list(snapshot.get("folded_attempt_ids", []))
 
     def state(self):
         return {"skill": self.skill, "source": self.source, "model": self.model,
                 "batches": self.n_batches, "skipped": self.n_skipped,
-                "digest": self.digest, "gen_cost_usd": round(self.cost_usd, 6)}
+                "digest": self.digest, "gen_cost_provider_credits": round(self.cost_provider_credits, 6),
+                "cost_accounting": self.cost_accounting}
 
 
 def main():
@@ -890,7 +1082,7 @@ def main():
     ap.add_argument("--base", required=True, help="per-skill base image")
     ap.add_argument("--n", type=int, default=5)
     ap.add_argument("--k", type=int, default=5)
-    ap.add_argument("--model", default="qwen3.6-flash")
+    ap.add_argument("--model", default="glm-4.5-flash")
     ap.add_argument("--temperature", type=float, default=0.9)
     ap.add_argument("--source", default="random", choices=["random", "seed"])
     ap.add_argument("--build-retries", type=int, default=DEFAULT_BUILD_RETRIES,
@@ -928,7 +1120,7 @@ def main():
         print(f"[+extra] {c['candidate_id']}  {c['provenance']['summary']} (built in batch, kept)")
     (outdir / "generator_state.json").write_text(json.dumps(gen.state(), indent=2))
     print(f"\nwrote {produced} buildable candidates to {outdir}/ in {time.time()-t0:.1f}s; "
-          f"skipped {gen.n_skipped}; gen cost ${gen.cost_usd:.4f}")
+          f"skipped {gen.n_skipped}; gen cost ⚡{gen.cost_provider_credits:.4f}")
 
 
 if __name__ == "__main__":

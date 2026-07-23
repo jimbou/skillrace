@@ -1,5 +1,6 @@
 # Level-2 per-skill base: yaml-config (config instance, vendored benchflow-ai). NETWORK-GATED build.
-FROM skillrace/skillgen-base:latest
+ARG SKILLGEN_BASE_IMAGE=skillrace/skillgen-base:0.73.1-construction
+FROM ${SKILLGEN_BASE_IMAGE}
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3-pip \
     && rm -rf /var/lib/apt/lists/* \

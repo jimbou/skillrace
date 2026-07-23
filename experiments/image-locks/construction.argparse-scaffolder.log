@@ -1,0 +1,35 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Containerfile.base
+#1 transferring dockerfile: 306B done
+#1 DONE 0.0s
+
+#2 [1/4] FROM docker.io/skillrace/skillgen-base:0.73.1-construction
+#2 CACHED
+
+#3 [internal] load metadata for docker.io/skillrace/skillgen-base:0.73.1-construction
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 87B done
+#5 DONE 0.0s
+
+#6 [2/4] COPY repo/ /workspace/
+#6 DONE 0.0s
+
+#7 [3/4] COPY SKILL.md /skills/argparse-scaffolder/SKILL.md
+#7 DONE 0.0s
+
+#8 [4/4] RUN cd /workspace && git add -A && git commit -q -m "base: argparse-scaffolder" || true
+#8 DONE 0.1s
+
+#9 exporting to image
+#9 exporting layers 0.0s done
+#9 writing image sha256:83864c0f4e9c125f9b859d98ac250ab2bcf977095ef124732dd7f260e676d15c done
+#9 naming to docker.io/skillrace/argparse-scaffolder:base-construction-0.73.1 done
+#9 naming to docker.io/skillrace/argparse-scaffolder:base done
+#9 DONE 0.0s

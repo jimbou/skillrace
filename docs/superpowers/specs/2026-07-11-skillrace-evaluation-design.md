@@ -9,7 +9,9 @@
 Make SkillRACE a reliable, scalable tool and produce a defensible ISSTA evaluation in
 which SkillRACE, an unguided random baseline, and a VeriGrey-inspired baseline receive
 the same agent model, test-generation protocol, agent-run budget, runner, basic input
-sanity gate, and property checker.
+sanity gate, and property checker within each of two complete model-frozen tracks. The
+full contract is executed once with `glm-4.5-flash` and once with
+`deepseek-v4-flash`, with primary results reported separately.
 
 The primary research objective is practical: maximize confirmed skill-defect yield per
 expensive agent execution. Reasoning-derived guards guide search toward promising
@@ -29,9 +31,9 @@ defect, and the paper does not claim that every stated reason is causal.
 
 ## Experimental Contract
 
-For each skill and campaign replication (the current headline protocol uses one replication):
+For each model track, skill, and campaign replication (one stochastic replication per track):
 
-1. Use one frozen test-generation protocol, model configuration, realization pipeline,
+1. Use one frozen track-specific test-generation protocol, model configuration, realization pipeline,
    build policy, and sanity gate for every method. The protocol defines both independent
    random tests and the adaptive methods' initialization tests without sharing search
    feedback between methods.
@@ -44,7 +46,7 @@ For each skill and campaign replication (the current headline protocol uses one 
    guard extraction, selection, synthesis, and check compilation.
 5. Use the same runner, basic candidate sanity gate, and property checker.
 6. Keep method-specific search state in isolated output directories.
-7. Report model tokens, cost, wall time, invalid candidates, fallbacks, timeouts, and
+7. Report model tokens, provider credits, wall time, invalid candidates, fallbacks, timeouts, and
    inconclusive checks in addition to the agent-run-normalized headline metric.
 
 A campaign has 30 agent executions per method-skill combination. Independent random
@@ -59,6 +61,51 @@ frozen protocol so results do not rely on one favorable corpus.
 The headline is a full-system comparison, not a claim that the random-to-greybox gap
 isolates tool-sequence feedback. No matched-seed baseline or other extra experimental
 arm is required for the submitted evaluation.
+
+### Post-search repair replay for every failed execution
+
+Every counted **public search execution** whose precompiled oracle returns at least one
+definite `holds: false` receives exactly one independent skill patch and exactly one
+same-case replay after its campaign finishes. This operates on every raw failed
+execution, not one representative per deduplicated failure group. If one execution
+violates several properties, all of its violations enter one repair request and it still
+receives only one patch/replay pair.
+
+Each repair starts from the byte-identical original skill; repairs never accumulate and
+their outcomes never feed any search method. The patched replay uses the same candidate,
+initial image, prompt, agent model, wall-clock budget, and precompiled checks as the
+failed execution. It is outside the 30-execution search budget, but its agent execution,
+model call, tokens, provider credits, wall time, and immutable receipts are reported.
+
+The repair comparison is intentionally **method-assisted and end-to-end**. Random and
+VeriGrey-inspired receive the shared failure core: task/environment identity, violated
+properties, mechanical error details, and final artifact/diff summary. SkillRACE receives
+that core plus its native diagnostic evidence: relevant reasoning-trace episodes,
+behavior-tree path, selected target property, guard mutation, intended and actual branch,
+branch classification, and targeted/serendipitous label. All three repair requests use
+the same campaign model, temperature, reasoning setting, output budget, timeout, and
+common evidence contract. Backend choice is frozen as `random=direct`,
+`greybox=direct`, and `skillrace=pi`: each baseline gets one direct call, while
+SkillRACE gets one constrained Pi read/edit session for its richer native evidence. The
+paper must describe this as a full-system comparison, not an equal-information or
+equal-patcher comparison.
+
+Patch generation and replay are separate operations. The patcher cannot run the
+candidate, tests, checker, or replay; it may change only `SKILL.md`, starts from the
+original package, has a 300-second timeout, and emits no rationale. A terminal patch
+receipt is written before the orchestrator launches the exact-case replay. Direct raw
+responses and Pi sessions are not retained after automatic accounting.
+
+Repair status is one of `repaired`, `same_failure`, `different_failure`, `timeout`,
+`error`, or `inconclusive`. A group enters headline defect yield only when its earliest
+representative both reproduces under the unchanged skill and its already-required
+independent original-skill patch makes that exact candidate pass all originally failed
+properties. Reproduction without successful exact-case repair remains a reported
+`reproduced-but-not-repair-validated` finding. This conservative gate prevents a stable
+but semantically wrong generated oracle from becoming a paper defect. Because repair
+evidence is method-assisted, the headline is explicitly an end-to-end
+**repair-validated defect yield**, not a detector-only comparison. Hidden RQ3 executions
+are not repaired because they are the sealed final exam.
 
 ## Shared Candidate Sanity Gate
 
@@ -180,14 +227,18 @@ Each of the ten scenarios contains four disjoint artifact groups:
 4. `tests/`: hidden prompts, starting environments, and executable pass criteria visible
    only to the final evaluator.
 
-The zero-shot base skill is generated once from the scenario purpose using the shared
-model. Its exact generation prompt, response, model configuration, timestamp, and content
-hash are stored. Existing base skills without recoverable generation provenance are
-regenerated rather than retrospectively labelled as model-generated.
+The zero-shot base skill is generated once per scenario **within each model track** from
+the same scenario purpose using that track's model. Its exact generation prompt,
+response, model configuration, timestamp, and content hash are stored. The driver uses a
+private track copy and binds the generated hash there; it never overwrites the template.
+Across tracks, a normalized benchmark-template hash excludes only the intentionally
+different base skill and includes every hidden test, reference, mutant, oracle, and
+public campaign input. Existing base skills without recoverable generation provenance
+are regenerated rather than retrospectively labelled as model-generated.
 
 ### Phase 1: Produce testing feedback
 
-For every scenario and campaign replication (one replication for the headline protocol):
+For every model track, scenario, and campaign replication (one stochastic replication per track):
 
 1. Start random, VeriGrey-inspired, and SkillRACE from the same base skill.
 2. Give each method the same total agent-run budget to test the base skill: random uses
@@ -196,10 +247,13 @@ For every scenario and campaign replication (one replication for the headline pr
 3. Generate each adaptive method's initial set independently with the same frozen
    initialization protocol.
 4. Run the scenario's campaign properties on every generated case.
-5. Preserve replayable cases, checks, traces, and method search summaries. After the
-   campaign, mechanically deduplicate suspected defects by skill, property, and failure
-   signature, then rerun one representative case once for confirmation. Confirmation
-   runs are reported separately and do not change the 30-run search budget.
+5. Preserve replayable cases, checks, traces, and method search summaries. Independently
+   patch and replay every public execution with at least one definite violation under
+   the post-search repair policy. These per-failure artifacts do not enter the aggregate
+   feedback envelope or hidden evaluation.
+6. Mechanically deduplicate suspected defects by skill, property, and failure signature,
+   then rerun one representative case once for confirmation. Confirmation runs are
+   reported separately and do not change the 30-run search budget.
 
 The campaign process cannot read `scenarios/<name>/tests/`. Filesystem-level tests assert
 that neither the generators nor the reviser receive a path or copied content from the
@@ -219,7 +273,7 @@ The envelope schema, ordering, and frozen maximum of **3,600 canonical-JSON UTF-
 bytes** are identical across methods; missing fields are empty rather than omitted.
 Items are admitted in deterministic section round-robin order so a verbose generic
 section cannot erase all method-specific evidence. This byte cap is deliberately not
-described as a Qwen token count. Actual provider input/output
+described as a model-token estimate. Actual provider input/output
 tokens are recorded separately on every revision call. The reviser receives the same system
 prompt, base skill, model, temperature, and output budget for all conditions. Only the
 feedback envelope differs. It produces three revised skills: random-feedback,
@@ -238,6 +292,9 @@ Every condition receives byte-identical hidden prompts, containers, checks, agen
 and wall-clock budget. Each hidden test is executed once in the main experiment. A run
 passes a hidden test only when every functional criterion holds; fixed-invariant
 violations are reported both separately and in a strict all-properties pass metric.
+The frozen test template pins the shared Pi 0.73.1 construction base. The execution copy
+changes only that base reference to the selected model-track Skillgen overlay and records
+the source/projected hashes plus immutable runtime image IDs.
 
 The primary RQ3 outcome is the change in hidden-test pass rate from the zero-shot skill
 to each revised skill. Secondary outcomes are strict all-properties pass rate, testing-
@@ -270,9 +327,10 @@ plots.
 
 ## Metrics and Analysis
 
-The primary metric is distinct confirmed defect yield per agent execution. A confirmed
-defect is a reproducible property violation grouped by skill, property, and equivalent
-failure cause; raw property IDs alone are not treated as unique defects.
+The primary metric is distinct repair-validated defect yield per agent execution. A
+headline defect is a reproducible property violation grouped by skill, property, and
+equivalent failure cause whose representative exact case becomes a pass after one
+independent patch of the original skill; raw property IDs alone are not unique defects.
 
 Secondary metrics are:
 
@@ -280,12 +338,14 @@ Secondary metrics are:
 - agent executions to first confirmed defect, with right censoring;
 - runs containing any violation;
 - confirmation success on one rerun of each deduplicated suspected defect;
+- per-execution method-assisted repair rate and the distribution of repaired,
+  same-failure, different-failure, timeout, error, and inconclusive outcomes;
 - unique behavioral branches;
 - intended-branch, different-new-branch, no-divergence, and path-miss rates;
 - targeted versus serendipitous defects;
 - candidate validation, rejection, repair, and fallback rates;
 - fixed versus compiled-oracle findings and inconclusive rates;
-- model tokens, dollars, CPU time, and wall clock.
+- model tokens, provider credits, CPU time, and wall clock.
 
 Results are reported per skill and by skill family. Statistical uncertainty is computed
 with skill-family-aware resampling or a hierarchical model so related CLI, SQL, parser,
@@ -297,14 +357,20 @@ Parallelism is allowed where it does not create shared mutable search state:
 
 - skills, methods, and replications run concurrently;
 - independent property checks compile concurrently;
-- D2 test/skill-version/replication combinations run concurrently;
-- random and greybox candidate runs may be queued independently within resource limits;
-- SkillRACE uses bounded epochs: freeze tree version N, synthesize and run a small diverse
-  batch, then fold completed results in deterministic candidate-ID order into version
-  N+1.
+- up to three independent D2 scenario pipelines run concurrently, while tests and
+  conditions remain sequential inside one scenario;
+- all frozen headline campaigns use `epoch_size=1`. Random, VeriGrey-inspired, and
+  SkillRACE therefore preserve the same per-execution pre-agent retry coordinates, and
+  each adaptive result is folded before the next case is selected;
+- RQ1 obtains throughput from up to six independent cells sharing global API/Docker/agent
+  caps of 4/3/3. RQ3 obtains throughput from three independent scenario pipelines after
+  a two-worker all-scenario preparation barrier.
 
 A single reducer owns each tree and campaign manifest. Workers write immutable per-case
-and per-run directories. Docker, CPU, and API concurrency use explicit semaphores.
+and per-run directories. Docker, CPU, and API concurrency use explicit semaphores or the
+structural three-scenario cap. The tested parallel-epoch implementation remains
+development-only; a frozen protocol rejects within-cell epochs greater than one so a
+pre-agent failure cannot skip an `eNNNN-aNN` retry coordinate.
 
 ## Dataset and Reporting Boundaries
 
@@ -335,3 +401,7 @@ Full campaigns do not begin until:
    candidate-rejection rates;
 7. the final protocol, models, seeds, budgets, skills, properties, and analysis are frozen
    before headline results are inspected.
+8. per-failure repair tests prove that every definite failed public execution creates one
+   independent patch/replay receipt, never alters search state, never repairs a hidden
+   test, and gates headline eligibility only through the predeclared representative's
+   exact-case `repaired` status.

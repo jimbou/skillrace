@@ -1,0 +1,281 @@
+{
+  "schema": "d1-track-images/1",
+  "status": "draft",
+  "model": "glm-4.5-flash",
+  "pi_version": "0.73.1",
+  "suite_manifest": "experiments/manifests/rq1-skills.draft.json",
+  "suite_manifest_hash": "d739ef03e9f314d707225e6d28dc84feaa8b1982286eb69ef7948f717fd9273b",
+  "construction_base": "skillrace/skillgen-base:0.73.1-construction",
+  "records": [
+    {
+      "skill": "fastapi-endpoint",
+      "tag": "skillrace/fastapi-endpoint:base-glm-4.5-flash",
+      "image_id": "sha256:6af988698bd6ddb94b3dacd9ae3fd7e85641898fa5c1c322134833b48e9e1da8",
+      "construction_image_id": "sha256:bf029e3820fa5252cf477248e410d52e380e5bcdb96c5e998eb4a1da3b0cd25d",
+      "input_tree_hash": "d586312e1438cf8f802b2196cb8ca7a39512d2f6bbbee92c86faf879ab716e7e",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "cli-argparse-fix",
+      "tag": "skillrace/cli-argparse-fix:base-glm-4.5-flash",
+      "image_id": "sha256:f8d6c58b8499c9dbe7e69e137f18468f836b19b20a984bee28a2bff26cc2d873",
+      "construction_image_id": "sha256:dfe04839d10d7088b74fe2df113d2426958c4d1cf15498914e93ddd851433a27",
+      "input_tree_hash": "b68bda88e2169395d432ef9740912c847d2557c853d6ab7c01d8014601c06d74",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "cli-subcommand-validator",
+      "tag": "skillrace/cli-subcommand-validator:base-glm-4.5-flash",
+      "image_id": "sha256:dcdfaeb76355fcea33040fcac98f6bc1a40e776cf807a4e9bc4ca6aeb842127b",
+      "construction_image_id": "sha256:15a142c8fb924dc6c2022c2ac528af39fbbea1c481d9d8ec0914f46a98afdb3f",
+      "input_tree_hash": "f110e74bb6f788e915ce181a994d7c48df5e41c8c52c1d89b779d1ab5603ecaf",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "code-refactor-fowler",
+      "tag": "skillrace/code-refactor-fowler:base-glm-4.5-flash",
+      "image_id": "sha256:0f2e260b61021c0d9a17694f62b35694c2a935958352f1ac1ba6e3bfc3f81732",
+      "construction_image_id": "sha256:47438c6b1b98189ac0f898f5126d3e7a9d4604aa4ac87814d72f7fabb18870ae",
+      "input_tree_hash": "d1c372bba5e3527aa93612920760dc270b1a5b3967128bdf68b3a34b667c1462",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "condition-based-waiting",
+      "tag": "skillrace/condition-based-waiting:base-glm-4.5-flash",
+      "image_id": "sha256:5c75b8ac417238499791456fbb1b17691accbe6c2808fe1b23752c8ebb67b168",
+      "construction_image_id": "sha256:bcf32d63c2e0504bb518ece0948242b1181d0599272693608d870aa367a4239c",
+      "input_tree_hash": "af2e73baa16339d30b03b91b20f26864a9ecff60ecf5229ab9fc0d56e5ae0076",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "debugging-difficult-bugs",
+      "tag": "skillrace/debugging-difficult-bugs:base-glm-4.5-flash",
+      "image_id": "sha256:daae42f6626b1686721af871288eee9874d9594fecd5b05e030b5b706b01448c",
+      "construction_image_id": "sha256:1d9f5dda264bd640a9413894b0623773e65bc672f323c2f365b505d838e22910",
+      "input_tree_hash": "65b1c5a9d71c75fdcb6558ffe7506e0751a5e45632dd5484a383b615af5d34fd",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "finishing-a-development-branch",
+      "tag": "skillrace/finishing-a-development-branch:base-glm-4.5-flash",
+      "image_id": "sha256:f644c9f83ed6a1dea7539a820fa37a4df3d40906df36d65c0925fd2d30fba265",
+      "construction_image_id": "sha256:dc49014db86eee8c9260df151fe5a8f4969d7d18d614359c150c519889733b18",
+      "input_tree_hash": "71384e7f0db8805cd860a102313078d8060d6c8935d58f9d3887d29db32e105d",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "json-parser",
+      "tag": "skillrace/json-parser:base-glm-4.5-flash",
+      "image_id": "sha256:77430bd979bf745b4e0663362ca32691f5648c026aeaad1841d17ae187a3f999",
+      "construction_image_id": "sha256:a32db41a9520f00042fd93ee5da0adba5d1c36900b337c0e6dac506584197adc",
+      "input_tree_hash": "729f6df5eb4a7fae3f4a89dcc73238313ce2d720204493d136e1b22152169399",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "parser-generator",
+      "tag": "skillrace/parser-generator:base-glm-4.5-flash",
+      "image_id": "sha256:953cd8cf8da1209a1dcd6596085cbb63f4111448002f168c835974d72bf68c2a",
+      "construction_image_id": "sha256:192e78ef4e27ad0137e1070faa140301f604ce5e98a42834e19730995e1e3105",
+      "input_tree_hash": "daca2fd9b34f6e89f5fc388fe1130c3bf1caa9b3a9a1d9d08e3c3e029aa0c140",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "refactor",
+      "tag": "skillrace/refactor:base-glm-4.5-flash",
+      "image_id": "sha256:c93ab301f2ad766d1130d9473b040b00c41b133d30d3da2d8ba1f19eccda2f23",
+      "construction_image_id": "sha256:99575ff74a6cd025b99f3a6fcd1347752f128d7ecf030a4beb9629eaab892b4e",
+      "input_tree_hash": "52e67ab6e3b9364396be1d160ff25b1bd877dde62a8efa363881cb455a0da918",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "refactor-complexity-reduce",
+      "tag": "skillrace/refactor-complexity-reduce:base-glm-4.5-flash",
+      "image_id": "sha256:a39d2ae20fced0493350b2ca472b6a1f110c95ee3922a083045351d8671fdb86",
+      "construction_image_id": "sha256:c4849fe26ed70edf3ae09da992e22925cc0ad67b46e0ffee85d3a779283b5670",
+      "input_tree_hash": "58228fd4b186cac690e5b84bc5a52cdce508d602ad6003017f618e366a1effec",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "regex-expert",
+      "tag": "skillrace/regex-expert:base-glm-4.5-flash",
+      "image_id": "sha256:f806274dd4c3ed262d6e1a38ffbea2e56b64735331ad21fc23552e4f11479eb8",
+      "construction_image_id": "sha256:95bea49b2dba3eb5884ec4ac119da675ff019585ebdaa2246e93a0562c929d75",
+      "input_tree_hash": "59fad46c80542554902e6eeb3f609fc8c24e9fce8c8a834b0a7591dbb3a040e3",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "sql-queries",
+      "tag": "skillrace/sql-queries:base-glm-4.5-flash",
+      "image_id": "sha256:b4c41bcbfc74115916667a26e27ab1bc1ec6d0ebfd736863ba7b77ccf8a051fb",
+      "construction_image_id": "sha256:8883cae910125a12955e6ba76ab15703f8456135e8d7c8b0b5ff3b929553eec5",
+      "input_tree_hash": "983917b1d72a9b7118d7227b3a0e168d575ae4ef081799edfd9f64257ba10c0a",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "sql-query-generator",
+      "tag": "skillrace/sql-query-generator:base-glm-4.5-flash",
+      "image_id": "sha256:9c7428b460db941681428197e5b4074f50b7b67b7ff97bad472bda3dc5c6a5c9",
+      "construction_image_id": "sha256:2b474fd81d9c5d4906e4c59c14a106e4f18399e8ebb0af508eef7986abf2128a",
+      "input_tree_hash": "9081905e0ee9fa4a4ea99c89be1736358243eed6e4cfa279348a17571aaabad2",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "sql-query-json",
+      "tag": "skillrace/sql-query-json:base-glm-4.5-flash",
+      "image_id": "sha256:89b9a93763d5077048c89409506f64f7c76b6c47cd90e37787fd081182cbcbb0",
+      "construction_image_id": "sha256:85c586ed04d85d6d106a2bea42c629d2b49caf29a89ca991d91f23337e683acb",
+      "input_tree_hash": "678a984f7ec343229bae7302200cf309f078c9dad63b9384271da0a96268c962",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "sqlmodel-orm",
+      "tag": "skillrace/sqlmodel-orm:base-glm-4.5-flash",
+      "image_id": "sha256:dd2dd98a7cb05ebca1e78313cef1476b4c7355cfb1f62134d4ee81d33f156681",
+      "construction_image_id": "sha256:53ee3a780372da7cf11f6520920dd05140b94f32f2294819a8cadfc9facb10f2",
+      "input_tree_hash": "04d1fe1994bf33cf42645b14145fc31eef23945ca0a79709f06adc43d2d614cb",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "systematic-debugging",
+      "tag": "skillrace/systematic-debugging:base-glm-4.5-flash",
+      "image_id": "sha256:8bf0d094c8e3680742127c829c9e604b049f42e68d9f91c968411249d5bad4b2",
+      "construction_image_id": "sha256:c9e4435ddda0abd5980bfb3c17f3c72fb7519208b1e5c87cd8a5c727bc9c97e4",
+      "input_tree_hash": "646f1d1ad6853c36ea0c7175f5181ec7925caf7de5b2152cb077357ec2978cdb",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "test-driven-development",
+      "tag": "skillrace/test-driven-development:base-glm-4.5-flash",
+      "image_id": "sha256:2f6b777056c3c3bff2a0a7a45b5f2326893bff0aa8e551e2309484ec0433aa33",
+      "construction_image_id": "sha256:57698a0b2b1bf509ca2aafcbe3cd62091a04bbb22b892b8547f5f5a2253bc0ef",
+      "input_tree_hash": "8e60dffa7a9e3665ef67fe6960be77e6053520ce0fa5d21456c905e75f0fc674",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "unit-test-generation",
+      "tag": "skillrace/unit-test-generation:base-glm-4.5-flash",
+      "image_id": "sha256:5b5739a6c594462a61f1b99f45b6502e170041d347e4b6dc793d6be378b30704",
+      "construction_image_id": "sha256:d503a3e8ab4f07512fc14964a4011cda6784f009888cd82095aeac8acb0d2eda",
+      "input_tree_hash": "6c42cd5bd06ad05feda7352f7a9bffc66095ffa559a9f4a77783d10f86c3eed4",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "unit-test-generator",
+      "tag": "skillrace/unit-test-generator:base-glm-4.5-flash",
+      "image_id": "sha256:bde576f7e9a44d1ef8e93ffb429acfc49612503cde97f5d4148c3ba361915b33",
+      "construction_image_id": "sha256:fdb4887875b480b7041fc6bd2044c8e8d769f3d5c5d9ee957059cad7ee3922d3",
+      "input_tree_hash": "7c9439767f32a326e891a225ac62ce4390d584831334bd133ad277f6af167dcc",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "using-git-worktrees",
+      "tag": "skillrace/using-git-worktrees:base-glm-4.5-flash",
+      "image_id": "sha256:8446324f39b8841567390d477bd8a0fef970859fb404a95c82c5ade54bf64bd7",
+      "construction_image_id": "sha256:0a3a64166405157e6993dfd905aa2eb88f6c7bef51195b288ee5792aa41dc585",
+      "input_tree_hash": "ffb96adbe5aa7c2e69aeb2d30535eaaa6536d438a970162dbf6ed6a7480f7351",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "yaml-config",
+      "tag": "skillrace/yaml-config:base-glm-4.5-flash",
+      "image_id": "sha256:bca5bbe47a943dbff2375df306641f1f98a9ed07813195c32f250526f432e016",
+      "construction_image_id": "sha256:83ffceaeaf26443f3c25f2c708e969b153e0f8f8c36a9aa2b3f3dec2ab86c913",
+      "input_tree_hash": "bd36410b77b947b272fb2cc003ce416573f2d06c17862a7e4b6ad669706a9dcd",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "network-config-validation",
+      "tag": "skillrace/network-config-validation:base-glm-4.5-flash",
+      "image_id": "sha256:cfc8e87570e2ad89a9af725a2aae34394684ba4d4e74328819c59fb7e976a7cc",
+      "construction_image_id": "sha256:27e7e648bd864a2be980d7e76d88d95befbaeee70d302af3de93a5b00d1dec4b",
+      "input_tree_hash": "067a03a3f6d9152b3b1fd623c8ae651e1fc758b150edb65cb0e6f6be2af318cd",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "rest-api-caller",
+      "tag": "skillrace/rest-api-caller:base-glm-4.5-flash",
+      "image_id": "sha256:2d3acb2f396be5863a763c7b68e342cfc1569c20095bb7304e07c2c494d67b16",
+      "construction_image_id": "sha256:1d8addaf3a5259dc886dcbde0b4a328a0f68c6946a36628bc795d40ff7c68d1d",
+      "input_tree_hash": "7b3bba04d44773ec8701db3ec69db0bcedbd943935c83a82ecfa9e05ab4b40d2",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "csv-workbench",
+      "tag": "skillrace/csv-workbench:base-glm-4.5-flash",
+      "image_id": "sha256:f9cf70e4e447502dd504996f7a26f96fa1769316c9f1d9e8e6438e59ff80b630",
+      "construction_image_id": "sha256:bad306c5c2fd1151aee7853891dfb8c2daa00c3fb56f376749e7d08d6393abc6",
+      "input_tree_hash": "8c090d72038f8d07c4ba8af1341927b369aa57b43fa6791596b86a0c53e23d8e",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "argparse-scaffolder",
+      "tag": "skillrace/argparse-scaffolder:base-glm-4.5-flash",
+      "image_id": "sha256:e5d7f931680717411d931be8ad315d3b79be2f741b317ae818dbbd39047cca01",
+      "construction_image_id": "sha256:83864c0f4e9c125f9b859d98ac250ab2bcf977095ef124732dd7f260e676d15c",
+      "input_tree_hash": "f953751f136979bd2a389d659761a9a01672a5f204875bda3efed4cd022a801a",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "data-transform",
+      "tag": "skillrace/data-transform:base-glm-4.5-flash",
+      "image_id": "sha256:8e527deac27c37f80b893cb0784c52facc94001b2572ca291ca3f646236b92cc",
+      "construction_image_id": "sha256:8ae27d136c29a401e2c77a4f1268ff7825b500e0d30bacf0d7e6c458a29f2f70",
+      "input_tree_hash": "605fa27d3909cc319ad8607b807e58397307a0e0b8fbf02f1c1e43445dfa5f44",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "compiler-hardening",
+      "tag": "skillrace/compiler-hardening:base-glm-4.5-flash",
+      "image_id": "sha256:86a280b4f95bbf68b562b43c64a259c2d18bda1d73b73f69de29de236e06de4f",
+      "construction_image_id": "sha256:0efcf540898240396d7ba656e59c85cd69fc4ce322edc4873696f693fb4d8ff1",
+      "input_tree_hash": "0cab2939e1b5dde45b181f18776769d2f0c1327acaa4feb3b196dbe45c47ce84",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "validator-agent",
+      "tag": "skillrace/validator-agent:base-glm-4.5-flash",
+      "image_id": "sha256:2520dbb87dd87e34f9a0a7f054e5df63d4300c4e0fe86f5738376476ff83de2e",
+      "construction_image_id": "sha256:f59808aab2cc5a458e2c6e633a0ad816589f6713330f2e484e439d400823acf7",
+      "input_tree_hash": "7007671503180a5ac52fc7ba77dce61817310f22d5cc446879ae659f5aecd5b1",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    },
+    {
+      "skill": "log-parser",
+      "tag": "skillrace/log-parser:base-glm-4.5-flash",
+      "image_id": "sha256:2f5d7a496d4cbae4a271764bf8d59ed9b87c35a7118f6442673fc527dbb453bd",
+      "construction_image_id": "sha256:f5de5953fb8383ea8cdfb0ad9b55d3fbf665d45afaf937e508ea6936a36ffffe",
+      "input_tree_hash": "c174f092847dfb6059a013f07301a0d8513bd60d513de9f4b1f926ad37f5a157",
+      "model_config_sha256": "e163b3547b4814a54d8bb608e32af79daeec0127446078363d18a47ed6da83ca",
+      "runtime_audit": "passed-networkless"
+    }
+  ]
+}

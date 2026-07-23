@@ -29,7 +29,7 @@ _RUNTIME_INSTRUCTIONS = {
 }
 _UNSAFE_ENV_KEYS = {
     "BASH_ENV",
-    "CLOSE_API_KEY",
+    "yunwu_key",
     "DOCKER_HOST",
     "ENV",
     "GIT_CONFIG_COUNT",
@@ -68,8 +68,7 @@ _PROTECTED_PATHS = re.compile(
     r"/etc/ld\.so\.preload(?:\b|/)|"
     r"/etc/ssl/certs/ca-certificates\.crt(?:\b|/)|"
     r"/etc/(?:bash\.bashrc|environment|profile)(?:\b|/)|"
-    r"/root/\.(?:bash_profile|bashrc|gitconfig|profile)(?:\b|/)|"
-    r"/(?:bin|usr/bin)/(?:bash|sh|env|git|node|sleep)(?:\b|/)"
+    r"/root/\.(?:bash_profile|bashrc|gitconfig|profile)(?:\b|/)"
     r")"
 )
 _PROTECTED_COMMAND = re.compile(
@@ -129,6 +128,11 @@ def validate_generated_tail(tail: str) -> str:
         raise CandidatePolicyViolation("generated tail must be nonempty text")
     if "\x00" in tail:
         raise CandidatePolicyViolation("generated tail contains a NUL byte")
+    # A raw textual path ban cannot distinguish a runtime overwrite from a safe
+    # reference embedded in a project file (for example ``#!/usr/bin/env python3``
+    # in a heredoc written under /workspace).  Keep rejecting direct configuration
+    # and hook surfaces here; the host-side fingerprint, applied before every agent
+    # start, authoritatively rejects any changed executable/runtime file.
     protected = _PROTECTED_PATHS.search(tail)
     if protected:
         raise CandidatePolicyViolation(

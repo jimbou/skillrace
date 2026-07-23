@@ -85,7 +85,7 @@ def test_confirmation_deduplicates_property_signature_and_runs_each_representati
                 }
             ],
             "agent_id": f"confirm-{len(calls)}",
-            "cost_usd": 0.03,
+            "cost_provider_credits": 0.03,
             "input_tokens": 8,
             "output_tokens": 2,
         }
@@ -101,7 +101,7 @@ def test_confirmation_deduplicates_property_signature_and_runs_each_representati
     assert ledger["search_agent_executions"] == 30
     assert ledger["confirmation_executions"] == 2
     assert ledger["confirmation_executions_counted_in_search_budget"] is False
-    assert ledger["costs"]["total_usd"] == pytest.approx(0.06)
+    assert ledger["costs"]["total_provider_credits"] == pytest.approx(0.06)
     assert all(cluster["status"] == "confirmed" for cluster in ledger["clusters"])
     assert ledger["clusters"][0]["task_summary"] == "task for c1"
     assert ledger["clusters"][0]["environment_summary"] == "environment for c1"
@@ -140,6 +140,60 @@ def test_confirmation_unknown_external_outcome_is_not_retried(tmp_path):
         )
 
 
+def test_short_confirmation_requires_explicit_bounded_development_capability(tmp_path):
+    campaign = _campaign()
+    campaign.update(
+        budget=2,
+        counted_executions=2,
+        status="completed",
+        protocol={"status": "runtime"},
+        attempts=campaign["attempts"][:2],
+    )
+
+    with pytest.raises(ValueError, match="30-execution"):
+        confirm_campaign_findings(
+            campaign,
+            tmp_path / "default",
+            executor=lambda _request: {},
+        )
+
+    calls = []
+    ledger = confirm_campaign_findings(
+        campaign,
+        tmp_path / "bounded",
+        executor=lambda request: calls.append(request) or {
+            "status": "completed",
+            "verdicts": [],
+            "cost_provider_credits": 0.0,
+        },
+        allow_bounded_development=True,
+    )
+
+    assert len(calls) == 1
+    assert ledger["development_only"] is True
+    assert ledger["search_agent_executions"] == 2
+    assert ledger["confirmation_executions"] == 1
+
+
+def test_bounded_confirmation_rejects_frozen_protocol(tmp_path):
+    campaign = _campaign()
+    campaign.update(
+        budget=2,
+        counted_executions=2,
+        status="completed",
+        protocol={"status": "frozen"},
+        attempts=campaign["attempts"][:2],
+    )
+
+    with pytest.raises(ValueError, match="development protocol"):
+        confirm_campaign_findings(
+            campaign,
+            tmp_path / "bounded",
+            executor=lambda _request: {},
+            allow_bounded_development=True,
+        )
+
+
 def test_confirmation_validator_rejects_tampered_result(tmp_path):
     campaign = _campaign()
 
@@ -154,7 +208,7 @@ def test_confirmation_validator_rejects_tampered_result(tmp_path):
                     "detail": request.failure_summary,
                 }
             ],
-            "cost_usd": 0.0,
+            "cost_provider_credits": 0.0,
         }
 
     ledger = confirm_campaign_findings(
@@ -207,7 +261,7 @@ def test_confirmation_derives_failure_signature_from_immutable_run_verdict_recei
                     "detail": request.failure_summary,
                 }
             ],
-            "cost_usd": 0.0,
+            "cost_provider_credits": 0.0,
         },
     )
 

@@ -1,7 +1,10 @@
 # SkillRACE evaluation guide for reviewers
 
-**Status:** design contract for the lean ISSTA evaluation, updated 2026-07-12.
+**Status:** design contract for the lean ISSTA evaluation, updated 2026-07-14.
 Machine manifests are still marked `draft`; no headline result has been run.
+
+For the latest implementation stopping point, paid diagnostic evidence, and ordered
+remaining work, see [the July 14 session handoff](2026-07-14-session-handoff.md).
 
 This document explains what is compared, what consumes experimental budget, how a
 failure becomes a confirmed skill defect, what information each method may use, how
@@ -30,14 +33,16 @@ The experiment asks:
   from each testing method improve its pass rate on independently authored hidden tests?
 
 RQ2 uses labels from the RQ1 runs. It is not an additional experiment or ablation. The
-lean study has no direct-property, outcomes-only, matched-seed, uniform-frontier, extra
-model, or per-skill parameter arm.
+lean study has no direct-property, outcomes-only, matched-seed, uniform-frontier, or
+per-skill parameter arm. It is repeated as two complete model-frozen tracks; this is a
+robustness replication, not a tunable model-selection arm.
 
 ## 2. Experimental units and budgets
 
-The primary RQ1 cell is one `(method, public skill, replication)` campaign. The planned
-lean manifest has one predeclared replication per method/skill because agent executions
-are expensive; all three methods are nevertheless evaluated on every selected skill.
+The primary RQ1 cell is one `(track model, method, public skill, replication)` campaign.
+Each model track has one predeclared stochastic replication per method/skill because
+agent executions are expensive; all three methods are nevertheless evaluated on every
+selected skill under both models.
 The cell budget is exactly 30 counted agent executions.
 
 | Term | Meaning | Consumes the 30-run search budget? |
@@ -48,6 +53,7 @@ The cell budget is exactly 30 counted agent executions.
 | Exploration execution | A fresh Random case or adaptive guided case after initialization | Yes |
 | Oracle execution | Mechanical checks over the completed agent state | No additional agent slot |
 | Confirmation execution | One post-campaign rerun of a deduplicated suspected defect | No; recorded and costed separately |
+| Repair execution | One patched-skill replay for every failed public search execution | No; recorded and costed separately |
 | RQ3 hidden execution | One condition taking one hidden final-exam test | Separate RQ3 evaluation budget |
 
 The paper and artifact avoid using the bare word *run* where it could mean several of
@@ -56,7 +62,8 @@ these units. In result files, `execution` means a Pi agent was durably started,
 method/skill cell, and `replication` means an independently initialized repeat of that
 campaign. The lean design uses **one campaign replication**, not repeated campaigns with
 different random seeds. This choice limits stochastic precision and is reported as a
-threat to validity; it buys breadth over all 22 public skills within the available cost.
+threat to validity; it buys breadth over the planned 30 public skills within the
+available cost.
 
 ### Planned fixed workload
 
@@ -64,17 +71,21 @@ Provided the draft manifests are frozen unchanged, the fixed workload is:
 
 | Study phase | Calculation | Counted agent executions |
 |---|---:|---:|
-| RQ1 public-skill testing | 22 skills × 3 methods × 30 | 1,980 |
-| RQ3 public testing of base skills | 10 scenarios × 3 methods × 30 | 900 |
-| RQ3 hidden final exam | 10 scenarios × 4 conditions × 10 tests | 400 |
-| **Fixed total** | | **3,280** |
+| RQ1 public-skill testing | 2 models × 30 skills × 3 methods × 30 | 5,400 |
+| RQ3 public testing of base skills | 2 models × 10 scenarios × 3 methods × 30 | 1,800 |
+| RQ3 hidden final exam | 2 models × 10 scenarios × 4 conditions × 10 tests | 800 |
+| **Fixed total** | | **8,000** |
 
 This total excludes a data-dependent number of confirmation executions, because there is
-one confirmation for each distinct suspected failure group. It also excludes ten
-zero-shot base-generation calls, thirty revision calls, and the methods' internal model
-calls; those are not Pi executions but are fully included in cost and wall-clock reports.
-There are no hidden-test repeats, extra baseline arms, ablations, or model sweeps in the
-headline study.
+one confirmation for each distinct suspected failure group within each model track. It
+also excludes one repair execution for every failed public search execution. Across both
+tracks, RQ1 and RQ3 public search contain 7,200 fixed executions, so repair adds between
+zero and 7,200 agent executions; the absolute fixed-plus-repair bound is therefore
+15,200, plus distinct-group confirmations. Each repair also uses one model-only patch
+call. Twenty zero-shot base-generation calls, sixty aggregate RQ3 revision calls, and
+methods' internal model calls are fully included
+in cost/wall-clock reports but are not Pi executions. There are no hidden-test repeats,
+extra baseline arms, ablations, or model sweeps in the headline study.
 
 The durable Pi started marker is the budget boundary. A build, schema, policy, or sanity
 failure before that marker is a **generation failure**: the method may try another
@@ -132,7 +143,8 @@ target property, validation outcome, realized branch outcome, and property relat
 
 Every method uses the same:
 
-- `qwen3.6-flash` model for the agent and every model-driven role;
+- within a track, one identical Yunwu model for the agent and every model-driven role:
+  `glm-4.5-flash` in the GLM track and `deepseek-v4-flash` in the DeepSeek track;
 - frozen generation/realization/build/repair configuration;
 - base image for a given skill;
 - non-semantic candidate sanity gate;
@@ -154,7 +166,7 @@ attribute a gap to one component without an experiment that was actually run.
 
 Equal agent executions do not imply equal total model calls: SkillRACE performs extra
 segmentation/tree/guard calls because those calls are part of the technique. All model
-tokens, dollars, generation failures, CPU time, and wall time are secondary efficiency
+tokens, provider credits, generation failures, CPU time, and wall time are secondary efficiency
 outcomes so this overhead remains visible.
 
 ## 5. Input validity and oracle independence
@@ -202,16 +214,18 @@ These terms are deliberately separate:
   detail, with volatile paths, addresses, and numbers removed.
 - **Suspected defect group:** executions with the same skill, property, and failure
   signature.
-- **Confirmed defect:** one replayable representative is rerun once after the campaign
+- **Reproduced finding:** one replayable representative is rerun once after the campaign
   and produces the same property/signature again.
+- **Repair-validated defect:** that reproduced representative's independent patch of the
+  original skill makes the exact same candidate pass every originally failed property.
 - **Not reproduced:** confirmation completed but did not produce the same signature; it
   does not count in confirmed yield.
 
 A latent flaw in `SKILL.md` is a *fault* in the conceptual sense, but the automated
-experiment cannot directly count source-level fault locations. Its measurable proxy is a
-confirmed, cause-grouped defect. The paper must therefore say “confirmed distinct
-defects” or “confirmed failure-cause groups,” not claim that every group is a uniquely
-located textual fault.
+experiment cannot directly count source-level fault locations. Its conservative proxy is
+a reproduced, repair-validated cause group. The paper must therefore say
+“repair-validated distinct defects” or “repair-validated failure-cause groups,” not claim
+that every group is a uniquely located textual fault.
 
 Failure signatures are fully mechanical. The implementation lowercases the checker
 detail, collapses whitespace, replaces hexadecimal addresses, multi-component absolute
@@ -229,10 +243,44 @@ their normalized signatures differ. Failure grouping and confirmation occur afte
 
 The deterministic representative is the earliest counted execution carrying that
 skill/property/signature. It is rerun exactly once with the same case and checker. A
-confirmation error, timeout, or inconclusive verdict does not count as confirmed and is
-reported under its own status; it is not retried until it happens to pass. If a crash
+confirmation error, timeout, or inconclusive verdict is not reproduced and cannot enter
+headline yield; it is reported under its own status and is not retried. If a crash
 leaves it unknown whether that external rerun happened, recursive verification stops and
 the experiment cell is incomplete rather than issuing a possibly duplicate paid call.
+
+### Per-failure method-assisted repair replay
+
+Confirmation is grouped, but repair is deliberately per raw failed public execution.
+After search, every counted execution with at least one definite property violation gets
+one independent patch of the original skill and one replay of its exact candidate. An
+execution with several violated properties gets one patch/replay containing all of those
+failures. Patches never accumulate or feed later search. The earliest representative's
+`repaired` result is the conservative second gate for headline eligibility; every other
+repair result remains a separately reported method-assisted outcome.
+
+The shared repair evidence for all methods contains the task/environment identity,
+mechanical property errors, and final artifact/diff summary. SkillRACE additionally
+supplies its native reasoning episodes, behavior-tree path, target property, guard and
+mutation rationale, intended/actual branch evidence, and targeted/serendipitous label.
+Random and VeriGrey-inspired receive no SkillRACE-derived reasoning/tree/guard material.
+All conditions retain the same campaign model, temperature, reasoning/output settings,
+300-second timeout, common evidence contract, byte cap, replay budget, candidate, and
+checks. Backend choice is frozen per method: Random and VeriGrey use one direct call;
+SkillRACE uses one constrained Pi patch session with its method-native diagnostics. The
+result is therefore an end-to-end method-assisted outcome, not an equal-information or
+equal-patcher comparison.
+
+The patcher is blind to replay. It cannot run tests, invoke the checker, execute the
+failed request, or validate its own patch. It changes only `SKILL.md` and returns no
+rationale. A terminal patch receipt is written before a separate orchestrator stage
+performs the exact replay. Raw direct responses and Pi traces are not retained.
+Both patch prompts prefer a minimal additive clarification or guardrail and prohibit
+unrelated rewrites; semantic adequacy is decided only by the later replay.
+
+The replay status is `repaired`, `same_failure`, `different_failure`, `timeout`, `error`,
+or `inconclusive`. Hidden tests are never patched or replayed. Same-case repair supports
+causal interpretation, while RQ3 hidden improvement remains the evidence that aggregate
+revision generalizes beyond public failures.
 
 The deliberately wrong implementations stored with RQ3 scenarios are **oracle-validation
 faults**. They prove that hidden checks reject known bad behavior and never count as
@@ -240,7 +288,7 @@ SkillRACE discoveries or headline defects.
 
 ## 7. RQ1 and RQ2 outcomes
 
-The primary RQ1 metric is distinct confirmed-defect yield at 30 counted executions,
+The primary RQ1 metric is distinct repair-validated-defect yield at 30 counted executions,
 reported per skill and aggregated with skill-family-aware uncertainty. Planned secondary
 outputs are:
 
@@ -250,7 +298,7 @@ outputs are:
 - confirmation success rate;
 - generation rejection, fallback, timeout, agent-error, and oracle-inconclusive rates;
 - fixed-versus-compiled finding provenance; and
-- model tokens, dollars, CPU time, and wall time.
+- model tokens, provider credits, CPU time, and wall time.
 
 More precisely, for method `m`, skill `s`, and counted prefix `n`, let
 `D(m,s,n)` be the number of distinct `(skill, property, failure_signature)` groups whose
@@ -269,14 +317,15 @@ status `confirmed`. Then:
   create extra “runs with a violation.”
 
 Every per-skill value and every negative SkillRACE-minus-baseline difference will be
-reported. The primary comparisons are paired differences on the same 22 skills:
+reported. The primary comparisons are paired differences on the same final 30 skills:
 SkillRACE minus Random and SkillRACE minus VeriGrey-inspired. The intended analysis uses
 at least 10,000 family-cluster bootstrap resamples with the frozen analysis RNG seed;
 each sampled family retains all its skills and all three paired methods. It reports the
 mean paired effect and 95% interval, while pooled counts are descriptive rather than
-pretending that 60 properties or 1,980 executions are independent observations. The
-headline analysis implementation and its final frozen seed are still unfinished, so this
-procedure must be encoded, tested, and hashed before any headline result is inspected.
+pretending that individual properties or 2,700 executions are independent observations. The
+The procedure is now encoded in `skillrace.analyze_rq1`, including deterministic
+family-then-skill paired resampling. Its seed/source still must be included in the final
+freeze manifest before any headline result is inspected.
 
 RQ2 labels are produced only for SkillRACE and never gate defect eligibility:
 
@@ -290,33 +339,43 @@ A violated property is `targeted` when its property ID equals the mutation's sel
 target property; otherwise it is `serendipitous`. Branch reach and property relationship
 are separate fields.
 
-The current legacy `aggregate.py` still summarizes raw violated property IDs and is **not
-approved for headline results**. The remaining RQ1 analysis task must consume confirmation
-ledgers, group failure causes, produce family-aware uncertainty, and generate every paper
-table/plot without manual editing.
+The legacy raw-property mode in `aggregate.py` is explicitly diagnostic and **not approved
+for headline results**. Its verified mode delegates to `skillrace.analyze_rq1`, which
+requires complete campaign, confirmation, and per-failure repair receipts and generates
+the machine-owned paper data without manual editing.
 
 ## 8. RQ3 skill-generation experiment
+
+Each model track privately copies the same ten frozen scenario templates and performs
+one exactly-once zero-shot base generation per scenario with that track's model. The two
+generated skills may differ; the normalized benchmark-template hash, which covers all
+hidden tests, references, mutants, oracles, and public campaign inputs while excluding
+only the base skill, must not differ. Across both tracks this is twenty base-generation
+calls, not ten shared calls.
 
 There are ten scenarios, each with a public purpose/campaign package and ten hidden tests.
 The hidden suite totals 100 tests and 192 executable criteria.
 
 For one scenario:
 
-1. Generate one zero-shot base skill with `qwen3.6-flash` and retain its exact prompt,
+1. Generate one zero-shot base skill with the protocol-frozen Yunwu model and retain its exact prompt,
    request bytes, hashed provider identities, usage, cost, stable operation ID, and
    immutable terminal journal receipts.
 2. Test that same base skill with Random, VeriGrey-inspired, and SkillRACE under the same
    30-run allocation as RQ1.
-3. Deduplicate suspected findings and confirm one representative per failure signature
+3. Independently patch the original skill for every raw failed public execution and
+   replay that exact case once. The representative's exact-case result gates RQ1
+   headline eligibility; these repair validations do not enter the RQ3 revision envelope.
+4. Deduplicate suspected findings and confirm one representative per failure signature
    outside the search budget.
-4. Project each method into the same ordered **3,600 canonical-JSON UTF-8 byte** feedback
+5. Project each method into the same ordered **3,600 canonical-JSON UTF-8 byte** feedback
    schema. Deterministic section round-robin prevents verbose generic summaries from
    erasing all method-specific evidence. Actual provider tokens are recorded separately;
    the byte cap is not described as a token cap.
-5. Make one revision call per producer. System/user templates, base skill, model,
+6. Make one revision call per producer. System/user templates, base skill, model,
    temperature, reasoning setting, and output budget are identical; only the envelope
    differs. The zero-shot skill is not revised.
-6. Run four versions—zero-shot and the three revisions—once on each of the ten hidden
+7. Run four versions—zero-shot and the three revisions—once on each of the ten hidden
    tests, for an exact 4×10 matrix.
 
 A hidden test passes only if the verdict set contains exactly the unique criterion IDs in
@@ -326,8 +385,11 @@ partial pass. Strict pass additionally requires applicable fixed invariants. The
 headline denominator is all ten scheduled tests: timeout, error, missing, or
 inconclusive outcomes add no pass to the numerator and are also reported by status.
 
-All four conditions bind the same test contract, Dockerfile/check hashes, resolved base
-image digest, model, and wall-clock limit into their request identity. Recursive
+All four conditions bind the same test contract, Dockerfile/check hashes, oracle
+validation-image digest, model, and wall-clock limit into their request identity. The
+execution copy replaces only the pinned construction-base reference with that model's
+locked Skillgen overlay; the projection and immutable base/built image IDs are recorded.
+Recursive
 verification reloads the current scenario, requires exactly `t1..t10`, rehashes raw
 launch/run/trace/verdict/cost artifacts, recomputes grades, and rejects a stored result
 whose evidence or grade changed.
@@ -359,7 +421,7 @@ scenario tree and `tests/` are not mounted, so an absolute-path read fails. The 
 binary hash/version, argv, mounts, environment-variable names, and policy hash are stored
 and verified on resume.
 
-The campaign process retains host networking for CloseAI and the trusted Docker Unix
+The campaign process retains host networking for Yunwu and the trusted Docker Unix
 socket. The socket is an explicit trust boundary: trusted SkillRACE orchestration could
 ask the host daemon to mount another host path, but generated agents never receive the
 socket and current campaign commands mount only recorded public paths. The artifact tests
@@ -371,29 +433,35 @@ the parent process resolve the hidden test directory and start evaluation.
 
 ## 10. Parallel execution
 
-Parallelism is available but cannot change logical search results:
+Parallelism is available at boundaries that cannot change logical search results:
 
 - Independent method/skill/replication cells run under one manifest scheduler.
 - A global `ResourcePool` separately caps concurrent API, Docker, and agent operations.
-- Random proposals are reserved transactionally in independent batches.
-- VeriGrey-inspired batches are reserved from one frozen greybox state and folded by
-  deterministic coordinate.
-- SkillRACE freezes tree version N and one property-first, branch-diverse target plan for
-  an epoch (default requested epoch size four). Workers synthesize/run immutable cases;
-  one reducer folds completed results in candidate-ID order into version N+1.
+- Every frozen headline campaign is sequential *within its cell* (`epoch_size=1`). This
+  preserves the promised `eNNNN-a00..a04` retry coordinates after any pre-agent
+  generation/build/sanity rejection and lets SkillRACE and VeriGrey fold each counted
+  execution before selecting the next case.
+- RQ1 still keeps the three-agent pool saturated by running up to six independent cells;
+  its shared pool caps API/Docker/agent work at 4/3/3. RQ3 runs up to three independent
+  scenario pipelines, each internally sequential, after a two-worker all-scenario
+  preparation barrier.
+- Random may generate independent ideas in a transactionally recorded batch, but only
+  one candidate per cell advances to execution at a time. VeriGrey and SkillRACE likewise
+  commit each result before the next search decision.
 - Every proposal, external start/terminal event, result, cleanup, and fold has an immutable
   receipt. Durable generation intent permits rollback of unpublished partial adaptive
   state after a crash.
 
-Integration tests reverse worker completion order and require byte-identical tree, cache,
-guards, classifications, generator snapshot, and campaign manifest. The outer experiment
+The non-headline parallel-epoch engine retains reverse-completion determinism tests, but
+frozen protocols reject it so that a rare pre-agent failure cannot create skipped retry
+coordinates. The outer experiment
 driver treats a cell as successful only when it returns `complete: true` and terminal
 `status: completed`; an incomplete campaign cannot be mislabeled successful.
 
-Hidden RQ3 executions and individual property checks are currently correctness-isolated
-but scheduled sequentially inside one scenario pipeline. They are safe future
-parallelization opportunities, not implemented speedup claims. Parallel execution is not
-an experimental arm or ablation; wall-clock and resource peaks are reported.
+Hidden RQ3 executions and individual property checks remain correctness-isolated and
+sequential inside each scenario pipeline; three scenarios may progress independently.
+Parallel execution is not an experimental arm or ablation; wall-clock and resource peaks
+are reported.
 
 ## 11. Crash safety, replay, and cost accounting
 
@@ -403,28 +471,34 @@ fsynced storage. If the process dies after an action may have started but before
 evidence exists, the outcome is `unknown`; the system stops rather than silently paying
 for a second call.
 
-CloseAI requests use stable operation IDs, exact frozen request bytes/hashes, redacted
+Yunwu requests use stable operation IDs, exact frozen request bytes/hashes, redacted
 provider identifier hashes, strict model/usage validation, known or explicitly unknown
 billing, retry receipts, and a permanent ledger. Production pricing fails closed for an
 unknown model. Missing provider usage/cost is never converted to zero.
 
 Campaign cost separates generation, compilation, and agent cost. Confirmation remains
-outside the 30-run budget but its executions, tokens, dollars, and wall time are reported.
-RQ3 reports search, confirmation, revision, hidden evaluation, and inclusive total cost.
+outside the 30-run budget but its executions, tokens, provider credits, and wall time are reported.
+Per-failure patch/replay also remains outside the search budget and is reported separately
+from both confirmation and aggregate revision. RQ3 reports search, confirmation,
+per-failure repair, aggregate revision, hidden evaluation, and inclusive total cost.
 
 ## 12. Datasets and anti-cherry-picking boundary
 
-RQ1's draft headline manifest currently contains the first 22 redistributable public
-code-behavior skills that passed the approved inclusion protocol (in the order of mining
-popularity). This set is from 12 families: 18 high- and four medium-contingency.
-Four original development skills
+RQ1's draft headline manifest contains 30 redistributable public code-behavior skills
+from 20 families: 26 high- and four medium-contingency. The historical 22-skill
+pre-result boundary is preserved, but surviving records do not prove those 22 were a
+literal prefix of the later frozen S5 popularity array, so the artifact does not make
+that claim. Before any headline execution, the July 12 continuation walked the frozen
+628-row S5 pool in recorded popularity order, dispositioned every row through index 445,
+and stopped at its eighth additional strict admit. Four development-used skills
 are excluded because they were used while building/tuning the system. Three public
 candidates are excluded because their redistribution terms are absent or unsafe; their
-content is not shipped. Source commits, paths, hashes, fidelity, license evidence, and 18
-embedded upstream license files are machine audited.
+content is not shipped. Source commits, paths, hashes, fidelity, license evidence, 25
+embedded upstream license files, and the complete continuation partition are machine
+audited.
 
-The 22 skills expose 60 predeclared natural-language properties. Under the same protocol,
-we still need to add eight more qualifying skills before the dataset is finalized.
+The 30 skills expose 90 predeclared natural-language properties. Selection is closed;
+container/runtime verification and immutable freeze hashes remain pre-experiment gates.
 
 | Family | Headline skills (property count) |
 |---|---|
@@ -440,6 +514,14 @@ we still need to add eight more qualifying skills before the dataset is finalize
 | SQL | `sql-queries` (3), `sql-query-generator` (3), `sql-query-json` (3), `sqlmodel-orm` (3) |
 | Testing process | `test-driven-development` (4) |
 | Unit-test generation | `unit-test-generation` (2), `unit-test-generator` (2) |
+| Network validation | `network-config-validation` (4) |
+| HTTP client | `rest-api-caller` (4) |
+| Tabular analysis | `csv-workbench` (4) |
+| CLI scaffolding | `argparse-scaffolder` (4) |
+| Data transformation | `data-transform` (4) |
+| Native build security | `compiler-hardening` (4) |
+| Input-validator generation | `validator-agent` (4) |
+| Log processing | `log-parser` (4) |
 
 The exact family, contingency, image, source, license, property, and applicability files
 are the authority; this table is only a human-readable projection.
@@ -449,10 +531,11 @@ All legally admissible prepared public skills remain in the headline manifest re
 of pilot outcome.
 
 RQ3 has exactly ten scenarios × ten tests. Each criterion has a reference overlay and
-assigned negative implementations. The current Docker audit records 100/100 references
+assigned negative implementations. The previous Docker audit recorded 100/100 references
 passing, 100/100 starting states rejected, and all 215 assigned negative/criterion pairs
-killed. Every criterion was audited in a fresh container. Evidence is bound to contract,
-script, overlay, Docker, and image identities.
+killed, with every criterion in a fresh container. That evidence was explicitly reset
+before the Pi 0.73.1 base migration; replacement evidence is being regenerated and must
+again reach the same complete gate before freeze.
 
 | RQ3 scenario | Hidden tests | Executable criteria |
 |---|---:|---:|
@@ -492,12 +575,13 @@ protocol; draft/pilot outputs remain visibly separate.
 The protocol controls many avoidable biases, but it does not erase these limitations:
 
 - **One stochastic replication.** One campaign per method/skill cannot estimate
-  run-to-run variance well. The study prioritizes 22-skill breadth and paired comparisons
+  run-to-run variance well. The study prioritizes 30-skill breadth and paired comparisons
   under a fixed budget; claims must be about this model/configuration and must show every
   skill, not universal superiority.
-- **A single model.** Using `qwen3.6-flash` everywhere removes cross-method model
-  confounding and cost explosion, but limits external validity to other models. No claim
-  of model-independence is supported.
+- **Two model-frozen tracks.** Within each track, one model everywhere removes
+  cross-method model confounding. Repeating the complete study with GLM and DeepSeek
+  probes robustness across two agents, but it is still not evidence of universal
+  model-independence. Outcomes and costs are never pooled across tracks.
 - **Full-system rather than component causality.** SkillRACE receives properties for
   target selection and pays for additional semantic calls; Greybox sees only L1 tool
   events; Random sees no execution feedback. These are the techniques being compared,
@@ -541,13 +625,22 @@ The protocol controls many avoidable biases, but it does not erase these limitat
 - Exact 30-run campaign accounting and method information boundaries.
 - Crash-safe sequential and frozen-epoch parallel campaign execution.
 - Deterministic reverse-completion replay.
-- D1 selection/licensing/image audit for 22 public skills.
-- D2 structural and fresh-container runtime audit for 10 scenarios, 100 tests, 192
-  checks, and 215 assigned negative pairs.
+- D1 selection/licensing/provenance audit for 30 public skills, including an exact
+  partition of the popularity-ordered continuation through its stop row.
+- D2 structural/runtime audit for 10 scenarios, 100 tests, 192 checks, and 215 assigned
+  negative pairs under the Pi 0.73.1 construction runtime.
 - Pre-run compiled property checks and isolated execution.
-- Durable redacted CloseAI journal and `/2` base/revision provenance.
+- Durable redacted Yunwu journal and `/2` base/revision provenance.
 - RQ3 confirmation, equal byte-bounded feedback, and exactly-once revision/hidden
   execution primitives.
+- Exactly-once per-raw-failure original-skill patch and exact-case replay, with richer
+  SkillRACE-native evidence and shared baseline failure evidence under one byte cap.
+- Guided Pi patch-only repair with mandatory skill/evidence reads, one bounded
+  `SKILL.md` mutation, separate exact replay, token/cache/cost accounting, and strict
+  bounded-development RQ1 verification. The latest live chain returned `same_failure`
+  and therefore zero confirmed defects.
+- RQ1 grouped confirmation plus strict confirmed-yield, discovery, repair, cost, and
+  family-paired analysis with deterministic JSON/CSV/TeX/plot-source outputs.
 - Offline artifact smoke script and explicit requirements/status documents.
 
 ### Recently integrated and focused-verified
@@ -563,15 +656,23 @@ artifact rehearsal remains unfinished.
 
 ### Not finished
 
+- Pre-run semantic audit of generated checkers. The latest development replay exposed a
+  hidden JSON-output requirement and an invalid callable invocation; an inventory also
+  found suspicious missing-artifact-vacuity and stdout-as-JSON patterns. Further paid
+  effectiveness pilots wait on this validity gate.
+- One new bounded patch/replay/analysis gate using a manually defensible failure and
+  checker after the semantic checker fix.
 - Final independent adversarial rereview after the RQ3 integrations above.
-- Headline-ready RQ1 defect grouping/confirmation analysis, family-aware uncertainty,
-  plots, and table generator. Current `aggregate.py` is diagnostic only.
 - Frozen main experiment/analysis manifests and archive hashes.
 - A clean-checkout, sub-30-minute artifact rehearsal and final documentation consistency
   pass.
-- Ten zero-shot RQ3 base-skill regenerations with `/2` provenance.
-- Any current live multi-family Qwen/Pi pilot: CloseAI returns HTTP 403 consistent with
-  insufficient balance.
+- Twenty zero-shot RQ3 base-skill generations (ten per model track) with `/2`
+  provenance and an identical cross-track benchmark-template hash.
+- Yunwu rate evidence, direct receipts, provider-credit accounting, Pi 0.73.1 image IDs,
+  multi-turn reasoning traces, and complete draft schedules pass offline validation for
+  both track models. All 62 D1/RQ3 track images pass networkless lock validation, and the
+  replacement 100-test D2 runtime matrix is current. The bounded pilot, frozen identity
+  copies, clean regression/rehearsal, and final recursive protocol hashes remain unfinished.
 - All headline RQ1/RQ3 executions and result tables. No claim that SkillRACE wins has yet
   been measured.
 
@@ -596,5 +697,6 @@ The complete offline suite is:
 .venv/bin/python -m pytest -m 'not live'
 ```
 
-Paid commands must not be used until `STATUS.md` says the manifests are frozen and the
-CloseAI account is funded.
+Headline paid commands must not be used until `STATUS.md` says the checker-validity and
+bounded-pilot gates pass, manifests are frozen, Yunwu connectivity is recorded, and its
+account is funded.

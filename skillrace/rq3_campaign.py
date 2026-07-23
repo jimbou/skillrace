@@ -10,6 +10,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from .io_utils import atomic_write_json, canonical_json_hash, file_hash
+from .model_policy import DEFAULT_DEVELOPMENT_MODEL, require_experiment_model
 
 
 class CampaignArtifactError(ValueError):
@@ -109,13 +110,13 @@ def _generation_cost(state: Mapping[str, Any]) -> float:
     bootstrap = state.get("bootstrap_generator_state")
     main = main if isinstance(main, Mapping) else {}
     bootstrap = bootstrap if isinstance(bootstrap, Mapping) else {}
-    main_cost = _cost(main.get("gen_cost_usd", 0.0) or 0.0, "generator cost")
+    main_cost = _cost(main.get("gen_cost_provider_credits", 0.0) or 0.0, "generator cost")
     # SkillRACE's snapshot already includes its owned seed generator cost.  The
     # engine also stores that same seed object as bootstrap state, so do not count it twice.
     if main.get("schema") == "skillrace-generator/1":
         return main_cost
     return main_cost + _cost(
-        bootstrap.get("gen_cost_usd", 0.0) or 0.0, "bootstrap generator cost"
+        bootstrap.get("gen_cost_provider_credits", 0.0) or 0.0, "bootstrap generator cost"
     )
 
 
@@ -141,7 +142,7 @@ def derive_campaign_cost_record(
         result = attempt.get("result")
         result = result if isinstance(result, Mapping) else {}
         compile_cost += _cost(
-            result.get("compile_cost_usd", attempt.get("compile_cost_usd", 0.0)) or 0.0,
+            result.get("compile_cost_provider_credits", attempt.get("compile_cost_provider_credits", 0.0)) or 0.0,
             "compile cost",
         )
         if attempt.get("consume_budget") is not True:
@@ -151,7 +152,12 @@ def derive_campaign_cost_record(
         run_path = _safe_run_file(root, run, "run.json")
         if cost_path is not None:
             raw_cost = _read(cost_path, "agent cost receipt")
-            usd = raw_cost.get("usd", raw_cost.get("price_usd", raw_cost.get("cost_usd", 0.0)))
+            credits = raw_cost.get(
+                "cost_provider_credits",
+                raw_cost.get(
+                    "provider_credits", raw_cost.get("price_provider_credits", 0.0)
+                ),
+            )
             incoming = raw_cost.get("in", raw_cost.get("input_tokens", 0))
             outgoing = raw_cost.get("out", raw_cost.get("output_tokens", 0))
             receipt_link = {
@@ -160,10 +166,12 @@ def derive_campaign_cost_record(
                 "file_hash": file_hash(cost_path),
             }
         else:
-            usd = result.get("agent_cost_usd", result.get("cost_usd"))
+            credits = result.get(
+                "agent_cost_provider_credits", result.get("cost_provider_credits")
+            )
             incoming = result.get("input_tokens")
             outgoing = result.get("output_tokens")
-            if usd is None or incoming is None or outgoing is None:
+            if credits is None or incoming is None or outgoing is None:
                 raise CampaignArtifactError(
                     f"counted attempt {attempt.get('attempt_id')} lacks an agent cost receipt"
                 )
@@ -173,7 +181,7 @@ def derive_campaign_cost_record(
                 "file_hash": None,
                 "embedded_result_hash": canonical_json_hash(result),
             }
-        agent_cost += _cost(usd, "agent cost")
+        agent_cost += _cost(credits, "agent cost")
         if not isinstance(incoming, int) or incoming < 0 or not isinstance(outgoing, int) or outgoing < 0:
             raise CampaignArtifactError("agent token counts must be non-negative integers")
         input_tokens += incoming
@@ -192,15 +200,15 @@ def derive_campaign_cost_record(
     value = {
         "schema": "skillrace-rq3-campaign-costs/1",
         "source_campaign_hash": canonical_json_hash(state),
-        "generation_usd": round(generation_cost, 6),
-        "compile_usd": round(compile_cost, 6),
-        "agent_usd": round(agent_cost, 6),
-        "total_usd": round(generation_cost + compile_cost + agent_cost, 6),
+        "generation_provider_credits": round(generation_cost, 6),
+        "compile_provider_credits": round(compile_cost, 6),
+        "agent_provider_credits": round(agent_cost, 6),
+        "total_provider_credits": round(generation_cost + compile_cost + agent_cost, 6),
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "agent_ids": agent_ids,
         "agent_cost_receipts": receipts,
-        "confirmation_usd": 0.0,
+        "confirmation_provider_credits": 0.0,
         "confirmation_executions": 0,
     }
     output = path.parent / "rq3-costs.json"
@@ -296,6 +304,7 @@ def validate_campaign_artifact(
     expected_method: str,
     expected_protocol_hash: str,
     expected_base_skill_hash: str,
+    expected_model: str = DEFAULT_DEVELOPMENT_MODEL,
 ) -> dict[str, Any]:
     """Recursively validate a complete generic campaign/2 as an RQ3 input."""
 
@@ -305,6 +314,7 @@ def validate_campaign_artifact(
         raise CampaignArtifactError("RQ3 requires a campaign/2 artifact")
     protocol_hash = _digest(expected_protocol_hash, "expected_protocol_hash")
     base_hash = _digest(expected_base_skill_hash, "expected_base_skill_hash")
+    track_model = require_experiment_model(expected_model)
     embedded = state.get("protocol")
     if not isinstance(embedded, Mapping) or canonical_json_hash(embedded) != state.get("protocol_hash"):
         raise CampaignArtifactError("embedded protocol hash mismatch")
@@ -323,8 +333,8 @@ def validate_campaign_artifact(
         or state.get("complete") is not True
         or state.get("status") != "completed"
         or state.get("allocation") != allocation
-        or state.get("model") != "qwen3.6-flash"
-        or state.get("agent_model") != "qwen3.6-flash"
+        or state.get("model") != track_model
+        or state.get("agent_model") != track_model
     ):
         raise CampaignArtifactError("campaign does not satisfy the frozen complete allocation")
     inputs = _read(path.parent / "rq3-input.json", "RQ3 campaign input")
@@ -427,8 +437,8 @@ def validate_campaign_artifact(
             )
         run_manifest = _read(run_path, "agent run manifest")
         agent_id = result.get("agent_id") or result.get("run_id")
-        if run_manifest.get("model") != "qwen3.6-flash":
-            raise CampaignArtifactError("raw run model differs from frozen qwen3.6-flash")
+        if run_manifest.get("model") != track_model:
+            raise CampaignArtifactError("raw run model differs from frozen track model")
         if run_manifest.get("agent_started") is not True:
             raise CampaignArtifactError("raw run manifest lacks agent_started=True")
         if run_manifest.get("run_id") != agent_id:
@@ -440,11 +450,11 @@ def validate_campaign_artifact(
     costs = _read(path.parent / "rq3-costs.json", "RQ3 campaign costs")
     if costs.get("source_campaign_hash") != canonical_json_hash(state):
         raise CampaignArtifactError("campaign cost record source hash mismatch")
-    for field in ("generation_usd", "compile_usd", "agent_usd", "total_usd"):
+    for field in ("generation_provider_credits", "compile_provider_credits", "agent_provider_credits", "total_provider_credits"):
         _cost(costs.get(field), f"campaign cost {field}")
-    if round(costs["generation_usd"] + costs["compile_usd"] + costs["agent_usd"], 6) != costs["total_usd"]:
+    if round(costs["generation_provider_credits"] + costs["compile_provider_credits"] + costs["agent_provider_credits"], 6) != costs["total_provider_credits"]:
         raise CampaignArtifactError("campaign cost total mismatch")
-    if costs.get("confirmation_usd") != 0.0 or costs.get("confirmation_executions") != 0:
+    if costs.get("confirmation_provider_credits") != 0.0 or costs.get("confirmation_executions") != 0:
         raise CampaignArtifactError("search campaign costs must exclude confirmation")
     agent_ids = costs.get("agent_ids")
     if not isinstance(agent_ids, list) or len(agent_ids) != 30 or any(
@@ -483,10 +493,10 @@ def validate_campaign_artifact(
         "budget": 30,
         "counted_executions": 30,
         "complete": True,
-        "model": "qwen3.6-flash",
-        "agent_model": "qwen3.6-flash",
+        "model": track_model,
+        "agent_model": track_model,
         "allocation": allocation,
-        "cost_usd": costs["total_usd"],
+        "cost_provider_credits": costs["total_provider_credits"],
         "input_tokens": costs.get("input_tokens", 0),
         "output_tokens": costs.get("output_tokens", 0),
         "agent_ids": list(agent_ids),

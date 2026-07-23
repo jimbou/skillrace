@@ -1,0 +1,26 @@
+{
+  "providers": {
+    "yunwu": {
+      "baseUrl": "https://yunwu.ai/v1",
+      "api": "openai-completions",
+      "apiKey": "yunwu_key",
+      "authHeader": true,
+      "models": [
+        {
+          "id": "grok-4-1-fast-reasoning",
+          "name": "Yunwu Grok 4.1 Fast Reasoning (Retired Alias)",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 128000,
+          "maxTokens": 8192,
+          "compat": {
+            "supportsDeveloperRole": false,
+            "supportsReasoningEffort": true,
+            "thinkingFormat": "openai",
+            "requiresAssistantAfterToolResult": true
+          }
+        }
+      ]
+    }
+  }
+}

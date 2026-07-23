@@ -7,6 +7,7 @@ import json
 import multiprocessing
 import pathlib
 import threading
+import time
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor
 
@@ -29,10 +30,17 @@ class FakeResponse(io.BytesIO):
         self.close()
 
 
+def _slow_successful_urlopen(_request, timeout):
+    """Longer than a hard test deadline, but eventually a valid response."""
+    assert timeout > 0
+    threading.Event().wait(0.2)
+    return FakeResponse(_response())
+
+
 def _response(*, content="provider output must stay private", response_id="chatcmpl-1"):
     return {
         "id": response_id,
-        "model": "qwen3.6-flash",
+        "model": "glm-4.5-flash",
         "choices": [{"message": {"role": "assistant", "content": content}}],
         "usage": {
             "prompt_tokens": 11,
@@ -54,7 +62,7 @@ def _receipts(path: pathlib.Path):
 @pytest.fixture
 def direct_call(tmp_path, monkeypatch):
     ledger = tmp_path / "cost-ledger.jsonl"
-    monkeypatch.setenv("CLOSE_API_KEY", "top-secret-api-key")
+    monkeypatch.setenv("yunwu_key", "top-secret-api-key")
     monkeypatch.setenv("SKILLRACE_LEDGER", str(ledger))
     monkeypatch.setattr(closeai.time, "sleep", lambda seconds: None)
     return ledger
@@ -81,7 +89,7 @@ def test_success_journals_redacted_intent_and_one_priced_terminal(
             {"role": "system", "content": "private system message"},
             {"role": "user", "content": "private user prompt"},
         ],
-        model="qwen3.6-flash",
+        model="glm-4.5-flash",
         temperature=0.25,
         max_tokens=321,
         reasoning=False,
@@ -92,7 +100,10 @@ def test_success_journals_redacted_intent_and_one_priced_terminal(
 
     assert result["content"] == "provider output must stay private"
     assert result["usage"]["total_tokens"] == 18
-    assert result["cost_usd"] == pytest.approx((11 * 0.144 + 7 * 0.88) / 1e6)
+    assert result["cost_provider_credits"] == pytest.approx(
+        (11 * 0.02 + 7 * 0.08) / 1e6
+    )
+    assert result["cost_usd"] is None
 
     rows = _records(direct_call)
     assert [row["event"] for row in rows] == ["intent", "terminal"]
@@ -101,24 +112,26 @@ def test_success_journals_redacted_intent_and_one_priced_terminal(
     assert intent["retry_ordinal"] == terminal["retry_ordinal"] == 1
     assert intent["status"] == "pending"
     assert terminal["status"] == "success"
-    assert intent["model"] == "qwen3.6-flash"
+    assert intent["model"] == "glm-4.5-flash"
     assert intent["temperature"] == 0.25
     assert intent["max_tokens"] == 321
     assert intent["reasoning"] is False
     assert intent["tag"] == "generate.propose"
     assert intent["skill"] == "json-csv"
     assert intent["tag_sha256"] == hashlib.sha256(b"generate.propose").hexdigest()
+
     assert intent["skill_sha256"] == hashlib.sha256(b"json-csv").hexdigest()
     messages = [
         {"role": "system", "content": "private system message"},
         {"role": "user", "content": "private user prompt"},
     ]
     payload = {
-        "model": "qwen3.6-flash",
+        "model": "glm-4.5-flash",
         "messages": messages,
         "temperature": 0.25,
         "max_tokens": 321,
         "enable_thinking": False,
+        "thinking": {"type": "disabled"},
     }
     assert intent["messages_sha256"] == canonical_json_hash(messages)
     expected_request = canonical_json_bytes(payload)
@@ -133,16 +146,20 @@ def test_success_journals_redacted_intent_and_one_priced_terminal(
     assert "provider_response_id" not in terminal
     assert "provider_request_id" not in terminal
     assert terminal["http_status"] == 200
-    assert terminal["provider_model"] == "qwen3.6-flash"
+    assert terminal["provider_model"] == "glm-4.5-flash"
     assert terminal["pricing_table_version"] == closeai.PRICING_TABLE_VERSION
     assert terminal["usage"] == {
         "prompt_tokens": 11,
         "completion_tokens": 7,
         "total_tokens": 18,
     }
-    assert terminal["cost_usd"] == pytest.approx(result["cost_usd"])
+    assert terminal["billing_currency"] == "YUNWU_CREDIT"
+    assert terminal["cost_provider_credits"] == pytest.approx(
+        result["cost_provider_credits"]
+    )
+    assert terminal["cost_usd"] is None
     assert terminal["latency_ms"] >= 0
-    assert sum(row.get("cost_usd", 0) > 0 for row in rows) == 1
+    assert sum((row.get("cost_provider_credits") or 0) > 0 for row in rows) == 1
 
     raw = direct_call.read_text() + "".join(
         receipt.read_text()
@@ -157,6 +174,93 @@ def test_success_journals_redacted_intent_and_one_priced_terminal(
         "provider output must stay private",
     ):
         assert secret not in raw
+
+
+def test_yunwu_usage_details_preserve_reasoning_and_apply_cache_rate(
+    direct_call, monkeypatch
+):
+    response = {
+        "id": "deepseek-usage-details",
+        "model": "deepseek-v4-flash",
+        "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+        "usage": {
+            "prompt_tokens": 100,
+            "completion_tokens": 20,
+            "total_tokens": 120,
+            "prompt_tokens_details": {"cached_tokens": 40},
+            "completion_tokens_details": {"reasoning_tokens": 12},
+        },
+    }
+    monkeypatch.setattr(
+        closeai.urllib.request,
+        "urlopen",
+        lambda request, timeout: FakeResponse(response),
+    )
+    result = closeai.chat(
+        [{"role": "user", "content": "usage details"}],
+        model="deepseek-v4-flash",
+        operation_id="test.deepseek-usage-details",
+        retries=1,
+    )
+
+    expected = (60 * 1.0 + 40 * 0.02 + 20 * 2.0) / 1_000_000
+    assert result["cost_provider_credits"] == pytest.approx(expected)
+    terminal = next(
+        row for row in _records(direct_call) if row.get("event") == "terminal"
+    )
+    assert terminal["usage"]["cached_input_tokens"] == 40
+    assert terminal["usage"]["reasoning_tokens"] == 12
+    assert terminal["cost_provider_credits"] == pytest.approx(expected)
+    assert terminal["cost_usd"] is None
+
+
+def test_yunwu_transport_uses_the_yumwu_key_environment_variable(
+    tmp_path, monkeypatch
+):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["authorization"] = request.get_header("Authorization")
+        return FakeResponse(_response())
+
+    monkeypatch.delenv("yunwu_key", raising=False)
+    monkeypatch.delenv("yumwu_key", raising=False)
+    monkeypatch.setenv("yumwu_key", "yunwu-fixture-secret")
+    monkeypatch.setenv("SKILLRACE_LEDGER", str(tmp_path / "ledger.jsonl"))
+    monkeypatch.setattr(closeai.urllib.request, "urlopen", fake_urlopen)
+
+    closeai.chat(
+        [{"role": "user", "content": "minimal provider test"}],
+        retries=1,
+    )
+
+    assert captured == {
+        "url": "https://yunwu.ai/v1/chat/completions",
+        "authorization": "Bearer yunwu-fixture-secret",
+    }
+
+
+def test_yunwu_transport_prefers_the_canonical_yunwu_key_environment_variable(
+    tmp_path, monkeypatch
+):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["authorization"] = request.get_header("Authorization")
+        return FakeResponse(_response())
+
+    monkeypatch.setenv("yunwu_key", "canonical-fixture-secret")
+    monkeypatch.setenv("yumwu_key", "compatibility-fixture-secret")
+    monkeypatch.setenv("SKILLRACE_LEDGER", str(tmp_path / "ledger.jsonl"))
+    monkeypatch.setattr(closeai.urllib.request, "urlopen", fake_urlopen)
+
+    closeai.chat(
+        [{"role": "user", "content": "canonical provider test"}],
+        retries=1,
+    )
+
+    assert captured["authorization"] == "Bearer canonical-fixture-secret"
 
 
 def test_success_returns_redacted_durable_terminal_receipt_identity(
@@ -179,7 +283,7 @@ def test_success_returns_redacted_durable_terminal_receipt_identity(
     receipt = result["journal_terminal_receipt"]
     call_terminal = result["journal_call_terminal_receipt"]
     assert result["operation_id"] == "rq3-base-stable-operation"
-    assert result["provider_model"] == "qwen3.6-flash"
+    assert result["provider_model"] == "glm-4.5-flash"
     assert result["provider_response_id_sha256"] == hashlib.sha256(
         b"chatcmpl-1"
     ).hexdigest()
@@ -217,7 +321,7 @@ def test_success_returns_redacted_durable_terminal_receipt_identity(
     [
         ("model", "wrong-model", "model"),
         ("usage", None, "usage"),
-        ("cost_usd", None, "cost"),
+        ("cost_provider_credits", None, "cost"),
         ("billing_status", "unknown", "billing status"),
         ("operation_id", "wrong-operation", "operation identity"),
         ("journal_terminal_receipt", None, "terminal receipt"),
@@ -244,7 +348,7 @@ def test_chat_result_validation_fails_closed_on_incomplete_provenance(
     with pytest.raises(closeai.ResponseSchemaError, match=message):
         closeai.validate_chat_result(
             malformed,
-            expected_model="qwen3.6-flash",
+            expected_model="glm-4.5-flash",
             expected_operation_id=operation_id,
         )
 
@@ -315,6 +419,43 @@ def test_retry_exhaustion_is_bounded_and_every_attempt_is_terminal(
     assert "private diagnostics" not in direct_call.read_text()
 
 
+def test_hard_wall_deadline_marks_provider_outcome_unknown_without_replay(
+    direct_call, monkeypatch
+):
+    # ``urlopen(..., timeout=...)`` alone is an idle-socket timeout. A response that
+    # remains active longer than the policy deadline must not leave the campaign thread
+    # blocked or be retried as though its provider outcome were known.
+    monkeypatch.setattr(
+        closeai.urllib.request, "urlopen", _slow_successful_urlopen
+    )
+    monkeypatch.setattr(
+        closeai, "_ORIGINAL_URLOPEN", _slow_successful_urlopen, raising=False
+    )
+    monkeypatch.setattr(
+        closeai, "_HTTP_PROCESS_CONTEXT", "fork", raising=False
+    )
+
+    started = time.monotonic()
+    with pytest.raises(closeai.OutcomeUnknownError, match="outcome is unknown"):
+        closeai.chat(
+            [{"role": "user", "content": "private"}],
+            retries=3,
+            timeout_seconds=0.02,
+            operation_id="hard-wall-deadline",
+        )
+
+    assert time.monotonic() - started < 0.15
+    rows = _records(direct_call)
+    assert [(row["event"], row["status"], row["retry_ordinal"]) for row in rows] == [
+        ("intent", "pending", 1),
+        ("terminal", "outcome_unknown", 1),
+    ]
+    assert any(
+        row["event"] == "call_terminal" and row["status"] == "outcome_unknown"
+        for row in _receipts(direct_call)
+    )
+
+
 @pytest.mark.parametrize("retries", [0, -1, 11, True])
 def test_retry_bound_is_validated_before_provider_call(
     direct_call, monkeypatch, retries
@@ -369,7 +510,7 @@ def test_request_parameters_are_bounded_before_provider_or_journal(
         (
             {
                 "id": "malformed-response-id",
-                "model": "qwen3.6-flash",
+                "model": "glm-4.5-flash",
                 "choices": [],
                 "usage": {"prompt_tokens": 1, "completion_tokens": 1},
             },
@@ -378,7 +519,7 @@ def test_request_parameters_are_bounded_before_provider_or_journal(
         (
             {
                 "id": "malformed-response-id",
-                "model": "qwen3.6-flash",
+                "model": "glm-4.5-flash",
                 "choices": [{"message": {"content": "hello"}}],
                 "usage": {"prompt_tokens": "one", "completion_tokens": 1},
             },
@@ -411,10 +552,14 @@ def test_malformed_provider_response_is_a_journaled_attempt_error(
             "completion_tokens": 1,
             "total_tokens": 2,
         }
-        assert rows[-1]["cost_usd"] == pytest.approx((0.144 + 0.88) / 1e6)
+        assert rows[-1]["cost_provider_credits"] == pytest.approx(
+            (0.02 + 0.08) / 1e6
+        )
+        assert rows[-1]["cost_usd"] is None
     else:
         assert rows[-1]["billing_status"] == "unknown"
         assert rows[-1]["usage"] is None
+        assert rows[-1]["cost_provider_credits"] is None
         assert rows[-1]["cost_usd"] is None
 
 
@@ -477,7 +622,7 @@ def test_strict_response_contract_rejects_unsafe_or_inconsistent_values(
 
 
 def test_explicit_bounded_provider_model_alias_is_accepted(direct_call, monkeypatch):
-    alias = "closeai/qwen3.6-flash"
+    alias = "closeai/glm-4.5-flash"
     monkeypatch.setattr(
         closeai.urllib.request,
         "urlopen",
@@ -531,9 +676,11 @@ def test_unsafe_provider_identifiers_are_rejected_and_never_logged(
     if response_id == "unsafe response id":
         assert terminal["billing_status"] == "known"
         assert terminal["usage"]["total_tokens"] == 18
-        assert terminal["cost_usd"] is not None
+        assert terminal["cost_provider_credits"] is not None
+        assert terminal["cost_usd"] is None
     else:
         assert terminal["billing_status"] == "unknown"
+        assert terminal["cost_provider_credits"] is None
         assert terminal["cost_usd"] is None
     assert terminal["http_status"] == 200
 
@@ -776,7 +923,7 @@ def test_stable_operation_id_deduplicates_a_durable_terminal_call(
     rows = _records(direct_call)
     assert [row["event"] for row in rows] == ["intent", "terminal"]
     assert any(row["event"] == "call_terminal" for row in _receipts(direct_call))
-    assert sum((row.get("cost_usd") or 0) > 0 for row in rows) == 1
+    assert sum((row.get("cost_provider_credits") or 0) > 0 for row in rows) == 1
 
 
 def test_concurrent_different_requests_cannot_share_one_operation_claim(
@@ -999,7 +1146,7 @@ def test_message_hash_is_derived_from_the_frozen_request_not_live_messages(
 def test_ledger_path_is_resolved_at_call_time_and_explicit_path_wins(
     tmp_path, monkeypatch
 ):
-    monkeypatch.setenv("CLOSE_API_KEY", "secret")
+    monkeypatch.setenv("yumwu_key", "secret")
     monkeypatch.setattr(closeai.time, "sleep", lambda seconds: None)
     monkeypatch.setattr(
         closeai.urllib.request,
@@ -1033,7 +1180,7 @@ def test_one_absolute_ledger_path_is_frozen_for_the_whole_call(
     first_directory.mkdir()
     second_directory.mkdir()
     monkeypatch.chdir(first_directory)
-    monkeypatch.setenv("CLOSE_API_KEY", "secret")
+    monkeypatch.setenv("yumwu_key", "secret")
     monkeypatch.setenv("SKILLRACE_LEDGER", "relative-ledger.jsonl")
 
     def move_environment_during_provider_call(request, timeout):
@@ -1052,7 +1199,7 @@ def test_one_absolute_ledger_path_is_frozen_for_the_whole_call(
 def test_production_fails_before_provider_when_intent_cannot_be_persisted(
     tmp_path, monkeypatch
 ):
-    monkeypatch.setenv("CLOSE_API_KEY", "secret")
+    monkeypatch.setenv("yumwu_key", "secret")
     unusable = tmp_path / "is-a-directory"
     unusable.mkdir()
     provider_called = False
@@ -1087,7 +1234,7 @@ def test_ledger_resolution_is_sanitized_fail_closed_or_explicitly_fail_open(
         provider_calls += 1
         return FakeResponse(_response())
 
-    monkeypatch.setenv("CLOSE_API_KEY", "secret")
+    monkeypatch.setenv("yumwu_key", "secret")
     monkeypatch.setattr(closeai.urllib.request, "urlopen", fake_urlopen)
     path = UnresolvablePath()
 
@@ -1108,7 +1255,7 @@ def test_ledger_resolution_is_sanitized_fail_closed_or_explicitly_fail_open(
     )
     legacy_cost = closeai.log_usage(
         "run.agent",
-        "qwen3.6-flash",
+        "glm-4.5-flash",
         4,
         2,
         "demo",
@@ -1117,13 +1264,13 @@ def test_ledger_resolution_is_sanitized_fail_closed_or_explicitly_fail_open(
 
     assert result["content"] == "provider output must stay private"
     assert provider_calls == 1
-    assert legacy_cost == pytest.approx((4 * 0.144 + 2 * 0.88) / 1e6)
+    assert legacy_cost == pytest.approx((4 * 0.02 + 2 * 0.08) / 1e6)
 
 
 def test_explicit_development_mode_is_fail_open_and_legacy_usage_stays_safe(
     tmp_path, monkeypatch
 ):
-    monkeypatch.setenv("CLOSE_API_KEY", "secret")
+    monkeypatch.setenv("yumwu_key", "secret")
     unusable = tmp_path / "is-a-directory"
     unusable.mkdir()
     monkeypatch.setattr(
@@ -1139,11 +1286,11 @@ def test_explicit_development_mode_is_fail_open_and_legacy_usage_stays_safe(
         journal_mode="development",
     )
     legacy_cost = closeai.log_usage(
-        "run.agent", "qwen3.6-flash", 4, 2, "demo", ledger_path=unusable
+        "run.agent", "glm-4.5-flash", 4, 2, "demo", ledger_path=unusable
     )
 
     assert result["content"] == "provider output must stay private"
-    assert legacy_cost == pytest.approx((4 * 0.144 + 2 * 0.88) / 1e6)
+    assert legacy_cost == pytest.approx((4 * 0.02 + 2 * 0.08) / 1e6)
 
 
 def test_legacy_development_usage_drops_unsafe_metadata_without_leaking(
@@ -1153,14 +1300,14 @@ def test_legacy_development_usage_drops_unsafe_metadata_without_leaking(
 
     cost = closeai.log_usage(
         "private user prompt",
-        "qwen3.6-flash",
+        "glm-4.5-flash",
         4,
         2,
         "demo",
         ledger_path=ledger,
     )
 
-    assert cost == pytest.approx((4 * 0.144 + 2 * 0.88) / 1e6)
+    assert cost == pytest.approx((4 * 0.02 + 2 * 0.08) / 1e6)
     assert not ledger.exists()
 
 
@@ -1175,7 +1322,7 @@ def test_identical_legacy_usage_events_in_same_clock_tick_are_not_deduplicated(
             executor.map(
                 lambda _: closeai.log_usage(
                     "run.agent",
-                    "qwen3.6-flash",
+                    "glm-4.5-flash",
                     4,
                     2,
                     "demo",
@@ -1194,7 +1341,7 @@ def _write_legacy_rows(path: str, process_number: int, count: int):
     for index in range(count):
         closeai.log_usage(
             f"process-{process_number}-{index}",
-            "qwen3.6-flash",
+            "glm-4.5-flash",
             index,
             index + 1,
             ledger_path=path,
@@ -1336,3 +1483,179 @@ def test_direct_call_journal_is_thread_safe(direct_call, monkeypatch):
     assert all(
         sum(row["call_id"] == call_id for row in rows) == 2 for call_id in call_ids
     )
+
+
+@pytest.mark.parametrize("model", ["glm-4.5", "glm-4.5-air", "glm-4.7"])
+def test_supported_glm_helpers_use_native_thinking_disable_contract(model):
+    body, identity = closeai._chat_request_body_and_identity(
+        [{"role": "user", "content": "hello"}],
+        model=model,
+        temperature=0.0,
+        max_tokens=32,
+        reasoning=False,
+    )
+
+    payload = json.loads(body)
+    assert payload["enable_thinking"] is False
+    assert payload["thinking"] == {"type": "disabled"}
+    assert payload["max_tokens"] == 32
+    assert identity["reasoning"] is False
+
+
+@pytest.mark.parametrize(
+    ("model", "token_field"),
+    [("glm-4.7", "max_tokens"), ("gpt-5.4-mini", "max_output_tokens")],
+)
+def test_request_helper_omits_an_unspecified_output_token_limit(model, token_field):
+    body, identity = closeai._chat_request_body_and_identity(
+        [{"role": "user", "content": "hello"}],
+        model=model,
+        temperature=0.0,
+        max_tokens=None,
+        reasoning=False,
+    )
+
+    assert token_field not in json.loads(body)
+    assert identity["max_tokens"] is None
+
+
+def test_chat_accepts_and_journals_an_omitted_output_token_limit(
+    direct_call, monkeypatch
+):
+    sent = []
+
+    def capture(request, timeout):
+        sent.append(json.loads(request.data))
+        return FakeResponse(_response())
+
+    monkeypatch.setattr(closeai.urllib.request, "urlopen", capture)
+
+    closeai.chat(
+        [{"role": "user", "content": "short answer"}],
+        max_tokens=None,
+        retries=1,
+    )
+
+    assert "max_tokens" not in sent[0]
+    intent = next(row for row in _records(direct_call) if row["event"] == "intent")
+    assert intent["max_tokens"] is None
+
+
+def test_qwen35_plus_helpers_explicitly_select_hybrid_thinking_mode():
+    enabled_body, enabled_identity = closeai._chat_request_body_and_identity(
+        [{"role": "user", "content": "hello"}],
+        model="qwen3.5-plus",
+        temperature=0.0,
+        max_tokens=32,
+        reasoning=True,
+    )
+    disabled_body, disabled_identity = closeai._chat_request_body_and_identity(
+        [{"role": "user", "content": "hello"}],
+        model="qwen3.5-plus",
+        temperature=0.0,
+        max_tokens=32,
+        reasoning=False,
+    )
+
+    assert json.loads(enabled_body)["enable_thinking"] is True
+    assert enabled_identity["reasoning"] is True
+    assert json.loads(disabled_body)["enable_thinking"] is False
+    assert disabled_identity["reasoning"] is False
+
+
+def _stream_response(chunks):
+    body = "".join(
+        f"data: {json.dumps(chunk, separators=(',', ':'))}\n\n" for chunk in chunks
+    ) + "data: [DONE]\n\n"
+
+    class Response(io.BytesIO):
+        status = 200
+        headers = {"x-request-id": "stream-request-123"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            self.close()
+
+    return Response(body.encode())
+
+
+def test_glm45_direct_call_uses_streaming_and_aggregates_strict_sse(
+    tmp_path, monkeypatch
+):
+    captured = {}
+    chunks = [
+        {
+            "id": "glm45-stream-response",
+            "model": "glm-4.5",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"role": "assistant", "reasoning_content": "check "},
+                    "finish_reason": None,
+                }
+            ],
+            "usage": None,
+        },
+        {
+            "id": "glm45-stream-response",
+            "model": "glm-4.5",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"content": "stream works"},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": None,
+        },
+        {
+            "id": "glm45-stream-response",
+            "model": "glm-4.5",
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 11,
+                "completion_tokens": 9,
+                "total_tokens": 20,
+            },
+        },
+    ]
+
+    def fake_urlopen(request, timeout):
+        captured.update(json.loads(request.data))
+        return _stream_response(chunks)
+
+    monkeypatch.setenv("yunwu_key", "fixture-secret")
+    monkeypatch.setattr(closeai.urllib.request, "urlopen", fake_urlopen)
+
+    result = closeai.chat(
+        [{"role": "user", "content": "stream please"}],
+        model="glm-4.5",
+        retries=1,
+        operation_id="test.glm45-stream",
+        ledger_path=tmp_path / "ledger.jsonl",
+        journal_mode="development",
+    )
+
+    assert captured["stream"] is True
+    assert captured["stream_options"] == {"include_usage": True}
+    assert result["content"] == "stream works"
+    assert result["usage"]["total_tokens"] == 20
+    assert result["billing_status"] == "known"
+    assert result["cost_provider_credits"] == pytest.approx(
+        (11 * 1.6 + 9 * 6.4) / 1_000_000
+    )
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b'data: {"id":"x","model":"glm-4.5","choices":[]}\n\n',
+        b'data: not-json\n\ndata: [DONE]\n\n',
+        b'data: [DONE]\n\n',
+    ],
+)
+def test_stream_decoder_rejects_incomplete_or_malformed_sse(raw):
+    with pytest.raises(closeai.ResponseSchemaError):
+        closeai._decode_provider_response_body(raw, streamed=True)

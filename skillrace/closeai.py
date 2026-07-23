@@ -1,4 +1,4 @@
-"""Minimal CloseAI (OpenAI-compatible) chat client — stdlib only.
+"""Minimal Yunwu (OpenAI-compatible) chat client — stdlib only.
 
 Used by SkillRACE's *model-driven* steps (generation, and later the judgment steps).
 These go DIRECT to the provider (not through pi), so temperature is controllable
@@ -10,6 +10,7 @@ import fcntl
 import hashlib
 import json
 import math
+import multiprocessing
 import os
 import pathlib
 import tempfile
@@ -19,13 +20,35 @@ import urllib.request
 import uuid
 
 from .io_utils import canonical_json_bytes, canonical_json_hash
+from .model_policy import (
+    BILLING_CURRENCY,
+    DEFAULT_DEVELOPMENT_MODEL,
+    DEVELOPMENT_CANDIDATE_MODELS,
+    EXPERIMENT_MODELS,
+    GLM_MODELS,
+    PROVIDER_CREDIT_RATES,
+    QWEN_HYBRID_THINKING_MODELS,
+    RATE_CARD_VERSION,
+    RESPONSES_MODELS,
+    STREAM_ONLY_MODELS,
+    has_known_provider_credit_rate,
+    provider_credits_for_known_model,
+    rate_card_version_for_model,
+)
 
-CLOSEAI_URL = "https://api.openai-proxy.org/v1/chat/completions"
+YUNWU_URL = "https://yunwu.ai/v1/chat/completions"
+YUNWU_RESPONSES_URL = "https://yunwu.ai/v1/responses"
+YUNWU_API_KEY_ENV = "yunwu_key"
+YUNWU_API_KEY_COMPAT_ENV = "yumwu_key"
 
 DEFAULT_LEDGER_PATH = "~/.skillrace/cost_ledger.jsonl"
 MAX_RETRIES = 10
-PRICING_TABLE_VERSION = "closeai-prices/2026-07-11-v1"
+PRICING_TABLE_VERSION = RATE_CARD_VERSION
 _DISABLED_LEDGER = object()
+_ORIGINAL_URLOPEN = urllib.request.urlopen
+# ``spawn`` avoids forking a multithreaded generator while it holds provider/journal
+# locks. Tests may select ``fork`` for a deterministic local transport double.
+_HTTP_PROCESS_CONTEXT = "spawn"
 
 
 class _NonProductionChatFixture:
@@ -81,8 +104,20 @@ class OutcomeUnknownError(RuntimeError):
     """A stale intent may already have reached the provider."""
 
 
+class ProviderWallClockTimeout(RuntimeError):
+    """The isolated transport exceeded the whole-call deadline."""
+
+
 class OperationConflictError(RuntimeError):
     """An operation identifier was reused for a different request."""
+
+
+def yunwu_api_key() -> str | None:
+    """Return the canonical Yunwu key, accepting the early documented typo too."""
+
+    return os.environ.get(YUNWU_API_KEY_ENV) or os.environ.get(
+        YUNWU_API_KEY_COMPAT_ENV
+    )
 
 
 def _now():
@@ -295,19 +330,20 @@ def log_usage(
     not call this function.  Pi callers cannot journal a pre-provider intent because
     Pi owns the HTTP exchange, so their old accounting hook remains a distinct event.
     """
-    pricing = PRICES.get(model)
-    if pricing is None and journal_mode == "production":
+    pricing_known = has_known_provider_credit_rate(model)
+    if not pricing_known and journal_mode == "production":
         raise UnknownPricingError("model pricing is unavailable") from None
-    price = None
-    if pricing is not None:
-        pin, pout = pricing
-        price = (in_tokens * pin + out_tokens * pout) / 1e6
+    if journal_mode == "production" and model not in EXPERIMENT_MODELS:
+        raise UnknownPricingError("model pricing is not frozen for production") from None
+    credit_cost = None
+    if pricing_known:
+        credit_cost = provider_credits_for_known_model(model, in_tokens, out_tokens)
     try:
         _validate_journal_metadata(model, tag, skill)
     except ValueError:
         if journal_mode == "production":
             raise
-        return price if price is not None else 0.0
+        return credit_cost if credit_cost is not None else 0.0
     if operation_id is None:
         operation_id = uuid.uuid4().hex
     try:
@@ -315,7 +351,7 @@ def log_usage(
     except ResponseSchemaError:
         if journal_mode == "production":
             raise ValueError("operation_id must be bounded safe text") from None
-        return price if price is not None else 0.0
+        return credit_cost if credit_cost is not None else 0.0
     record = {
         "schema": "skillrace-model-call-journal/2",
         "event": "external_usage",
@@ -331,11 +367,21 @@ def log_usage(
             if skill is not None else None
         ),
         "model": model,
-        "pricing_table_version": PRICING_TABLE_VERSION,
-        "billing_status": "known" if price is not None else "unknown",
+        "pricing_table_version": (
+            rate_card_version_for_model(model)
+            if pricing_known
+            else PRICING_TABLE_VERSION
+        ),
+        "billing_status": "known" if credit_cost is not None else "unknown",
+        "billing_currency": BILLING_CURRENCY if credit_cost is not None else None,
         "in": in_tokens,
         "out": out_tokens,
-        "price_usd": round(price, 6) if price is not None else None,
+        "cost_provider_credits": credit_cost,
+        "price_provider_credits": (
+            round(credit_cost, 6) if credit_cost is not None else None
+        ),
+        "cost_usd": None,
+        "price_usd": None,
     }
     record["event_id"] = hashlib.sha256(
         canonical_json_bytes(
@@ -347,22 +393,18 @@ def log_usage(
     except Exception:
         if journal_mode == "production":
             raise JournalError("could not resolve model-call journal") from None
-        return price if price is not None else 0.0
+        return credit_cost if credit_cost is not None else 0.0
     _persist(
         record,
         ledger_path=resolved_ledger_path,
         journal_mode=journal_mode,
     )
-    return price if price is not None else 0.0
+    return credit_cost if credit_cost is not None else 0.0
 
-# USD per 1M tokens (input, output) — mirror images/pi-base/models.closeai.json.
-PRICES = {
-    "qwen3.5-flash": (0.024, 0.18),
-    "qwen3.5-plus": (0.072, 0.45),
-    "qwen3.6-flash": (0.144, 0.88),
-    "deepseek-v4-flash": (0.15, 0.30),
-    "glm-5": (0.48, 2.16),
-}
+# Compatibility alias for older internal callers.  Values are Yunwu custom credits
+# per 1M input/output tokens, never USD.  New code should import the explicitly named
+# table from model_policy.
+PRICES = PROVIDER_CREDIT_RATES
 
 
 def _request_id(headers):
@@ -420,23 +462,90 @@ def _validate_journal_metadata(model, tag, skill):
 def _chat_request_body_and_identity(
     messages, *, model, temperature, max_tokens, reasoning
 ):
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-    if not reasoning:
+    if model in RESPONSES_MODELS:
+        prompt = "\n\n".join(
+            str(message.get("content", ""))
+            for message in messages
+            if isinstance(message, dict)
+        )
+        payload = {
+            "model": model,
+            "input": prompt,
+            "reasoning": {"effort": "medium", "summary": "detailed"},
+        }
+        if max_tokens is not None:
+            payload["max_output_tokens"] = max_tokens
+    else:
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+    if model in STREAM_ONLY_MODELS:
+        payload["stream"] = True
+        payload["stream_options"] = {"include_usage": True}
+    if model in QWEN_HYBRID_THINKING_MODELS:
+        payload["enable_thinking"] = bool(reasoning)
+    elif not reasoning:
         payload["enable_thinking"] = False
+        # GLM's native OpenAI-compatible contract uses ``thinking.type``;
+        # Yunwu does not consistently translate the generic Qwen-style flag.
+        if model in GLM_MODELS:
+            payload["thinking"] = {"type": "disabled"}
     body = bytes(canonical_json_bytes(payload))
     frozen_payload = json.loads(body)
     return body, {
-        "messages_sha256": canonical_json_hash(frozen_payload["messages"]),
+        "messages_sha256": canonical_json_hash(
+            frozen_payload.get("messages", frozen_payload.get("input", ""))
+        ),
         "request_sha256": hashlib.sha256(body).hexdigest(),
         "request_bytes": len(body),
         "temperature": temperature,
         "max_tokens": max_tokens,
         "reasoning": bool(reasoning),
+    }
+
+
+def _normalize_responses_body(value):
+    """Adapt Yunwu/OpenAI Responses output to SkillRACE's journal schema."""
+    if not isinstance(value, dict):
+        raise ResponseSchemaError("responses body must be an object")
+    output = value.get("output")
+    if not isinstance(output, list):
+        raise ResponseSchemaError("responses output must be a list")
+    summary = []
+    content = []
+    for item in output:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") == "reasoning":
+            for part in item.get("summary") or []:
+                if isinstance(part, dict) and isinstance(part.get("text"), str):
+                    summary.append(part["text"])
+        if item.get("type") == "message":
+            for part in item.get("content") or []:
+                if isinstance(part, dict) and isinstance(part.get("text"), str):
+                    content.append(part["text"])
+    usage = value.get("usage") or {}
+    prompt = usage.get("input_tokens", 0)
+    completion = usage.get("output_tokens", 0)
+    if not all(isinstance(x, int) and x >= 0 for x in (prompt, completion)):
+        raise ResponseSchemaError("responses usage is invalid")
+    return {
+        "id": value.get("id"),
+        "model": value.get("model"),
+        "choices": [{"message": {
+            "role": "assistant",
+            "content": "".join(content),
+            "reasoning_content": "\n\n".join(summary),
+        }}],
+        "usage": {
+            "prompt_tokens": prompt,
+            "completion_tokens": completion,
+            "total_tokens": prompt + completion,
+        },
     }
 
 
@@ -451,6 +560,139 @@ def chat_request_identity(messages, *, model, temperature, max_tokens, reasoning
         reasoning=reasoning,
     )
     return identity
+
+
+def _aggregate_stream_chunks(chunks):
+    """Convert one complete OpenAI SSE stream to the synchronous response shape."""
+
+    response_id = None
+    provider_model = None
+    role = None
+    content_parts: list[str] = []
+    reasoning_parts: list[str] = []
+    finish_reason = None
+    usage = None
+    saw_choice = False
+    for chunk in chunks:
+        if not isinstance(chunk, dict) or chunk.get("error") is not None:
+            raise ResponseSchemaError("stream chunk must be a successful object")
+        chunk_id = chunk.get("id")
+        chunk_model = chunk.get("model")
+        if chunk_id is not None:
+            _bounded_identifier(chunk_id, "stream response id")
+            if response_id is not None and chunk_id != response_id:
+                raise ResponseSchemaError("stream response id changed")
+            response_id = chunk_id
+        if chunk_model is not None:
+            _bounded_model(chunk_model, "stream response model")
+            if provider_model is not None and chunk_model != provider_model:
+                raise ResponseSchemaError("stream response model changed")
+            provider_model = chunk_model
+
+        choices = chunk.get("choices")
+        if not isinstance(choices, list):
+            raise ResponseSchemaError("stream choices must be a list")
+        if choices:
+            if len(choices) != 1 or not isinstance(choices[0], dict):
+                raise ResponseSchemaError("stream must contain exactly one choice")
+            choice = choices[0]
+            if choice.get("index") != 0:
+                raise ResponseSchemaError("stream choice index must be zero")
+            delta = choice.get("delta")
+            if not isinstance(delta, dict):
+                raise ResponseSchemaError("stream choice delta must be an object")
+            if delta.get("tool_calls") is not None:
+                raise ResponseSchemaError("direct helper stream returned an unexpected tool call")
+            delta_role = delta.get("role")
+            if delta_role is not None:
+                if delta_role != "assistant" or role not in {None, "assistant"}:
+                    raise ResponseSchemaError("stream assistant role is invalid")
+                role = delta_role
+            for field, destination in (
+                ("content", content_parts),
+                ("reasoning_content", reasoning_parts),
+            ):
+                value = delta.get(field)
+                if value is not None:
+                    if not isinstance(value, str):
+                        raise ResponseSchemaError(f"stream {field} must be text")
+                    destination.append(value)
+            current_finish = choice.get("finish_reason")
+            if current_finish is not None:
+                if (
+                    not isinstance(current_finish, str)
+                    or not current_finish
+                    or finish_reason is not None
+                ):
+                    raise ResponseSchemaError("stream finish reason is invalid or duplicated")
+                finish_reason = current_finish
+            saw_choice = True
+        chunk_usage = chunk.get("usage")
+        if chunk_usage is not None:
+            if not isinstance(chunk_usage, dict) or usage is not None:
+                raise ResponseSchemaError("stream usage is invalid or duplicated")
+            usage = chunk_usage
+
+    if (
+        not saw_choice
+        or response_id is None
+        or provider_model is None
+        or finish_reason is None
+        or usage is None
+    ):
+        raise ResponseSchemaError("stream is missing terminal response evidence")
+    message = {
+        "role": role or "assistant",
+        "content": "".join(content_parts),
+    }
+    if reasoning_parts:
+        message["reasoning_content"] = "".join(reasoning_parts)
+    return {
+        "id": response_id,
+        "model": provider_model,
+        "choices": [
+            {
+                "index": 0,
+                "message": message,
+                "finish_reason": finish_reason,
+            }
+        ],
+        "usage": usage,
+    }
+
+
+def _decode_provider_response_body(raw, *, streamed):
+    """Decode JSON or a complete, explicitly terminated OpenAI SSE response."""
+
+    if not streamed:
+        return json.loads(raw)
+    if not isinstance(raw, bytes):
+        raise ResponseSchemaError("stream response body must be bytes")
+    try:
+        text = raw.decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        raise ResponseSchemaError("stream response is not UTF-8") from None
+    chunks = []
+    saw_done = False
+    for line in text.splitlines():
+        if not line:
+            continue
+        if not line.startswith("data:") or saw_done:
+            raise ResponseSchemaError("stream contains an invalid SSE field")
+        data = line[5:].lstrip(" ")
+        if data == "[DONE]":
+            saw_done = True
+            continue
+        if not data:
+            raise ResponseSchemaError("stream data event is empty")
+        try:
+            chunk = json.loads(data)
+        except json.JSONDecodeError:
+            raise ResponseSchemaError("stream data event is malformed JSON") from None
+        chunks.append(chunk)
+    if not saw_done:
+        raise ResponseSchemaError("stream is missing the DONE event")
+    return _aggregate_stream_chunks(chunks)
 
 
 def _sanitized_http_status(value):
@@ -499,6 +741,150 @@ def _request_id_hash(headers):
     if value is None:
         return None
     return _identifier_hash(value, "provider request id")
+
+
+def _provider_exchange_inline(body: bytes, key: str, timeout_seconds: float, endpoint=YUNWU_URL):
+    """Perform one HTTP exchange in the current process.
+
+    This path is retained for intentional in-process test doubles. Production uses the
+    isolated wrapper below so a provider that keeps a socket active cannot outlive the
+    declared whole-call deadline.
+    """
+
+    request = urllib.request.Request(
+        endpoint,
+        data=body,
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+        raw_status = getattr(response, "status", None)
+        if raw_status is None:
+            getcode = getattr(response, "getcode", None)
+            if getcode is not None:
+                raw_status = getcode()
+        status = _sanitized_http_status(raw_status)
+        try:
+            request_id_hash = _request_id_hash(
+                getattr(response, "headers", None)
+            )
+        except ResponseSchemaError as error:
+            error._skillrace_http_status = status
+            raise
+        return (
+            status,
+            request_id_hash,
+            response.read(),
+        )
+
+
+def _provider_exchange_child(send, body: bytes, key: str, timeout_seconds: float, endpoint=YUNWU_URL):
+    """Run one production exchange and return only redacted, serializable evidence."""
+
+    try:
+        status, request_id_hash, response_body = _provider_exchange_inline(
+            body, key, timeout_seconds, endpoint
+        )
+        send.send(
+            {
+                "kind": "response",
+                "status": status,
+                "request_id_hash": request_id_hash,
+                "body": response_body,
+            }
+        )
+    except urllib.error.HTTPError as error:
+        try:
+            request_id_hash = _request_id_hash(
+                _safe_exception_attribute(error, "headers")
+            )
+        except ResponseSchemaError:
+            request_id_hash = None
+        send.send(
+            {
+                "kind": "http-error",
+                "status": _sanitized_http_status(
+                    _safe_exception_attribute(error, "code")
+                ),
+                "request_id_hash": request_id_hash,
+            }
+        )
+    except TimeoutError:
+        send.send({"kind": "timeout"})
+    except urllib.error.URLError:
+        send.send({"kind": "network-error"})
+    except ResponseSchemaError as error:
+        send.send(
+            {
+                "kind": "schema-error",
+                "status": _sanitized_http_status(
+                    _safe_exception_attribute(error, "_skillrace_http_status")
+                ),
+            }
+        )
+    except Exception:
+        send.send({"kind": "provider-error"})
+    finally:
+        send.close()
+
+
+def _provider_exchange(body: bytes, key: str, timeout_seconds: float, endpoint=YUNWU_URL):
+    """Return one response under an enforceable process-level wall-clock deadline."""
+
+    # A monkeypatched transport is an intentional in-process test fixture. Keeping it
+    # local preserves its assertions and has no production effect.
+    if urllib.request.urlopen is not _ORIGINAL_URLOPEN:
+        return _provider_exchange_inline(body, key, timeout_seconds)
+
+    context = multiprocessing.get_context(_HTTP_PROCESS_CONTEXT)
+    receive, send = context.Pipe(duplex=False)
+    process = context.Process(
+        target=_provider_exchange_child,
+        args=(send, body, key, timeout_seconds, endpoint),
+    )
+    process.daemon = True
+    process.start()
+    send.close()
+    try:
+        if not receive.poll(timeout_seconds):
+            process.terminate()
+            process.join(timeout=1)
+            raise ProviderWallClockTimeout(
+                "provider whole-call deadline elapsed"
+            )
+        try:
+            result = receive.recv()
+        except EOFError as error:
+            raise RuntimeError("provider transport exited without a response") from error
+    finally:
+        receive.close()
+        if process.is_alive():
+            process.terminate()
+        process.join(timeout=1)
+
+    if result.get("kind") == "response":
+        return result["status"], result["request_id_hash"], result["body"]
+    if result.get("kind") == "http-error":
+        error = urllib.error.HTTPError(
+            YUNWU_URL,
+            result.get("status") or 599,
+            "provider returned an HTTP error",
+            None,
+            None,
+        )
+        error._skillrace_request_id_sha256 = result.get("request_id_hash")
+        raise error
+    if result.get("kind") == "timeout":
+        raise TimeoutError("provider transport timed out")
+    if result.get("kind") == "network-error":
+        raise urllib.error.URLError("provider transport failed")
+    if result.get("kind") == "schema-error":
+        error = ResponseSchemaError("provider response metadata is invalid")
+        error._skillrace_http_status = result.get("status")
+        raise error
+    raise RuntimeError("provider transport failed")
 
 
 def _validate_response(value, *, expected_models):
@@ -560,6 +946,30 @@ def _recover_billing_usage(value):
     if total != normalized["prompt_tokens"] + normalized["completion_tokens"]:
         return None
     normalized["total_tokens"] = total
+    prompt_details = usage.get("prompt_tokens_details")
+    cached = None
+    if isinstance(prompt_details, dict):
+        cached = prompt_details.get("cached_tokens")
+    if cached is None:
+        cached = usage.get("prompt_cache_hit_tokens")
+    if (
+        not isinstance(cached, bool)
+        and isinstance(cached, int)
+        and 0 <= cached <= normalized["prompt_tokens"]
+    ):
+        normalized["cached_input_tokens"] = cached
+    completion_details = usage.get("completion_tokens_details")
+    reasoning_tokens = (
+        completion_details.get("reasoning_tokens")
+        if isinstance(completion_details, dict)
+        else None
+    )
+    if (
+        not isinstance(reasoning_tokens, bool)
+        and isinstance(reasoning_tokens, int)
+        and 0 <= reasoning_tokens <= normalized["completion_tokens"]
+    ):
+        normalized["reasoning_tokens"] = reasoning_tokens
     return normalized
 
 
@@ -583,6 +993,7 @@ def _attempt_record(
     retry_limit,
     retry_backoff_seconds,
     retry_policy_version,
+    pricing_table_version=PRICING_TABLE_VERSION,
 ):
     record = {
         "schema": "skillrace-model-call-journal/2",
@@ -606,13 +1017,13 @@ def _attempt_record(
         "messages_sha256": messages_sha256,
         "request_sha256": request_sha256,
         "request_bytes": request_bytes,
-        "endpoint": CLOSEAI_URL,
+        "endpoint": YUNWU_URL,
         "accepted_model_aliases": accepted_model_aliases,
         "timeout_seconds": timeout_seconds,
         "retry_limit": retry_limit,
         "retry_backoff_seconds": retry_backoff_seconds,
         "retry_policy_version": retry_policy_version,
-        "pricing_table_version": PRICING_TABLE_VERSION,
+        "pricing_table_version": pricing_table_version,
     }
     identity = {
         "operation_id": call_id,
@@ -683,14 +1094,16 @@ def _normalize_nonproduction_fixture_response(value, args, settings):
     ):
         raise ResponseSchemaError("fixture usage.total_tokens is inconsistent")
     normalized_usage["total_tokens"] = total
-    cost = value.get("cost_usd")
+    cost = value.get("cost_provider_credits", value.get("cost_usd"))
     if (
         isinstance(cost, bool)
         or not isinstance(cost, (int, float))
         or not math.isfinite(float(cost))
         or cost < 0
     ):
-        raise ResponseSchemaError("fixture cost_usd must be finite and non-negative")
+        raise ResponseSchemaError(
+            "fixture cost_provider_credits must be finite and non-negative"
+        )
     temperature = settings.get("temperature", 0.0)
     max_tokens = settings.get("max_tokens", 2048)
     reasoning = settings.get("reasoning", True)
@@ -733,11 +1146,14 @@ def _normalize_nonproduction_fixture_response(value, args, settings):
             "provider_request_id_sha256": provider_request_id_sha256,
             "provider_model": provider_model,
             "billing_status": "known",
+            "billing_currency": BILLING_CURRENCY,
             "usage": normalized_usage,
-            "cost_usd": float(cost),
+            "cost_provider_credits": float(cost),
+            "price_provider_credits": round(float(cost), 6),
+            "cost_usd": None,
             "in": normalized_usage["prompt_tokens"],
             "out": normalized_usage["completion_tokens"],
-            "price_usd": round(float(cost), 6),
+            "price_usd": None,
             "error_class": None,
             "http_status": 200,
         }
@@ -767,13 +1183,15 @@ def _normalize_nonproduction_fixture_response(value, args, settings):
     return {
         "content": content,
         "usage": normalized_usage,
-        "cost_usd": float(cost),
+        "cost_provider_credits": float(cost),
+        "cost_usd": None,
         "model": model,
         "operation_id": operation_id,
         "provider_model": provider_model,
         "provider_response_id_sha256": provider_response_id_sha256,
         "provider_request_id_sha256": provider_request_id_sha256,
         "billing_status": "known",
+        "billing_currency": BILLING_CURRENCY,
         "journal_terminal_event_id": terminal["event_id"],
         "journal_terminal_receipt_sha256": canonical_json_hash(terminal),
         "journal_terminal_receipt": terminal,
@@ -801,6 +1219,7 @@ def validate_terminal_receipt(
     expected_model,
     expected_operation_id,
     expected_usage=None,
+    expected_cost_provider_credits=None,
     expected_cost_usd=None,
     expected_request_identity=None,
     expected_tag=None,
@@ -844,10 +1263,16 @@ def validate_terminal_receipt(
         or receipt.get("provider_model") != expected_model
     ):
         raise ResponseSchemaError("journal terminal provider model mismatch")
-    if receipt.get("pricing_table_version") != PRICING_TABLE_VERSION:
+    try:
+        expected_pricing_table_version = rate_card_version_for_model(expected_model)
+    except ValueError:
+        expected_pricing_table_version = PRICING_TABLE_VERSION
+    if receipt.get("pricing_table_version") != expected_pricing_table_version:
         raise ResponseSchemaError("journal terminal pricing table mismatch")
     if receipt.get("billing_status") != "known":
         raise ResponseSchemaError("journal terminal billing status is not known")
+    if receipt.get("billing_currency") != BILLING_CURRENCY:
+        raise ResponseSchemaError("journal terminal billing currency mismatch")
     usage = receipt.get("usage")
     if not isinstance(usage, dict):
         raise ResponseSchemaError("journal terminal usage is missing")
@@ -874,18 +1299,25 @@ def validate_terminal_receipt(
         or receipt.get("out") != normalized_usage["completion_tokens"]
     ):
         raise ResponseSchemaError("journal terminal token accounting mismatch")
-    cost = receipt.get("cost_usd")
+    cost = receipt.get("cost_provider_credits")
     if (
         isinstance(cost, bool)
         or not isinstance(cost, (int, float))
         or not math.isfinite(float(cost))
         or cost < 0
     ):
-        raise ResponseSchemaError("journal terminal cost is invalid")
-    if expected_cost_usd is not None and float(cost) != float(expected_cost_usd):
+        raise ResponseSchemaError("journal terminal provider-credit cost is invalid")
+    expected_cost = (
+        expected_cost_provider_credits
+        if expected_cost_provider_credits is not None
+        else expected_cost_usd
+    )
+    if expected_cost is not None and float(cost) != float(expected_cost):
         raise ResponseSchemaError("journal terminal cost mismatch")
-    if receipt.get("price_usd") != round(float(cost), 6):
-        raise ResponseSchemaError("journal terminal rounded price mismatch")
+    if receipt.get("price_provider_credits") != round(float(cost), 6):
+        raise ResponseSchemaError("journal terminal rounded provider-credit price mismatch")
+    if receipt.get("cost_usd") is not None or receipt.get("price_usd") is not None:
+        raise ResponseSchemaError("journal terminal must not infer a USD conversion")
     provider_response_id = _require_sha256(
         receipt.get("provider_response_id_sha256"),
         "provider response identity",
@@ -919,7 +1351,7 @@ def validate_terminal_receipt(
         or not isinstance(receipt.get("http_status"), int)
         or not 200 <= receipt["http_status"] < 300
         or receipt.get("error_class") is not None
-        or receipt.get("endpoint") != CLOSEAI_URL
+        or receipt.get("endpoint") != YUNWU_URL
     ):
         raise ResponseSchemaError("journal terminal success transport is invalid")
     return {
@@ -929,8 +1361,10 @@ def validate_terminal_receipt(
         "provider_response_id_sha256": provider_response_id,
         "provider_request_id_sha256": provider_request_id,
         "billing_status": "known",
+        "billing_currency": BILLING_CURRENCY,
         "usage": normalized_usage,
-        "cost_usd": float(cost),
+        "cost_provider_credits": float(cost),
+        "cost_usd": None,
         "receipt_sha256": canonical_json_hash(receipt),
     }
 
@@ -977,7 +1411,11 @@ def validate_call_terminal_receipt(
         raise ResponseSchemaError("journal call terminal event identity mismatch")
     if receipt.get("model") != expected_model:
         raise ResponseSchemaError("journal call terminal model mismatch")
-    if receipt.get("pricing_table_version") != PRICING_TABLE_VERSION:
+    try:
+        expected_pricing_table_version = rate_card_version_for_model(expected_model)
+    except ValueError:
+        expected_pricing_table_version = PRICING_TABLE_VERSION
+    if receipt.get("pricing_table_version") != expected_pricing_table_version:
         raise ResponseSchemaError("journal call terminal pricing table mismatch")
     if expected_request_identity is not None:
         for field in (
@@ -998,7 +1436,10 @@ def validate_call_terminal_receipt(
         raise ResponseSchemaError("journal call terminal skill identity mismatch")
     if (
         receipt.get("billing_status") != "unknown"
+        or receipt.get("billing_currency") is not None
         or receipt.get("usage") is not None
+        or receipt.get("cost_provider_credits") is not None
+        or receipt.get("price_provider_credits") is not None
         or receipt.get("cost_usd") is not None
         or receipt.get("provider_response_id_sha256") is not None
         or receipt.get("provider_request_id_sha256") is not None
@@ -1053,21 +1494,23 @@ def validate_chat_result(
     ):
         raise ResponseSchemaError("chat result usage.total_tokens is inconsistent")
     normalized_usage["total_tokens"] = total
-    cost = value.get("cost_usd")
+    cost = value.get("cost_provider_credits")
     if (
         isinstance(cost, bool)
         or not isinstance(cost, (int, float))
         or not math.isfinite(float(cost))
         or cost < 0
     ):
-        raise ResponseSchemaError("chat result cost_usd is invalid")
+        raise ResponseSchemaError("chat result cost_provider_credits is invalid")
+    if value.get("cost_usd") is not None:
+        raise ResponseSchemaError("chat result must not infer a USD conversion")
     receipt = value.get("journal_terminal_receipt")
     validated = validate_terminal_receipt(
         receipt,
         expected_model=expected_model,
         expected_operation_id=expected_operation_id,
         expected_usage=normalized_usage,
-        expected_cost_usd=cost,
+        expected_cost_provider_credits=cost,
         expected_request_identity=expected_request_identity,
         expected_tag=expected_tag,
         expected_skill=expected_skill,
@@ -1085,6 +1528,8 @@ def validate_chat_result(
         raise ResponseSchemaError("chat result provider model mismatch")
     if value.get("billing_status") != validated["billing_status"]:
         raise ResponseSchemaError("chat result billing status mismatch")
+    if value.get("billing_currency") != validated["billing_currency"]:
+        raise ResponseSchemaError("chat result billing currency mismatch")
     for field in (
         "provider_response_id_sha256",
         "provider_request_id_sha256",
@@ -1145,7 +1590,10 @@ def _terminal_extras(*, status, provider_model=None):
         "provider_request_id_sha256": None,
         "provider_model": provider_model,
         "billing_status": "unknown",
+        "billing_currency": None,
         "usage": None,
+        "cost_provider_credits": None,
+        "price_provider_credits": None,
         "cost_usd": None,
         "in": None,
         "out": None,
@@ -1159,7 +1607,7 @@ def _terminal_extras(*, status, provider_model=None):
 
 def chat(
     messages,
-    model="qwen3.6-flash",
+    model=DEFAULT_DEVELOPMENT_MODEL,
     temperature=0.0,
     max_tokens=2048,
     retries=3,
@@ -1168,7 +1616,7 @@ def chat(
     skill=None,
     *,
     ledger_path=None,
-    journal_mode="production",
+    journal_mode=None,
     accepted_model_aliases=(),
     operation_id=None,
     stale_intent_seconds=900,
@@ -1186,16 +1634,34 @@ def chat(
         or not 1 <= retries <= MAX_RETRIES
     ):
         raise ValueError(f"retries must be an integer between 1 and {MAX_RETRIES}")
-    if journal_mode not in {"production", "development"}:
-        raise ValueError("journal_mode must be 'production' or 'development'")
+    # Calls made by shared generator/checker helpers intentionally omit a mode.
+    # Frozen experiment models receive strict production receipts; a model that
+    # is explicitly catalogued only as a development candidate can never create
+    # headline evidence accidentally.  Explicit ``production`` remains
+    # fail-closed below for every non-frozen model.
+    if journal_mode is None:
+        journal_mode = (
+            "development"
+            if model in DEVELOPMENT_CANDIDATE_MODELS
+            else "production"
+        )
+    elif journal_mode not in {"production", "development"}:
+        raise ValueError(
+            "journal_mode must be None, 'production', or 'development'"
+        )
     if (
         isinstance(temperature, bool)
         or not isinstance(temperature, (int, float))
         or not math.isfinite(temperature)
         or not 0 <= temperature <= 2
-        or isinstance(max_tokens, bool)
-        or not isinstance(max_tokens, int)
-        or not 1 <= max_tokens <= 1_000_000
+        or (
+            max_tokens is not None
+            and (
+                isinstance(max_tokens, bool)
+                or not isinstance(max_tokens, int)
+                or not 1 <= max_tokens <= 1_000_000
+            )
+        )
         or not isinstance(reasoning, bool)
     ):
         raise ValueError("request parameters are invalid or out of bounds")
@@ -1233,12 +1699,22 @@ def chat(
         if journal_mode == "production":
             raise JournalError("could not resolve model-call journal") from None
         resolved_ledger_path = _DISABLED_LEDGER
-    pricing = PRICES.get(model)
-    if pricing is None and journal_mode == "production":
+    pricing_known = has_known_provider_credit_rate(model)
+    if not pricing_known and journal_mode == "production":
         raise UnknownPricingError("model pricing is unavailable") from None
-    key = os.environ.get("CLOSE_API_KEY")
+    if journal_mode == "production" and model not in EXPERIMENT_MODELS:
+        raise UnknownPricingError("model pricing is not frozen for production") from None
+    pricing_table_version = (
+        rate_card_version_for_model(model)
+        if pricing_known
+        else PRICING_TABLE_VERSION
+    )
+    key = yunwu_api_key()
     if not key:
-        raise RuntimeError("CLOSE_API_KEY not set in environment")
+        raise RuntimeError(
+            f"{YUNWU_API_KEY_ENV} not set in environment "
+            f"(or compatibility alias {YUNWU_API_KEY_COMPAT_ENV})"
+        )
     body, request_identity = _chat_request_body_and_identity(
         messages,
         model=model,
@@ -1283,6 +1759,7 @@ def chat(
             "retry_limit": retries,
             "retry_backoff_seconds": retry_backoff_seconds,
             "retry_policy_version": retry_policy_version,
+            "pricing_table_version": pricing_table_version,
         }
 
     def persist_call_terminal(status, last_retry_ordinal):
@@ -1414,42 +1891,43 @@ def chat(
         journal_usage = None
         cost = None
         try:
-            req = urllib.request.Request(
-                CLOSEAI_URL, data=body,
-                headers={
-                    "Authorization": f"Bearer {key}",
-                    "Content-Type": "application/json",
-                },
+            (
+                provider_http_status,
+                provider_request_id_sha256,
+                response_body,
+            ) = _provider_exchange(
+                body,
+                key,
+                timeout_seconds,
+                YUNWU_RESPONSES_URL if model in RESPONSES_MODELS else YUNWU_URL,
             )
-            with urllib.request.urlopen(req, timeout=timeout_seconds) as response:
-                raw_http_status = getattr(response, "status", None)
-                if raw_http_status is None:
-                    getcode = getattr(response, "getcode", None)
-                    if getcode is not None:
-                        raw_http_status = getcode()
-                provider_http_status = _sanitized_http_status(raw_http_status)
-                provider_request_id_sha256 = _request_id_hash(
-                    getattr(response, "headers", None)
-                )
-                if (
-                    provider_http_status is None
-                    or not 200 <= provider_http_status < 300
-                ):
-                    raise ResponseSchemaError("provider HTTP status must be 2xx")
-                response_value = json.loads(response.read())
+            if (
+                provider_http_status is None
+                or not 200 <= provider_http_status < 300
+            ):
+                raise ResponseSchemaError("provider HTTP status must be 2xx")
+            response_value = _decode_provider_response_body(
+                response_body,
+                streamed=model in STREAM_ONLY_MODELS,
+            )
+            if model in RESPONSES_MODELS:
+                response_value = _normalize_responses_body(response_value)
             journal_usage = _recover_billing_usage(response_value)
             if isinstance(response_value, dict) and response_value.get("model") is not None:
                 provider_model = _bounded_model(response_value["model"])
             if (
                 journal_usage is not None
-                and pricing is not None
+                and pricing_known
                 and provider_model in accepted_models
             ):
-                pin, pout = pricing
-                cost = (
-                    journal_usage["prompt_tokens"] * pin
-                    + journal_usage["completion_tokens"] * pout
-                ) / 1e6
+                cost = provider_credits_for_known_model(
+                    model,
+                    journal_usage["prompt_tokens"],
+                    journal_usage["completion_tokens"],
+                    cached_input_tokens=journal_usage.get(
+                        "cached_input_tokens", 0
+                    ),
+                )
             if (
                 isinstance(response_value, dict)
                 and response_value.get("id") is not None
@@ -1457,21 +1935,59 @@ def chat(
                 provider_response_id_sha256 = _identifier_hash(
                     response_value["id"], "response id"
                 )
-            content, usage, journal_usage, provider_model = _validate_response(
+            content, usage, validated_usage, provider_model = _validate_response(
                 response_value,
                 expected_models=accepted_models,
             )
+            if journal_usage is None:
+                journal_usage = validated_usage
+            elif any(
+                journal_usage[field] != validated_usage[field]
+                for field in ("prompt_tokens", "completion_tokens", "total_tokens")
+            ):
+                raise ResponseSchemaError(
+                    "validated response usage differs from billing recovery"
+                )
+        except ProviderWallClockTimeout:
+            terminal = _attempt_record(
+                event="terminal", status="outcome_unknown", **common
+            )
+            terminal.update(_terminal_extras(status="outcome_unknown"))
+            terminal["latency_ms"] = round(
+                (time.monotonic() - started) * 1000, 3
+            )
+            _persist(
+                terminal,
+                ledger_path=resolved_ledger_path,
+                journal_mode=journal_mode,
+            )
+            persist_call_terminal("outcome_unknown", attempt)
+            raise OutcomeUnknownError(
+                "provider whole-call deadline elapsed; outcome is unknown"
+            ) from None
         except Exception as e:  # noqa: BLE001 — surface after retries
             provider_http_status = provider_http_status or _sanitized_http_status(
                 _safe_exception_attribute(e, "code")
             )
+            if provider_http_status is None:
+                provider_http_status = _sanitized_http_status(
+                    _safe_exception_attribute(e, "_skillrace_http_status")
+                )
             if provider_request_id_sha256 is None:
-                try:
-                    provider_request_id_sha256 = _request_id_hash(
-                        _safe_exception_attribute(e, "headers")
-                    )
-                except ResponseSchemaError as identifier_error:
-                    e = identifier_error
+                inherited_hash = _safe_exception_attribute(
+                    e, "_skillrace_request_id_sha256"
+                )
+                if isinstance(inherited_hash, str) and re.fullmatch(
+                    r"[0-9a-f]{64}", inherited_hash
+                ):
+                    provider_request_id_sha256 = inherited_hash
+                else:
+                    try:
+                        provider_request_id_sha256 = _request_id_hash(
+                            _safe_exception_attribute(e, "headers")
+                        )
+                    except ResponseSchemaError as identifier_error:
+                        e = identifier_error
             last_error_class = _classify_provider_error(e)
             terminal = _attempt_record(
                 event="terminal", status="error", **common
@@ -1486,8 +2002,15 @@ def chat(
                         "known" if journal_usage is not None and cost is not None
                         else "unknown"
                     ),
+                    "billing_currency": (
+                        BILLING_CURRENCY if cost is not None else None
+                    ),
                     "usage": journal_usage,
-                    "cost_usd": cost,
+                    "cost_provider_credits": cost,
+                    "price_provider_credits": (
+                        round(cost, 6) if cost is not None else None
+                    ),
+                    "cost_usd": None,
                     "in": (
                         journal_usage["prompt_tokens"]
                         if journal_usage is not None else None
@@ -1496,7 +2019,7 @@ def chat(
                         journal_usage["completion_tokens"]
                         if journal_usage is not None else None
                     ),
-                    "price_usd": round(cost, 6) if cost is not None else None,
+                    "price_usd": None,
                     "error_class": last_error_class,
                     "http_status": provider_http_status,
                 }
@@ -1518,11 +2041,16 @@ def chat(
                 "provider_request_id_sha256": provider_request_id_sha256,
                 "provider_model": provider_model,
                 "billing_status": "known" if cost is not None else "unknown",
+                "billing_currency": BILLING_CURRENCY if cost is not None else None,
                 "usage": journal_usage,
-                "cost_usd": cost,
+                "cost_provider_credits": cost,
+                "price_provider_credits": (
+                    round(cost, 6) if cost is not None else None
+                ),
+                "cost_usd": None,
                 "in": journal_usage["prompt_tokens"],
                 "out": journal_usage["completion_tokens"],
-                "price_usd": round(cost, 6) if cost is not None else None,
+                "price_usd": None,
                 "error_class": None,
                 "http_status": provider_http_status,
             }
@@ -1536,7 +2064,8 @@ def chat(
         return {
             "content": content,
             "usage": usage,
-            "cost_usd": cost,
+            "cost_provider_credits": cost,
+            "cost_usd": None,
             "model": model,
             # The provider's raw identifiers never leave this client.  RQ3 stores
             # this redacted copy of the exact immutable receipt, which was made
@@ -1546,6 +2075,7 @@ def chat(
             "provider_response_id_sha256": provider_response_id_sha256,
             "provider_request_id_sha256": provider_request_id_sha256,
             "billing_status": terminal["billing_status"],
+            "billing_currency": terminal["billing_currency"],
             "journal_terminal_event_id": terminal["event_id"],
             "journal_terminal_receipt_sha256": canonical_json_hash(terminal),
             "journal_terminal_receipt": dict(terminal),
@@ -1557,7 +2087,7 @@ def chat(
         }
     persist_call_terminal("error", retries)
     raise RuntimeError(
-        f"CloseAI chat failed after {retries} attempts: {last_error_class}"
+        f"Yunwu chat failed after {retries} attempts: {last_error_class}"
     ) from None
 
 

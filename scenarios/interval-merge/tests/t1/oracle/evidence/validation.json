@@ -2,10 +2,10 @@
   "schema": "skillrace-oracle-evidence/1",
   "test_id": "interval-merge/t1",
   "state": "validated",
-  "contract_identity_sha256": "a285721830801eed1c885c3c4d85871d8e79071bb6e14487ed321ba24a88f38c",
+  "contract_identity_sha256": "547728a243d4da638555363a234b80bdd9e3743d6b65238378662a700456060e",
   "reason": "Docker reference and negative oracle audit passed",
-  "validated_at": "2026-07-12T00:12:26.816132+00:00",
-  "image_digest": "sha256:ba8efe853f858230969de89fe1aaf66648b8a42e3d2d16de510b1039084387af",
+  "validated_at": "2026-07-12T17:35:28.731154+00:00",
+  "image_digest": "sha256:f18e44f0a03a29fdc53e9ff9da23cbd1722d64d12f19e648b59c1414cfbb8344",
   "docker_version": "29.6.1",
   "reference": {
     "passed": true,
@@ -18,7 +18,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.089215,
+        "duration_seconds": 0.081848,
         "script_sha256": "4ab1179bf52534e429376949623868c1bec55c3bb79484e39949f80322c01fa9",
         "isolation": "fresh-container-per-criterion"
       }
@@ -34,7 +34,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "ModuleNotFoundError: No module named 'intervals'",
-        "duration_seconds": 0.106284,
+        "duration_seconds": 0.062847,
         "script_sha256": "4ab1179bf52534e429376949623868c1bec55c3bb79484e39949f80322c01fa9",
         "isolation": "fresh-container-per-criterion"
       }
@@ -51,7 +51,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "RuntimeError: negative implementation",
-          "duration_seconds": 0.082794,
+          "duration_seconds": 0.084559,
           "script_sha256": "4ab1179bf52534e429376949623868c1bec55c3bb79484e39949f80322c01fa9",
           "isolation": "fresh-container-per-criterion"
         }

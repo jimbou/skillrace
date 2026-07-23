@@ -14,7 +14,7 @@ This mirrors gen_agent.py (an agent does the fuzzy work and writes a JSON artifa
 our code validates + assembles). See docs/design/episode-segmenter.md.
 
 Usage:
-  python -m skillrace.segment_agent --run runs/mcp-case1 --model qwen3.6-flash
+  python -m skillrace.segment_agent --run runs/mcp-case1 --model glm-4.5-flash
 """
 from __future__ import annotations
 import argparse
@@ -25,7 +25,8 @@ import shutil
 import subprocess
 import time
 
-from .closeai import PRICES, log_usage
+from .closeai import log_usage
+from .model_policy import PROVIDER_CREDIT_RATES
 from .simplify_trace import render, target_episodes, call_reasonings
 from .segment import validate, assemble  # reuse the deterministic checks
 
@@ -93,12 +94,12 @@ def _agent_tokens(trace_path):
 def main():
     ap = argparse.ArgumentParser(description="Segment a run into episodes via a pi agent")
     ap.add_argument("--run", required=True, help="run dir (uses raw/session.jsonl)")
-    ap.add_argument("--model", default="qwen3.6-flash")
+    ap.add_argument("--model", default="glm-4.5-flash")
     ap.add_argument("--out", help="output path (default <run>/episodes.json)")
     ap.add_argument("--timeout", type=int, default=900)
     args = ap.parse_args()
-    if not os.environ.get("CLOSE_API_KEY"):
-        raise SystemExit("CLOSE_API_KEY must be set")
+    if not os.environ.get("yunwu_key"):
+        raise SystemExit("yunwu_key must be set")
 
     run_dir = pathlib.Path(args.run)
     sess = run_dir / "raw" / "session.jsonl"
@@ -120,7 +121,7 @@ def main():
 
     # 2) the AGENT splits it and writes episodes.raw.json
     trace = (work / "seg_trace.jsonl").resolve()
-    cmd = ["pi", "--provider", "closeai", "--model", args.model, "--print",
+    cmd = ["pi", "--provider", "yunwu", "--model", args.model, "--print",
            "--tools", "bash,read,write", "--session", str(trace), AGENT_PROMPT]
     print(f"running segmenter agent ({args.model}) ...")
     t0 = time.time()
@@ -146,18 +147,18 @@ def main():
 
     ain, aout, models = _agent_tokens(trace)
     log_usage("segment.agent", args.model, ain, aout, None)
-    pin, pout = PRICES.get(args.model, (0.0, 0.0))
+    pin, pout = PROVIDER_CREDIT_RATES.get(args.model, (0.0, 0.0))
     price = (ain * pin + aout * pout) / 1e6
 
     if not ok:
         out.write_text(json.dumps({"unsegmentable": True, "error": err, "raw": eps}, indent=2))
-        raise SystemExit(f"UNSEGMENTABLE: {err}  (agent rc={rc}, ${price:.4f}); wrote {out}")
+        raise SystemExit(f"UNSEGMENTABLE: {err}  (agent rc={rc}, ⚡{price:.4f}); wrote {out}")
 
     episodes = assemble(eps, reasonings)
     out.write_text(json.dumps({"run": str(run_dir), "n_tool_calls": n,
                                "target_episodes": target, "model": args.model,
                                "episodes": episodes}, indent=2))
-    print(f"\nagent rc={rc} in {dt:.1f}s, ${price:.4f} (model(s) used: {models or '?'})")
+    print(f"\nagent rc={rc} in {dt:.1f}s, ⚡{price:.4f} (model(s) used: {models or '?'})")
     print(f"segmented into {len(episodes)} episodes -> {out}\n")
     for e in episodes:
         print(f"  Ep{e['index']} [calls {e['start_call']}-{e['end_call']}] {e['intent']}")

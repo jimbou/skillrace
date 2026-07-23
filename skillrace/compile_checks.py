@@ -1,23 +1,14 @@
-"""Pre-run check compilation — author property checks BEFORE any agent run.
+"""Generated property-checker authoring and compilation.
 
-Oracle-integrity rule (the paper's claim): the model that WRITES a check must never
-see the run it judges. So checks are compiled PER CASE, from what exists before the
-agent starts: the case's prompt + the BUILT initial environment (its tools, its
-starting /workspace tree) + the skill's NL properties. The compiled scripts are
-stored with the case (<case>/checks/<property_id>.sh) and every later run of that
-case — under ANY method — is judged by the byte-identical scripts.
+The active RQ1 path is ``compile_post_run_checks``: after an agent finishes, the model
+receives the task, environment description, one property, available tools, and final
+workspace paths only. It emits standalone Python which is syntax-checked, frozen under
+the run directory, and later executed against the final snapshot. Artifact contents,
+trace contents, method identity, and prior verdicts are never authoring context.
 
-The scripts still run in the run's live FINAL container (check_properties.py) with
-  /workspace              the final project state
-  /check/trace.jsonl      the agent's session trace (fixed format)
-  /check/workspace.diff   the agent's changes
-A pre-run script can't peek at what the agent happened to do, so it must DISCOVER
-specifics mechanically (find/grep the final tree, grep the trace) — the searching
-is code, not model judgment.
-
-Usage:
-  python -m skillrace.compile_checks --case out/gen/cases/case2 \
-      --props skills/fix-failing-test/properties.json
+The older per-case Bash compiler remains only as a reader/debugging compatibility path
+for historical development artifacts. The campaign executor no longer imports or calls
+it, and its semantic self-audit is not part of new RQ1 execution.
 """
 from __future__ import annotations
 import argparse
@@ -27,11 +18,39 @@ import re
 import subprocess
 import uuid
 
-from .closeai import chat
+from .closeai import OutcomeUnknownError, chat
 from .io_utils import atomic_write_json, atomic_write_text, canonical_json_hash, file_hash
 
 
-CHECK_PROMPT_VERSION = "compile-check-v3"
+CHECK_PROMPT_VERSION = "compile-check-v6"
+CHECK_MODEL_CALL_POLICY = {
+    "max_tokens": None,
+    "timeout_seconds": 120,
+    "mechanical_attempts": 2,
+    "semantic_rewrite": False,
+}
+POST_RUN_PYTHON_PROMPT_VERSION = "post-run-python-check-v2"
+POST_RUN_PYTHON_POLICY_VERSION = "path-only-three-state-no-guess-v2"
+
+PYTHON_CHECK_SYS = (
+    "Write one small standalone Python 3 program that checks one property of a "
+    "finished coding-agent workspace. The authoring context contains paths only, not "
+    "file contents or prior results. At execution, inspect or run artifacts below "
+    "/workspace. For a trace property you may structurally read /check/trace.jsonl. "
+    "Exit 0 when the property holds, 1 when it is violated, and 2 when the checker "
+    "cannot determine the answer or suffers an internal checker error. A missing "
+    "task-required artifact is a violation, not vacuous success. An absent true "
+    "conditional precondition holds. Never invent a callable signature, CLI syntax, "
+    "input format, field/header order, bound, or expected value that the task/property "
+    "does not specify. Make the program inspect documentation, source, or --help at "
+    "runtime before invoking an unfamiliar artifact. Do not copy the finished output "
+    "and call it expected. If the exact expectation remains underdetermined, exit 2. "
+    "Do not use the network, install software, invoke Docker, or modify trusted "
+    "evidence. Print one short diagnostic. Return only "
+    "Python source with no Markdown fence or explanation. Be concise and finish now."
+)
+SEMANTIC_AUDIT_PROMPT_VERSION = "checker-semantic-audit-v2"
+SEMANTIC_AUDIT_POLICY_VERSION = "pre-run-five-rules-v1"
 CHECK_EXECUTION_POLICY = {
     "schema": "property-check-execution/1",
     "timeout_seconds": 60,
@@ -40,6 +59,55 @@ CHECK_EXECUTION_POLICY = {
     "cap_drop": ["ALL"],
     "pids_limit": 256,
 }
+
+
+def parse_semantic_audit(content: str, property_ids: list[str]) -> list[dict]:
+    """Validate one exact, bounded semantic decision for every compiled property."""
+
+    raw = content.strip()
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        if len(lines) < 3 or lines[-1].strip() != "```":
+            raise ValueError("semantic audit fenced response is malformed")
+        raw = "\n".join(lines[1:-1]).strip()
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise ValueError("semantic audit response is not JSON") from error
+    rows = value.get("checks") if isinstance(value, dict) else None
+    if not isinstance(rows, list) or len(rows) != len(property_ids):
+        raise ValueError("semantic audit must decide every property exactly once")
+    normalized = []
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != {
+            "property_id",
+            "decision",
+            "reason",
+        }:
+            raise ValueError("semantic audit decision has invalid fields")
+        property_id = row["property_id"]
+        decision = row["decision"]
+        reason = row["reason"]
+        if (
+            not isinstance(property_id, str)
+            or decision not in {"accept", "reject"}
+            or not isinstance(reason, str)
+            or not reason.strip()
+            or len(reason) > 500
+        ):
+            raise ValueError("semantic audit decision is invalid")
+        normalized.append(
+            {
+                "property_id": property_id,
+                "decision": decision,
+                "reason": reason.strip(),
+            }
+        )
+    if [row["property_id"] for row in normalized] != property_ids:
+        raise ValueError(
+            "semantic audit property IDs are missing, duplicated, or reordered"
+        )
+    return normalized
 
 
 def compile_fingerprint(
@@ -53,6 +121,9 @@ def compile_fingerprint(
     """Identify every input that can affect authored property-check scripts."""
     return canonical_json_hash({
         "prompt_version": CHECK_PROMPT_VERSION,
+        "semantic_audit_prompt_version": SEMANTIC_AUDIT_PROMPT_VERSION,
+        "semantic_audit_policy_version": SEMANTIC_AUDIT_POLICY_VERSION,
+        "model_call_policy": CHECK_MODEL_CALL_POLICY,
         "properties": properties,
         "candidate": {
             "candidate_id": candidate.get("candidate_id"),
@@ -119,6 +190,315 @@ SCRIPT_SYS = (
     "Output ONLY the bash script — no fences, no prose."
 )
 
+SEMANTIC_AUDIT_SYS = (
+    "Review ALL supplied pre-run Bash property checkers against only the supplied task "
+    "prompt, property text, initial tools, and initial tree. Reject a checker when it: "
+    "(1) enforces a requirement unsupported by the task prompt or property; "
+    "(2) guesses artifact interfaces or callable signatures instead of using an "
+    "interface fixed by the prompt or discovered safely; (3) enforces a conditional "
+    "property when its precondition is absent; (4) treats missing required artifacts "
+    "as success; or (5) can manufacture or echo expected output instead of observing "
+    "the agent artifact. The agent run has not happened. Return JSON only, exactly "
+    '{"checks":[{"property_id":"...","decision":"accept|reject",'
+    '"reason":"short reason"}]}, preserving the supplied property order and deciding '
+    "each property exactly once. Be concise and finish quickly."
+)
+def model_call_summary(response: dict) -> dict:
+    """Extract redacted usage/cost/receipt identity from the existing chat result."""
+
+    terminal = response.get("journal_terminal_receipt")
+    usage = terminal.get("usage") if isinstance(terminal, dict) else None
+    if not isinstance(usage, dict):
+        usage = response.get("usage")
+    if not isinstance(usage, dict):
+        raise ValueError("model call receipt lacks usage")
+    input_tokens = usage.get("prompt_tokens")
+    output_tokens = usage.get("completion_tokens")
+    cache_read = usage.get("cached_input_tokens", 0)
+    if any(
+        isinstance(value, bool) or not isinstance(value, int) or value < 0
+        for value in (input_tokens, output_tokens, cache_read)
+    ):
+        raise ValueError("model call usage is invalid")
+    cost = response["cost_provider_credits"]
+    summary = {
+        "operation_id": response["operation_id"],
+        "model": response["model"],
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "cache_read_tokens": cache_read,
+        "cost_provider_credits": None if cost is None else float(cost),
+        "terminal_receipt_sha256": response["journal_terminal_receipt_sha256"],
+        "call_terminal_receipt_sha256": response[
+            "journal_call_terminal_receipt_sha256"
+        ],
+    }
+    if cost is None:
+        summary["cost_accounting"] = "unknown-nonzero-possible"
+    return summary
+
+
+def author_python_check(
+    *,
+    prop,
+    skill,
+    task_prompt,
+    environment,
+    tools,
+    final_tree,
+    model,
+    fix=None,
+):
+    """Author one blinded post-run Python checker from final paths only."""
+
+    user = (
+        f"PROPERTY ID: {prop['id']}\n"
+        f"PROPERTY KIND: {prop.get('reads', 'state')}\n"
+        f"PROPERTY: {prop['nl']}\n\n"
+        f"SKILL: {skill or '(unknown)'}\n"
+        f"TASK PROMPT: {task_prompt}\n"
+        f"ENVIRONMENT DESCRIPTION: {environment or '(not recorded)'}\n\n"
+        "TOOLS AVAILABLE IN THE FINISHED CONTAINER:\n"
+        + ("\n".join(f"- {tool}" for tool in tools) or "- python3")
+        + "\n\nFINAL /workspace PATHS (paths only; contents are not shown):\n"
+        + ("\n".join(final_tree[:200]) or "(empty workspace)")
+        + "\n\nWrite the Python checker now."
+    )
+    if fix is not None:
+        previous, error = fix
+        user += (
+            "\n\nThe previous Python source failed syntax validation. This is the "
+            f"only retry. Compiler error:\n{error[:500]}\n\n"
+            f"PREVIOUS SOURCE:\n{previous}\nEND PREVIOUS SOURCE\n"
+            "Return corrected Python source only."
+        )
+    response = chat(
+        [
+            {"role": "system", "content": PYTHON_CHECK_SYS},
+            {"role": "user", "content": user},
+        ],
+        model=model,
+        temperature=0.0,
+        reasoning=False,
+        max_tokens=None,
+        timeout_seconds=CHECK_MODEL_CALL_POLICY["timeout_seconds"],
+        tag="check.python.author",
+        skill=skill,
+    )
+    return (
+        _strip_fences(response["content"]),
+        response["cost_provider_credits"],
+        model_call_summary(response),
+    )
+
+
+def validate_python_source(source: str, filename: str = "checker.py"):
+    """Return a syntax-only validity result for generated Python source."""
+
+    try:
+        compile(source, filename, "exec")
+    except (SyntaxError, ValueError, TypeError) as error:
+        return False, f"{type(error).__name__}: {error}"
+    return True, ""
+
+
+def _post_run_fingerprint(
+    *, properties, candidate, tools, final_tree, snapshot_identity, model, applicability
+):
+    provenance = candidate.get("provenance") or {}
+    return canonical_json_hash(
+        {
+            "schema": "post-run-python-check-input/1",
+            "prompt_version": POST_RUN_PYTHON_PROMPT_VERSION,
+            "policy_version": POST_RUN_PYTHON_POLICY_VERSION,
+            "model_call_policy": CHECK_MODEL_CALL_POLICY,
+            "model": model,
+            "skill": candidate.get("skill"),
+            "task_prompt": candidate.get("prompt"),
+            "environment": provenance.get("env_nl", ""),
+            "properties": properties,
+            "tools": list(tools),
+            "final_tree": list(final_tree),
+            "snapshot_identity": snapshot_identity,
+            "applicability": applicability,
+        }
+    )
+
+
+def _cached_post_run_manifest_matches(manifest, checks_dir, fingerprint):
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("schema") != "post-run-python-checks/1"
+        or manifest.get("fingerprint") != fingerprint
+    ):
+        return False
+    for entry in manifest.get("checks", []):
+        if not isinstance(entry, dict) or not isinstance(entry.get("script"), str):
+            return False
+        path = checks_dir / entry["script"]
+        if not path.is_file() or file_hash(path) != entry.get("sha256"):
+            return False
+    return True
+
+
+def compile_post_run_checks(
+    *,
+    run_dir,
+    properties,
+    candidate,
+    tools,
+    final_tree,
+    snapshot_identity,
+    model,
+    applicability=None,
+):
+    """Author and freeze blinded path-only Python checks after an agent run."""
+
+    run_dir = pathlib.Path(run_dir)
+    checks_dir = run_dir / "checks"
+    manifest_path = checks_dir / "manifest.json"
+    properties = json.loads(json.dumps(list(properties)))
+    tools = list(tools)
+    final_tree = list(final_tree)
+    fingerprint = _post_run_fingerprint(
+        properties=properties,
+        candidate=candidate,
+        tools=tools,
+        final_tree=final_tree,
+        snapshot_identity=snapshot_identity,
+        model=model,
+        applicability=applicability,
+    )
+    if manifest_path.is_file():
+        cached = json.loads(manifest_path.read_text())
+        if _cached_post_run_manifest_matches(cached, checks_dir, fingerprint):
+            return cached, 0.0
+
+    checks_dir.mkdir(parents=True, exist_ok=True)
+    entries = []
+    excluded = []
+    total_cost = 0.0
+    provenance = candidate.get("provenance") or {}
+    for prop in properties:
+        calls = []
+        source = ""
+        error = ""
+        valid = False
+        for attempt in range(2):
+            try:
+                source, cost, call = author_python_check(
+                    prop=prop,
+                    skill=candidate.get("skill"),
+                    task_prompt=candidate.get("prompt", ""),
+                    environment=provenance.get("env_nl", ""),
+                    tools=tools,
+                    final_tree=final_tree,
+                    model=model,
+                    fix=(source, error) if attempt else None,
+                )
+            except OutcomeUnknownError:
+                raise
+            except Exception as author_error:  # per-property degradation is deliberate
+                error = f"{type(author_error).__name__}: {author_error}"[:500]
+                break
+            total_cost += float(cost or 0.0)
+            if call is not None:
+                calls.append(call)
+            valid, error = validate_python_source(
+                source, filename=f"{prop['id']}.py"
+            )
+            if valid:
+                break
+        if not valid:
+            excluded.append(
+                {
+                    "property_id": prop["id"],
+                    "reason": (
+                        "python_syntax_invalid" if source else "checker_author_failed"
+                    ),
+                    "error": error,
+                    "author_calls": calls,
+                }
+            )
+            continue
+        script_path = checks_dir / f"{prop['id']}.py"
+        atomic_write_text(script_path, source)
+        entries.append(
+            {
+                "property_id": prop["id"],
+                "script": script_path.name,
+                "sha256": file_hash(script_path),
+                "author_calls": calls,
+                "syntax_ok": True,
+            }
+        )
+
+    all_calls = [
+        call
+        for item in [*entries, *excluded]
+        for call in item.get("author_calls", [])
+    ]
+    manifest = {
+        "schema": "post-run-python-checks/1",
+        "provenance": "post-run-path-only",
+        "prompt_version": POST_RUN_PYTHON_PROMPT_VERSION,
+        "policy_version": POST_RUN_PYTHON_POLICY_VERSION,
+        "fingerprint": fingerprint,
+        "snapshot_identity": snapshot_identity,
+        "path_tree_hash": canonical_json_hash(final_tree),
+        "model": model,
+        "properties": properties,
+        "active_property_ids": [entry["property_id"] for entry in entries],
+        "checks": entries,
+        "excluded_properties": excluded,
+        "tools_probed": tools,
+        "model_call_policy": CHECK_MODEL_CALL_POLICY,
+        "execution_policy": CHECK_EXECUTION_POLICY,
+        "cost_provider_credits": round(total_cost, 12),
+    }
+    if applicability is not None:
+        manifest["applicability"] = applicability
+    if any(call.get("cost_provider_credits") is None for call in all_calls):
+        manifest["cost_accounting"] = "unknown-nonzero-possible"
+    atomic_write_json(manifest_path, manifest)
+    return manifest, total_cost
+
+
+def audit_checks(*, properties, prompt, skill, tools, tree, scripts, model):
+    """Make one pre-run semantic self-audit call over a candidate's full check set."""
+
+    payload = {
+        "task_prompt": prompt,
+        "properties": properties,
+        "initial_tools": tools,
+        "initial_tree": tree[:80],
+        "scripts": [
+            {"property_id": prop["id"], "script": scripts[prop["id"]]}
+            for prop in properties
+        ],
+    }
+    response = chat(
+        [
+            {"role": "system", "content": SEMANTIC_AUDIT_SYS},
+            {"role": "user", "content": json.dumps(payload, indent=2)},
+        ],
+        model=model,
+        temperature=0.0,
+        reasoning=False,
+        max_tokens=None,
+        timeout_seconds=CHECK_MODEL_CALL_POLICY["timeout_seconds"],
+        tag="compile.check.audit",
+        skill=skill,
+    )
+    decisions = parse_semantic_audit(
+        response["content"], [prop["id"] for prop in properties]
+    )
+    return (
+        decisions,
+        float(response["cost_provider_credits"] or 0.0),
+        model_call_summary(response),
+    )
+
 
 def _sh(container, cmd):
     p = subprocess.run(["docker", "exec", container, "sh", "-c", cmd],
@@ -152,18 +532,27 @@ def author_check(prop, skill, prompt, tools, tree, model, fix=None):
         "INITIAL /workspace TREE (BEFORE the agent runs — the final tree may differ; "
         "discover final artifacts mechanically):\n"
         + ("\n".join(tree[:80]) or "(empty)") + "\n\n"
-        "Write the bash script."
+        "Write a concise bash script. Finish quickly and output the script now; do not "
+        "spend the response on explanation or unnecessary reasoning."
     )
     if fix:
-        broken, err = fix
-        user += (f"\n\nYour PREVIOUS script FAILED mechanical validation:\n{err}\n\n"
-                 f"--- previous script ---\n{broken}\n--- end ---\n"
-                 "Return a CORRECTED script. Output ONLY the script.")
+        broken, error = fix
+        user += (
+            f"\n\nThe previous script was unusable:\n{error}\n\n"
+            f"--- previous script ---\n{broken}\n--- end ---\n"
+            "This is the only retry. Return only a corrected concise Bash script now."
+        )
     resp = chat([{"role": "system", "content": SCRIPT_SYS},
                  {"role": "user", "content": user}],
-                model=model, temperature=0.0, reasoning=True, max_tokens=1600,
+                model=model, temperature=0.0, reasoning=False,
+                max_tokens=None,
+                timeout_seconds=CHECK_MODEL_CALL_POLICY["timeout_seconds"],
                 tag="compile.check", skill=skill)
-    return _strip_fences(resp["content"]), resp["cost_usd"]
+    return (
+        _strip_fences(resp["content"]),
+        resp["cost_provider_credits"],
+        model_call_summary(resp),
+    )
 
 
 def _strip_fences(s):
@@ -177,7 +566,8 @@ def _strip_fences(s):
 
 def _syntax_ok(path):
     p = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True)
-    return p.returncode == 0, (p.stderr or "").strip()
+    error = (p.stderr or "").strip()
+    return p.returncode == 0 and not error, error
 
 
 _NETWORK_COMMAND = re.compile(
@@ -193,9 +583,19 @@ _RAW_TRACE_TEXT = re.compile(
     r"(?im)^.*\b(?:grep|egrep|fgrep|rg|ripgrep|sed|awk)\b.*"
     r"/check/trace\.jsonl.*$"
 )
+_CHANGE_SCOPED_PROPERTY = re.compile(
+    r"\bintroduced\b|\bchanged\s+by\s+(?:the\s+)?agent\b|"
+    r"\bmodified\s+(?:test|file|artifact|script|workspace)\b",
+    re.I,
+)
 
 
-def validate_script_policy(script: str, tools: list[str], reads: str | None = None):
+def validate_script_policy(
+    script: str,
+    tools: list[str],
+    reads: str | None = None,
+    property_nl: str | None = None,
+):
     """Reject checks whose evidence or execution policy is not mechanically safe."""
 
     if not script.startswith("#!/usr/bin/env bash\n"):
@@ -210,6 +610,12 @@ def validate_script_policy(script: str, tools: list[str], reads: str | None = No
         return False, "trace property must inspect /check/trace.jsonl"
     if reads == "state" and "/workspace" not in script:
         return False, "state property must inspect or execute the final /workspace"
+    if (
+        property_nl
+        and _CHANGE_SCOPED_PROPERTY.search(property_nl)
+        and "/check/workspace.diff" not in script
+    ):
+        return False, "change-scoped property must inspect /check/workspace.diff"
     if references_trace:
         if _RAW_TRACE_TEXT.search(script):
             return False, "trace checks must structurally parse toolCall blocks, not raw text"
@@ -246,13 +652,18 @@ def _cached_scripts_match(manifest, checks_dir, property_ids):
         entry.get("property_id") if isinstance(entry, dict) else None
         for entry in entries
     ]
-    if entry_ids != property_ids:
+    if entry_ids != manifest.get("active_property_ids", property_ids):
         return False
-    for entry in entries:
+    excluded = manifest.get("excluded_properties", [])
+    if not isinstance(excluded, list):
+        return False
+    for entry in [*entries, *excluded]:
         if not isinstance(entry, dict):
             return False
         script = entry.get("script")
         expected_hash = entry.get("sha256")
+        if script is None and expected_hash is None and entry in excluded:
+            continue
         if not isinstance(script, str) or not isinstance(expected_hash, str):
             return False
         relative = pathlib.Path(script)
@@ -267,6 +678,32 @@ def _cached_scripts_match(manifest, checks_dir, property_ids):
         except OSError:
             return False
     return True
+
+
+def _unpack_author_result(result):
+    """Accept legacy two-tuples from offline tests while production returns receipts."""
+
+    if not isinstance(result, tuple) or len(result) not in {2, 3}:
+        raise ValueError("checker author result is malformed")
+    script, cost = result[:2]
+    call = result[2] if len(result) == 3 else None
+    return script, float(cost or 0.0), call
+
+
+def _validate_authored_script(path, script, tools, prop):
+    syntax_ok, syntax_error = _syntax_ok(path)
+    policy_ok, policy_error = validate_script_policy(
+        script, tools, reads=prop.get("reads"), property_nl=prop.get("nl")
+    )
+    error = " | ".join(
+        value
+        for value in (
+            f"bash -n: {syntax_error}" if not syntax_ok else "",
+            f"policy: {policy_error}" if not policy_ok else "",
+        )
+        if value
+    )
+    return syntax_ok, policy_ok, error
 
 
 def compile_case(case_dir, props, model, image=None, applicability=None):
@@ -321,46 +758,110 @@ def compile_case(case_dir, props, model, image=None, applicability=None):
             )
 
     checks_dir.mkdir(exist_ok=True)
-    cost, entries = 0.0, []
+    cost, entries, excluded = 0.0, [], []
     for prop in props:
-        script, c = author_check(prop, cand.get("skill"), cand["prompt"],
-                                 tools, tree, model)
-        cost += c
+        script, c, call = _unpack_author_result(
+            author_check(
+                prop, cand.get("skill"), cand["prompt"], tools, tree, model
+            )
+        )
+        cost += float(c or 0.0)
+        author_calls = [call] if call is not None else []
         sp = checks_dir / f"{prop['id']}.sh"
         atomic_write_text(sp, script)
-        syntax_ok, syntax_error = _syntax_ok(sp)
-        policy_ok, policy_error = validate_script_policy(
-            script, tools, reads=prop.get("reads")
+        syntax_ok, policy_ok, error = _validate_authored_script(
+            sp, script, tools, prop
         )
         if not syntax_ok or not policy_ok:
-            validation_error = " | ".join(
-                value
-                for value in (
-                    f"bash -n: {syntax_error}" if not syntax_ok else "",
-                    f"policy: {policy_error}" if not policy_ok else "",
+            script, retry_cost, retry_call = _unpack_author_result(
+                author_check(
+                    prop,
+                    cand.get("skill"),
+                    cand["prompt"],
+                    tools,
+                    tree,
+                    model,
+                    fix=(script, error[:300]),
                 )
-                if value
             )
-            script, c2 = author_check(prop, cand.get("skill"), cand["prompt"],
-                                      tools, tree, model, fix=(script, validation_error))
-            cost += c2
+            cost += float(retry_cost or 0.0)
+            if retry_call is not None:
+                author_calls.append(retry_call)
             atomic_write_text(sp, script)
-            syntax_ok, syntax_error = _syntax_ok(sp)
-            policy_ok, policy_error = validate_script_policy(
-                script, tools, reads=prop.get("reads")
+            syntax_ok, policy_ok, error = _validate_authored_script(
+                sp, script, tools, prop
             )
-        errors = " | ".join(
-            value
-            for value in (
-                f"bash -n: {syntax_error}" if not syntax_ok else "",
-                f"policy: {policy_error}" if not policy_ok else "",
+        entry = {
+            "property_id": prop["id"],
+            "script": sp.name,
+            "sha256": file_hash(sp),
+            "syntax_ok": syntax_ok,
+            "policy_ok": policy_ok,
+            "error": None if syntax_ok and policy_ok else error[:300],
+            "author_calls": author_calls,
+        }
+        if not syntax_ok or not policy_ok:
+            excluded.append(
+                {
+                    **entry,
+                    "reason": "checker_generation_failure",
+                    "stage": "mechanical_validation",
+                }
             )
-            if value
+            continue
+        entries.append(entry)
+
+    if not entries:
+        raise RuntimeError("no usable property checkers after one retry per property")
+
+    property_by_id = {prop["id"]: prop for prop in props}
+    active_properties = [property_by_id[entry["property_id"]] for entry in entries]
+    scripts = {
+        entry["property_id"]: (checks_dir / entry["script"]).read_text()
+        for entry in entries
+    }
+    decisions, audit_cost, audit_call = audit_checks(
+        properties=active_properties,
+        prompt=cand["prompt"],
+        skill=cand.get("skill"),
+        tools=tools,
+        tree=tree,
+        scripts=scripts,
+        model=model,
+    )
+    cost += audit_cost
+    accepted_entries = []
+    for entry, decision in zip(entries, decisions, strict=True):
+        entry["initial_sha256"] = entry["sha256"]
+        entry["audit_decision"] = decision["decision"]
+        entry["audit_reason"] = decision["reason"]
+        entry["rewritten"] = False
+        if decision["decision"] == "accept":
+            accepted_entries.append(entry)
+            continue
+        excluded.append(
+            {
+                **entry,
+                "reason": "checker_semantic_rejection",
+                "stage": "semantic_audit",
+                "semantic_reason": decision["reason"],
+            }
         )
-        entries.append({"property_id": prop["id"], "script": sp.name,
-                        "sha256": file_hash(sp), "syntax_ok": syntax_ok,
-                        "policy_ok": policy_ok,
-                        "error": None if syntax_ok and policy_ok else errors[:300]})
+
+    entries = accepted_entries
+    if not entries:
+        raise RuntimeError("no usable property checkers after semantic audit")
+
+    semantic_audit = {
+        "prompt_version": SEMANTIC_AUDIT_PROMPT_VERSION,
+        "policy_version": SEMANTIC_AUDIT_POLICY_VERSION,
+        "status": "accepted-with-exclusions" if excluded else "accepted",
+        "decisions": decisions,
+        "call": audit_call,
+        "rewrites": [],
+        "cost_provider_credits": round(audit_cost, 6),
+        "rewrite_cost_provider_credits": 0.0,
+    }
     manifest = {
         "authored": "pre-run",
         "prompt_version": CHECK_PROMPT_VERSION,
@@ -370,11 +871,22 @@ def compile_case(case_dir, props, model, image=None, applicability=None):
         "prompt": cand["prompt"],
         "properties": props,
         "property_ids": prop_ids,
+        "active_property_ids": [entry["property_id"] for entry in entries],
+        "excluded_properties": excluded,
         "tools_probed": tools,
         "checks": entries,
+        "semantic_audit": semantic_audit,
+        "model_call_policy": CHECK_MODEL_CALL_POLICY,
         "execution_policy": CHECK_EXECUTION_POLICY,
-        "cost_usd": round(cost, 6),
+        "cost_provider_credits": round(cost, 6),
     }
+    all_calls = [
+        call
+        for entry in [*entries, *excluded]
+        for call in entry.get("author_calls", [])
+    ] + [audit_call]
+    if any(call.get("cost_provider_credits") is None for call in all_calls):
+        manifest["cost_accounting"] = "unknown-nonzero-possible"
     if applicability is not None:
         manifest["applicability"] = applicability
     atomic_write_json(man_path, manifest)
@@ -385,13 +897,13 @@ def main():
     ap = argparse.ArgumentParser(description="Compile per-case property checks (pre-run)")
     ap.add_argument("--case", required=True, help="case dir (Dockerfile + candidate.json)")
     ap.add_argument("--props", required=True, help="skill properties.json (NL)")
-    ap.add_argument("--model", default="qwen3.6-flash")
+    ap.add_argument("--model", default="glm-4.5-flash")
     ap.add_argument("--image", help="already-built case image (skips the build)")
     args = ap.parse_args()
 
     props = json.loads(pathlib.Path(args.props).read_text())
     man, cost = compile_case(args.case, props, args.model, image=args.image)
-    print(f"compiled {len(man['checks'])} checks (cost ${cost:.4f}) -> {args.case}/checks/")
+    print(f"compiled {len(man['checks'])} checks (cost ⚡{cost:.4f}) -> {args.case}/checks/")
     for e in man["checks"]:
         mark = "ok" if e["syntax_ok"] else f"SYNTAX BROKEN: {e['error']}"
         print(f"  {e['property_id']}.sh  [{mark}]")

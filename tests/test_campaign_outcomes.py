@@ -3,6 +3,7 @@ import json
 import pytest
 
 import skillrace.loop as campaign_loop
+from skillrace.closeai import OutcomeUnknownError
 from skillrace.loop import classify_oracle_result, classify_runner_result
 
 
@@ -65,10 +66,31 @@ def test_checker_is_not_spawned_without_run_manifest(tmp_path, monkeypatch):
     assert "run.json" in " ".join(tail)
 
 
+def test_checker_subprocess_outcome_unknown_marker_is_propagated(tmp_path, monkeypatch):
+    (tmp_path / "run.json").write_text(json.dumps({"container": "run-c1"}))
+
+    def fake_run(*args, **kwargs):
+        (tmp_path / "checker-outcome-unknown.json").write_text(
+            json.dumps({"error": "provider outcome unknown"})
+        )
+        return type("Result", (), {"returncode": 75, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setattr(campaign_loop.subprocess, "run", fake_run)
+
+    with pytest.raises(OutcomeUnknownError, match="provider outcome unknown"):
+        campaign_loop.check_run(
+            tmp_path,
+            "model",
+            properties=[{"id": "p1", "nl": "works", "reads": "state"}],
+            candidate={"skill": "demo", "prompt": "fix", "provenance": {}},
+            applicability=None,
+        )
+
+
 class _FakeRandom:
     def __init__(self, *args, **kwargs):
         self.n = 0
-        self.cost_usd = 0.0
+        self.cost_provider_credits = 0.0
         self.folded = []
 
     def propose(self):
@@ -121,19 +143,12 @@ def _write_skill(tmp_path):
     return skill_dir
 
 
-def test_campaign_retries_pre_agent_failure_and_records_separate_statuses(
+def test_campaign_runs_checker_after_counted_agent_and_passes_blinded_inputs(
     tmp_path, monkeypatch
 ):
     skill_dir = _write_skill(tmp_path)
-    compile_calls = []
     runner_calls = []
     checker_calls = []
-
-    def fake_compile(case_dir, properties, model, image=None, applicability=None):
-        compile_calls.append((properties, applicability))
-        if len(compile_calls) == 1:
-            raise RuntimeError("compile unavailable")
-        return {"checks": [], "applicability": applicability}, 0.0
 
     def fake_runner(case_dir, run_dir, model, wall_clock, trusted_skill_dir):
         runner_calls.append(str(run_dir))
@@ -145,8 +160,8 @@ def test_campaign_retries_pre_agent_failure_and_records_separate_statuses(
         (run_dir / "run.json").write_text(json.dumps(manifest))
         return 7, "agent failed", manifest
 
-    def fake_checker(run_dir, model):
-        checker_calls.append(str(run_dir))
+    def fake_checker(run_dir, model, **kwargs):
+        checker_calls.append((str(run_dir), kwargs))
         return (
             [
                 {
@@ -175,7 +190,6 @@ def test_campaign_retries_pre_agent_failure_and_records_separate_statuses(
             "checks": [],
         },
     )
-    monkeypatch.setattr(campaign_loop, "compile_case", fake_compile)
     monkeypatch.setattr(
         campaign_loop, "verify_runtime_integrity", lambda *a, **k: {"runtime": "ok"}
     )
@@ -195,18 +209,10 @@ def test_campaign_retries_pre_agent_failure_and_records_separate_statuses(
         development_only=True,
     )
 
-    assert len(campaign["attempts"]) == 2
+    assert len(campaign["attempts"]) == 1
     assert campaign["complete"] is True
-    failed, counted = campaign["attempts"]
-    assert failed["attempt_id"] == "e0000-a00"
-    assert failed["generation_status"] == "generated"
-    assert failed["infrastructure_status"] == "compile_error"
-    assert failed["runner_status"] == "not_started"
-    assert failed["oracle_status"] == "not_run"
-    assert failed["agent_started"] is False
-    assert failed["consume_budget"] is False
-
-    assert counted["attempt_id"] == "e0000-a01"
+    counted = campaign["attempts"][0]
+    assert counted["attempt_id"] == "e0000-a00"
     assert counted["generation_status"] == "generated"
     assert counted["infrastructure_status"] == "ready"
     assert counted["runner_status"] == "agent_error"
@@ -217,18 +223,15 @@ def test_campaign_retries_pre_agent_failure_and_records_separate_statuses(
     assert campaign["iterations"][0] == counted
     assert len(runner_calls) == 1
     assert len(checker_calls) == 1
-    assert all(call[0] == [{"id": "p2", "nl": "must verify", "reads": "trace"}]
-               for call in compile_calls)
-    assert all(
-        call[1]
-        == {
+    assert checker_calls[0][1]["properties"] == [
+        {"id": "p2", "nl": "must verify", "reads": "trace"}
+    ]
+    assert checker_calls[0][1]["applicability"] == {
             "property_ids": ["p2"],
             "fixed_invariants": ["fixed-no-force-push"],
             "categories": ["process-hygiene"],
             "contingency": "medium",
-        }
-        for call in compile_calls
-    )
+    }
 
 
 def test_campaign_stops_after_finite_pre_agent_attempt_cap(tmp_path, monkeypatch):
@@ -246,15 +249,10 @@ def test_campaign_stops_after_finite_pre_agent_attempt_cap(tmp_path, monkeypatch
         "run_candidate_sanity",
         lambda image, spec: {
             "schema": "candidate-sanity/1",
-            "valid": True,
-            "rejection": None,
+            "valid": False,
+            "rejection": "unsolved",
             "checks": [],
         },
-    )
-    monkeypatch.setattr(
-        campaign_loop,
-        "compile_case",
-        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("still down")),
     )
     monkeypatch.setattr(
         campaign_loop, "verify_runtime_integrity", lambda *a, **k: {"runtime": "ok"}
@@ -284,3 +282,80 @@ def test_campaign_stops_after_finite_pre_agent_attempt_cap(tmp_path, monkeypatch
     assert campaign["complete"] is False
     assert campaign["consecutive_pre_agent_failures"] == 3
     assert runner_calls == []
+
+
+def test_unknown_checker_call_stops_campaign_without_retry(tmp_path, monkeypatch):
+    skill_dir = _write_skill(tmp_path)
+    checker_calls = []
+    runner_calls = []
+
+    monkeypatch.setattr(campaign_loop, "RandomGenerator", _FakeRandom)
+    monkeypatch.setattr(
+        campaign_loop,
+        "resolve_base_image_identity",
+        lambda image, resolver=None: "sha256:" + "a" * 64,
+    )
+    monkeypatch.setattr(
+        campaign_loop,
+        "run_candidate_sanity",
+        lambda image, spec: {
+            "schema": "candidate-sanity/1",
+            "valid": True,
+            "rejection": None,
+            "checks": [],
+        },
+    )
+
+    def unknown_checker(*args, **kwargs):
+        checker_calls.append((args, kwargs))
+        raise OutcomeUnknownError("operation outcome is unknown")
+
+    monkeypatch.setattr(campaign_loop, "check_run", unknown_checker)
+    monkeypatch.setattr(
+        campaign_loop, "verify_runtime_integrity", lambda *a, **k: {"runtime": "ok"}
+    )
+    monkeypatch.setattr(
+        campaign_loop,
+        "run_agent",
+        lambda case_dir, run_dir, *args, **kwargs: (
+            runner_calls.append(args),
+            run_dir.mkdir(parents=True, exist_ok=True),
+            (run_dir / "run.json").write_text(
+                json.dumps(
+                    {
+                        "run_id": "run-unknown-checker",
+                        "agent_started": True,
+                        "termination": {"reason": "completed", "rc": 0},
+                    }
+                )
+            ),
+            (0, "ok", json.loads((run_dir / "run.json").read_text())),
+        )[-1],
+    )
+
+    campaign = campaign_loop.run_campaign(
+        "random",
+        "demo",
+        skill_dir,
+        "demo:base",
+        skill_dir / "properties.json",
+        budget=1,
+        seed_count=0,
+        out_dir=tmp_path / "out",
+        max_pre_agent_attempts=3,
+        development_only=True,
+    )
+
+    assert len(checker_calls) == 1
+    assert len(runner_calls) == 1
+    assert len(campaign["attempts"]) == 1
+    assert len(campaign["iterations"]) == 1
+    assert campaign["counted_executions"] == 1
+    assert campaign["status"] == "aborted_external_outcome_unknown"
+    assert campaign["stop_reason"] == "external-outcome-unknown"
+    assert campaign["complete"] is False
+    result = campaign["attempts"][0]["result"]
+    assert result["status"] == "external-outcome-indeterminate"
+    assert result["infrastructure_status"] == "external_state_indeterminate"
+    assert result["cost_accounting"] == "unknown-nonzero-possible"
+    assert result["unrecorded_cost_possible"] is True

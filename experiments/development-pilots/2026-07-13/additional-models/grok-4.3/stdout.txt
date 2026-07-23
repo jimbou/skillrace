@@ -1,0 +1,7 @@
+Success. Created `/workspace/provider-probe.txt` with exactly:
+
+```
+skillrace-provider-probe
+```
+
+Read-back confirmed the contents match.

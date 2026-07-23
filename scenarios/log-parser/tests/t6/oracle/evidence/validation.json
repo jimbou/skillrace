@@ -2,10 +2,10 @@
   "schema": "skillrace-oracle-evidence/1",
   "test_id": "log-parser/t6",
   "state": "validated",
-  "contract_identity_sha256": "769f9c7d7a0ba157055852b37cdc0091afc3c133fde8a08200ecebcae244335d",
+  "contract_identity_sha256": "4019587d26eae13c5c0ab634a989f8223dc3985bf876a26fe5ff8ce7052026e7",
   "reason": "Docker reference and negative oracle audit passed",
-  "validated_at": "2026-07-12T00:13:26.333724+00:00",
-  "image_digest": "sha256:33807f29585594feec333929112a07e06eddba59ed0b98939abcd203129d8151",
+  "validated_at": "2026-07-12T17:35:58.888614+00:00",
+  "image_digest": "sha256:2b84c0c4ccf74a6ae411ed7cb960430b1c7fd3a8032af6733c85415c8e24ca6f",
   "docker_version": "29.6.1",
   "reference": {
     "passed": true,
@@ -18,7 +18,7 @@
         ],
         "exit_code": 0,
         "final_output_line": "ok",
-        "duration_seconds": 0.061563,
+        "duration_seconds": 0.086364,
         "script_sha256": "2dd9a6d7a71e5a454e38f35e80ea9ae85e8012f241610bfb7bd27cc8b5de9c3a",
         "isolation": "fresh-container-per-criterion"
       }
@@ -34,7 +34,7 @@
         ],
         "exit_code": 1,
         "final_output_line": "FAIL logstat.py missing",
-        "duration_seconds": 0.074201,
+        "duration_seconds": 0.054685,
         "script_sha256": "2dd9a6d7a71e5a454e38f35e80ea9ae85e8012f241610bfb7bd27cc8b5de9c3a",
         "isolation": "fresh-container-per-criterion"
       }
@@ -51,7 +51,7 @@
           ],
           "exit_code": 1,
           "final_output_line": "RuntimeError: negative implementation",
-          "duration_seconds": 0.114076,
+          "duration_seconds": 0.092393,
           "script_sha256": "2dd9a6d7a71e5a454e38f35e80ea9ae85e8012f241610bfb7bd27cc8b5de9c3a",
           "isolation": "fresh-container-per-criterion"
         }

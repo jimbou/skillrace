@@ -1,0 +1,7 @@
+[
+  {"id":"transformation-values-correct","reads":"state","nl":"Every requested filter, reshape, join, aggregate, normalization, or derived column equals an independent computation on the concrete input, including boundary rows and groups."},
+  {"id":"missing-and-duplicate-policy","reads":"state","nl":"Missing values, duplicates, invalid values, and outliers are handled exactly according to the case policy without silently dropping rows or selecting an unstated imputation strategy."},
+  {"id":"schema-and-row-identity-preserved","reads":"state","nl":"Columns, data types, keys, row ordering, and cardinality required by the task are preserved or changed only as requested, with joins unable to create accidental many-to-many duplication."},
+  {"id":"transform-artifact-reproducible","reads":"state","nl":"The retained transformation code reruns from the original immutable input to produce the requested parseable output and all supplied integrity tests pass."}
+]
+

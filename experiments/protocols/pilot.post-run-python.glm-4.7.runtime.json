@@ -1,0 +1,28 @@
+{
+  "schema": "campaign-protocol/1",
+  "protocol_id": "skillrace-post-run-python-glm-4.7-20260715-v1",
+  "status": "runtime",
+  "model": "glm-4.7",
+  "budget": 1,
+  "bootstrap_count": 1,
+  "max_generation_attempts_per_execution": 2,
+  "seed_generator": {
+    "batch_size": 1,
+    "temperature": 0.9,
+    "build_retries": 2
+  },
+  "greybox_level": "L1",
+  "random_seed": 2026071501,
+  "repair": {
+    "enabled": true,
+    "timeout_seconds": 300,
+    "max_output_tokens": 4000,
+    "temperature": 0.0,
+    "reasoning": true,
+    "backend_by_method": {
+      "random": "direct",
+      "greybox": "direct",
+      "skillrace": "pi"
+    }
+  }
+}

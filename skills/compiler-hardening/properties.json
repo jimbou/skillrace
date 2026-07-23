@@ -1,0 +1,7 @@
+[
+  {"id":"release-build-hardened","reads":"state","nl":"The real requested release build path applies the required stack protector, fortify, PIE, RELRO, non-executable-stack, and overflow flags to compilation and final linking rather than only documenting them."},
+  {"id":"hardened-binary-verifies","reads":"state","nl":"The final native executable builds and runs correctly, while readelf or equivalent concrete inspection confirms every binary hardening property required by the case."},
+  {"id":"sanitizer-target-effective","reads":"state","nl":"The requested sanitizer configuration is executable in tests or CI, catches the supplied unsafe fixture when expected, and does not leak sanitizer flags into an incompatible production artifact."},
+  {"id":"build-config-portable","reads":"state","nl":"Hardening changes use the task's actual Make, CMake, or compiler configuration and preserve clean builds under the supported compiler modes without unsafe library search paths."}
+]
+

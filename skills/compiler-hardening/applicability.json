@@ -1,0 +1,2 @@
+{"skill":"compiler-hardening","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["outcome-integrity","build-static","self-consistency"],"property_ids":["release-build-hardened","hardened-binary-verifies","sanitizer-target-effective","build-config-portable"],"contingency":"high","family":"native-build-security"}
+

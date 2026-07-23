@@ -1,0 +1,38 @@
+{
+  "schema": "skillrace-experiment-manifest/1",
+  "experiment_id": "development-positive-network-repair-gate-v32-2026-07-13",
+  "status": "development-only",
+  "campaign_workers": 1,
+  "resources": {
+    "api": 1,
+    "docker": 1,
+    "agent": 1
+  },
+  "confirmation": {
+    "enabled": true,
+    "mode": "bounded-development"
+  },
+  "repair": {
+    "enabled": true,
+    "evidence_max_bytes": 12000
+  },
+  "cells": [
+    {
+      "id": "positive-gate.deepseek-v3.2.network-config-validation.skillrace.v1",
+      "output": "deepseek-v3.2/network-config-validation/skillrace",
+      "campaign": {
+        "method": "skillrace",
+        "skill": "network-config-validation",
+        "skill_dir": "skills/network-config-validation",
+        "base": "skillrace/network-config-validation:base-deepseek-v3.2-dev",
+        "props_path": "skills/network-config-validation/properties.json",
+        "protocol": "experiments/protocols/pilot.deepseek-v3.2.runtime.json",
+        "development_only": true,
+        "budget": 1,
+        "seed_count": 1,
+        "max_pre_agent_attempts": 3,
+        "wall_clock": 600
+      }
+    }
+  ]
+}

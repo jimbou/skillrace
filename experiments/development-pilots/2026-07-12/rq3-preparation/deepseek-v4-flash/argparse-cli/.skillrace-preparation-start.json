@@ -1,0 +1,8 @@
+{
+  "schema": "skillrace-rq3-track-scenario-start/1",
+  "scenario_id": "argparse-cli",
+  "model": "deepseek-v4-flash",
+  "source_tree_hash": "ce46ec797718d605a9718dc46f77e746fb285494c7d813ca2b1785fe72adf685",
+  "benchmark_template_hash": "137dcbd9e284185470ee71dfea90ca121606429406c7959588e7939ee58c9243",
+  "operation_id": "rq3.prepare.f9c6b74eaac6fbe27d934e10644a643344553ae62994d2adb96c32b56427aeef"
+}

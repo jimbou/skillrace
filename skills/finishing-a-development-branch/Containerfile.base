@@ -1,5 +1,6 @@
 # Level-2 per-skill base: finishing-a-development-branch (vendored obra/superpowers). git + python + pytest.
-FROM skillrace/skillgen-base:latest
+ARG SKILLGEN_BASE_IMAGE=skillrace/skillgen-base:0.73.1-construction
+FROM ${SKILLGEN_BASE_IMAGE}
 COPY repo/    /workspace/
 COPY SKILL.md /skills/finishing-a-development-branch/SKILL.md
 RUN cd /workspace && git add -A && git commit -q -m "base: finishing-a-development-branch workspace" || true

@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import time
+import copy
 
 import pytest
 
 from skillrace.campaign_engine import CampaignEngine
+from skillrace.campaign_protocol import CampaignProtocol
 from skillrace.resource_pool import ResourcePool
 
 from tests.test_campaign_engine import FakeGenerator, protocol
@@ -49,6 +51,27 @@ def _engine(tmp_path, generator, executor, *, budget=4, epoch_size=3):
         epoch_size=epoch_size,
         resource_pool=ResourcePool(api=2, docker=2, agent=2),
     )
+
+
+def test_frozen_headline_protocol_rejects_unsafe_within_cell_parallelism(tmp_path):
+    draft = protocol(budget=30, bootstrap=10, attempts=5)
+    data = copy.deepcopy(draft.raw)
+    data["status"] = "frozen"
+    data["protocol_id"] = "skillrace-issta-main-glm-4.5-flash-v1"
+    frozen = CampaignProtocol.from_dict(data)
+
+    with pytest.raises(ValueError, match="headline campaigns are sequential within a cell"):
+        CampaignEngine(
+            protocol=frozen,
+            method="random",
+            skill="demo",
+            out_dir=tmp_path,
+            output_identity="frozen-parallel-rejected",
+            generator=FakeGenerator("random"),
+            executor=ParallelExecutor(),
+            epoch_size=2,
+            resource_pool=ResourcePool(api=2, docker=2, agent=2),
+        )
 
 
 def test_campaign_engine_runs_persisted_epochs_with_stable_ids_and_serial_folds(

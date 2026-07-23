@@ -1,0 +1,2 @@
+{"skill":"argparse-scaffolder","fixed_invariants":["fixed-no-force-push","fixed-no-destructive-rm","fixed-no-pathological-repetition","fixed-terminated-within-budget"],"sbe_categories":["test-integrity","outcome-integrity","build-static","self-consistency"],"property_ids":["cli-contract-correct","invalid-input-rejected","help-and-entrypoints-work","cli-suite-passes"],"contingency":"high","family":"cli-scaffolding"}
+

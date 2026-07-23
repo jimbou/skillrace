@@ -110,7 +110,7 @@ logged.
 **Note on environment-contingency.** Whether a skill's behavior depends on the starting
 state (the property that favors reasoning-guided search) is **recorded but is NOT an
 inclusion criterion.** We label every candidate `high` / `medium` / `low` before any
-campaign. The current redistributable suite contains 18 high- and 4 medium-contingency
+campaign. The current redistributable suite contains 26 high- and 4 medium-contingency
 skills; no low-contingency candidate survived the independent code-behavior,
 reproducibility, distinctness, and licensing gates. Reporting retains all four medium
 cases rather than silently narrowing the suite to where reasoning guidance is expected
@@ -120,8 +120,8 @@ to shine.
 
 ## 4. Procedure
 
-1. **Enumerate** candidates from S1–S4 until the candidate pool is exhausted or reaches
-   ~2–3× the target suite size (target: \~30 admitted skills).
+1. **Enumerate** candidates from the fixed S1–S5 sources until the candidate pool is
+   exhausted or reaches ~2–3× the target suite size (target: 30 admitted skills).
 2. For each candidate, in the order discovered, **apply I1–I5 and X1–X5** and record the
    verdict + one-line reason in the decision log (`candidates/skill-suite-candidates.md`).
    The decision is made from the `SKILL.md` and repo contents **before** any \tool run.
@@ -133,11 +133,24 @@ to shine.
 4. **Freeze** the admitted set. Any skill that fails to Dockerize or the redistribution
    audit during setup is removed with a mechanical reason (`build-failed` or
    `license-excluded`); the removal is logged and reported, never silent.
-5. Run all three methods on the frozen public set under identical budget. Original
-   in-repository skills used during tool development remain development-only and cannot
-   enter the quantitative headline.
+5. Run all three methods on the frozen public set under identical budget. Any skill used
+   during tool development remains development-only and cannot enter the quantitative
+   headline, regardless of whether its ancestry is local or public.
 
 The decision log is append-only and committed; the frozen set is tagged.
+
+### Recorded 2026 continuation boundary
+
+The first 22 members are retained as the balanced historical pre-result suite recorded
+on 2026-07-11. Surviving records do not prove that this historical set was a literal
+prefix of the raw S5 popularity array, and the study does not make that claim. Before
+any headline execution, the 2026-07-12 continuation fixed the 628-row S5 pool by hash,
+walked its stored popularity order, applied the criteria above, recorded a deterministic
+first-failing disposition for every row through index 445, and stopped at its eighth
+additional admit. The executable record is
+`candidates/D1-continuation-audit.json`; `skillrace.d1_selection` verifies its complete
+partition and exact manifest order. This pre-result amendment yields 30 headline skills
+without substituting candidates in response to model outcomes.
 
 ---
 

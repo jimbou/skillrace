@@ -23,7 +23,7 @@ from .io_utils import canonical_json_hash, file_hash
 SCHEMA = "skillrace-rq3-public-confinement/1"
 DEFAULT_BWRAP = pathlib.Path("/usr/bin/bwrap")
 _PASSTHROUGH_ENVIRONMENT = (
-    "CLOSE_API_KEY",
+    "yunwu_key",
     "HTTP_PROXY",
     "HTTPS_PROXY",
     "NO_PROXY",
@@ -231,7 +231,7 @@ def build_phase1_confinement(
     empty, so retaining an absolute name does not make an unmounted path visible.
     """
 
-    if role not in {"campaign", "confirmation", "revision"}:
+    if role not in {"campaign", "confirmation", "repair", "revision"}:
         raise Phase1IsolationError(f"unknown public confinement role: {role!r}")
     if not inner_argv or any(not isinstance(item, str) or "\x00" in item for item in inner_argv):
         raise Phase1IsolationError("inner command must contain safe non-empty arguments")
@@ -430,9 +430,9 @@ def build_phase1_confinement(
         "network": {
             "mode": "host-shared",
             "reason": (
-                "CloseAI HTTPS and Docker endpoint access are required"
+                "Yunwu HTTPS and Docker endpoint access are required"
                 if require_docker
-                else "CloseAI HTTPS access is required"
+                else "Yunwu HTTPS access is required"
             ),
         },
         "filesystem": {
@@ -447,7 +447,11 @@ def build_phase1_confinement(
             "mode": "exact-subprocess-allowlist",
             "names": sorted(clean_environment),
             "secret_names": sorted(
-                name for name in clean_environment if "KEY" in name or "TOKEN" in name
+                name
+                for name in clean_environment
+                if "KEY" in name.upper()
+                or "TOKEN" in name.upper()
+                or "SECRET" in name.upper()
             ),
             "values_recorded": False,
         },
@@ -470,7 +474,7 @@ def validate_phase1_confinement_record(record: Mapping[str, Any]) -> dict[str, A
     if value.get("schema") != SCHEMA or value.get("enforced") is not True:
         raise Phase1IsolationError("production confinement schema/enforcement mismatch")
     role = value.get("role")
-    if role not in {"campaign", "confirmation", "revision"}:
+    if role not in {"campaign", "confirmation", "repair", "revision"}:
         raise Phase1IsolationError("production confinement role mismatch")
     filesystem = value.get("filesystem")
     if not isinstance(filesystem, Mapping):
@@ -503,8 +507,8 @@ def validate_phase1_confinement_record(record: Mapping[str, Any]) -> dict[str, A
         or network.get("mode") != "host-shared"
         or network.get("reason")
         not in {
-            "CloseAI HTTPS and Docker endpoint access are required",
-            "CloseAI HTTPS access is required",
+            "Yunwu HTTPS and Docker endpoint access are required",
+            "Yunwu HTTPS access is required",
         }
     ):
         raise Phase1IsolationError("confinement network policy mismatch")
@@ -617,7 +621,9 @@ def validate_phase1_confinement_record(record: Mapping[str, Any]) -> dict[str, A
         != sorted(
             name
             for name in environment["names"]
-            if "KEY" in name or "TOKEN" in name
+            if "KEY" in name.upper()
+            or "TOKEN" in name.upper()
+            or "SECRET" in name.upper()
         )
     ):
         raise Phase1IsolationError("confinement environment record is malformed")
@@ -635,7 +641,7 @@ def validate_phase1_confinement_record(record: Mapping[str, Any]) -> dict[str, A
             "socket_mounted": False,
         } or socket_mounts:
             raise Phase1IsolationError("unneeded Docker authority is exposed")
-        expected_network_reason = "CloseAI HTTPS access is required"
+        expected_network_reason = "Yunwu HTTPS access is required"
     elif authority == "host-daemon-socket":
         if (
             docker.get("endpoint_scheme") != "unix"
@@ -647,7 +653,7 @@ def validate_phase1_confinement_record(record: Mapping[str, Any]) -> dict[str, A
         ):
             raise Phase1IsolationError("Docker socket trust boundary mismatch")
         expected_network_reason = (
-            "CloseAI HTTPS and Docker endpoint access are required"
+            "Yunwu HTTPS and Docker endpoint access are required"
         )
     else:
         raise Phase1IsolationError("unknown Docker trust boundary")

@@ -57,9 +57,8 @@ Runner config (`--config`, defaults shown):
 ```json
 {
   "wall_clock_cap_s": 900,
-  "token_cap_usd": 2.0,
   "network": "host",
-  "model": { "provider": "closeai", "id": "qwen3.6-flash", "thinking_level": "medium" },
+  "model": { "provider": "yunwu", "id": "glm-4.5-flash", "thinking_level": "medium" },
   "obs_max_bytes": 65536,
   "pi_flags_extra": [],
   "skills_root": "skills",
@@ -67,10 +66,10 @@ Runner config (`--config`, defaults shown):
 }
 ```
 
-There is **no step/turn cap** — termination is by wall-clock `timeout` (primary) and
-an optional `token_cap_usd` hard budget via the `pi-agent-budget` extension baked
-into `pi-base` ([D-RUN-1](../environments.md#termination--budget)). This removes the
-custom step-cap extension entirely.
+There is **no step/turn/token/currency cap**. Termination is by the same frozen
+wall-clock timeout for all methods ([D-RUN-1](../environments.md#termination--budget)).
+Usage and provider credits are recorded after execution; they do not selectively stop
+one method early.
 
 **Where the input comes from:** seed candidates (`skills/<name>/seeds/*.json`,
 authored by hand) or any `Generator.propose()` output (Component 5 or a baseline).
@@ -114,13 +113,12 @@ before returning success; if it cannot produce a well-formed trace it fails loud
   consumes afterward (it `exec`s state checks in, then tears the container down).
 - **The Pi CLI** — `pi --mode json --skill … "<prompt>"`
   ([pi-integration §2](../pi-integration.md#2-how-the-runner-drives-pi)).
-- **A provider API key** for the agent-under-test model (e.g. `ANTHROPIC_API_KEY`),
+- **The `yunwu_key` provider API key** for the selected track model,
   injected **at run time via `-e`** (never baked into the image, so shipped
   Containerfiles carry no secret) and reachable because the container uses host
   networking.
 - **The skill directory** under `skills_root`.
-- **`timeout`** (wall-clock bound) and the **`pi-agent-budget`** extension baked into
-  `pi-base` (optional token hard cap). No custom step-cap extension.
+- **`timeout`** as the shared wall-clock bound. No custom Pi extension is installed.
 - Plain code for normalization (the projection in
   [trace-format.md §5](../trace-format.md#5-normalization-rules-pi-session--frozen-trace)).
 
@@ -188,8 +186,8 @@ deterministic, scripted sequence (or use a recorded `pi` replay). Assert:
   container** the gate checked (assert identical container id across phases);
 - the wall-clock **timeout** fires (a skill that sleeps past `wall_clock_cap_s`) →
   container killed, `termination.reason="timeout"`, partial trace still well-formed;
-- the optional **token budget** trips (`token_cap_usd` set low) →
-  `termination.reason="token_budget"`;
+- provider usage is preserved in `cost.json` and recomputed in Yunwu custom credits;
+  no fabricated USD value or selective token-budget termination exists;
 - **container left alive + timebomb:** the container stays running after the agent
   (recorded as `run.json.container`); `workspace_snapshot/` is `docker cp`-ed out; a
   detached timebomb removes the container after `--cleanup-grace` if the checker

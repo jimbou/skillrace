@@ -1,0 +1,8 @@
+{
+  "schema": "skillrace-rq3-track-scenario-start/1",
+  "scenario_id": "argparse-cli",
+  "model": "glm-4.5-flash",
+  "source_tree_hash": "ce46ec797718d605a9718dc46f77e746fb285494c7d813ca2b1785fe72adf685",
+  "benchmark_template_hash": "137dcbd9e284185470ee71dfea90ca121606429406c7959588e7939ee58c9243",
+  "operation_id": "rq3.prepare.a7641d5b27164af87147cf19428d4967a5272d000126d3d95b4e366a84c8237b"
+}

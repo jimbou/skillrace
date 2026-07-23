@@ -96,7 +96,10 @@ def load_public_campaign_config(scenario_dir: str | pathlib.Path) -> dict[str, A
         raise PublicCampaignConfigError("campaign applicability mismatch")
     containerfile = (campaign / "Containerfile.base").read_text(encoding="utf-8")
     if (
-        not containerfile.startswith("FROM skillrace/skillgen-base:latest\n")
+        not containerfile.startswith(
+            "ARG SKILLGEN_BASE_IMAGE=skillrace/skillgen-base:0.73.1-construction\n"
+            "FROM ${SKILLGEN_BASE_IMAGE}\n"
+        )
         or f"/skills/{scenario_id}/SKILL.md" not in containerfile
         or re.search(r"(?:^|[/ ])tests(?:/|$)", containerfile, flags=re.MULTILINE)
     ):
@@ -107,4 +110,3 @@ def load_public_campaign_config(scenario_dir: str | pathlib.Path) -> dict[str, A
         "applicability": applicability,
         "containerfile_text": containerfile,
     }
-

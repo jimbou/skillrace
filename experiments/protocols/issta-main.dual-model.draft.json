@@ -1,0 +1,20 @@
+{
+  "schema": "dual-model-experiment/1",
+  "experiment_id": "skillrace-issta-dual-model-v1-draft",
+  "status": "draft",
+  "reporting": "separate-primary-tables-plus-unpooled-robustness",
+  "tracks": [
+    {
+      "track_id": "glm-4.5-flash",
+      "model": "glm-4.5-flash",
+      "protocol": "experiments/protocols/issta-main.glm-4.5-flash.draft.json",
+      "output_root": "results/glm-4.5-flash"
+    },
+    {
+      "track_id": "deepseek-v4-flash",
+      "model": "deepseek-v4-flash",
+      "protocol": "experiments/protocols/issta-main.deepseek-v4-flash.draft.json",
+      "output_root": "results/deepseek-v4-flash"
+    }
+  ]
+}

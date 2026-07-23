@@ -1,0 +1,15 @@
+{
+  "schema": "skillrace-rq3-track-scenario/1",
+  "status": "prepared",
+  "scenario_id": "argparse-cli",
+  "model": "glm-4.5-flash",
+  "source_tree_hash": "ce46ec797718d605a9718dc46f77e746fb285494c7d813ca2b1785fe72adf685",
+  "benchmark_template_hash": "137dcbd9e284185470ee71dfea90ca121606429406c7959588e7939ee58c9243",
+  "base_generation_id": "322f2ce1928c70ddd30a7581",
+  "base_generation_record_hash": "c95f4af87c405faa321eafcf198fbbd64ad736e4dbf945d2ff91f48a5eadee94",
+  "base_skill_hash": "854911b6b545bac4aa66b7c89dcaae4a10eb0a4220349eaa53bd099d2a557000",
+  "base_package_hash": "7fd10780ee010383bcdca8acdcbc2a220af4a3375ab8bf9a15fe1f02e3744241",
+  "input_tokens": 184,
+  "output_tokens": 1172,
+  "cost_provider_credits": 9.744000000000002e-05
+}

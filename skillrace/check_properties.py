@@ -1,12 +1,11 @@
-"""Property checker — a SEPARATE command, run after a test executes.
+"""Property checker — a separate command run after an agent execution.
 
 Verdicts come from three provenances, most trustworthy first:
   1. FIXED core (fixed_checks.py): universal invariants, pure Python on the host,
      zero model involvement. Always run.
-  2. COMPILED-PRE-RUN checks (compile_checks.py): per-case bash scripts authored
-     from (prompt, initial env) BEFORE any agent run — the authoring model never
-     saw the run it judges. Stored with the CASE, so every method's runs of that
-     case are judged by byte-identical scripts. This is the default path.
+  2. POST-RUN PATH-ONLY checks (compile_checks.py): per-run Python scripts authored
+     from the task, property, environment description, tools, and final paths only.
+     The author does not see artifact/trace contents, method identity, or verdicts.
   3. AUTHORED-POST-RUN (legacy, --author-post-hoc): the model writes the script
      while looking at a snapshot of the finished run. Weaker oracle-integrity
      claim; kept for ad-hoc debugging of old runs only.
@@ -14,13 +13,14 @@ Verdicts come from three provenances, most trustworthy first:
 The checker snapshots the finished container once, then every bash script runs in its
 own fresh, networkless child of that snapshot. This prevents one oracle script from
 mutating evidence seen by the next. A host timeout makes a hung check inconclusive.
-Exit 0 = the property HOLDS; non-zero = VIOLATED. Each child exposes:
+Python exit 0 = HOLDS, 1 = VIOLATED, and 2 = NOT CONSIDERED. Each child exposes:
   - /workspace            the final project state (the agent's result), a git repo
   - /check/trace.jsonl    the agent's full session trace (JSONL)
   - /check/workspace.diff  the git diff of everything the agent changed
 
 Usage:
-  python -m skillrace.check_properties --run runs/ftt-case2          # precompiled
+  python -m skillrace.check_properties --run runs/ftt-case2 \
+      --post-run-input runs/ftt-case2/post-run-check-input.json
   python -m skillrace.check_properties --run runs/old-run \
       --props skills/fix-failing-test/properties.json --author-post-hoc
 """
@@ -33,8 +33,8 @@ import re
 import subprocess
 import uuid
 
-from .closeai import chat
-from .compile_checks import validate_script_policy
+from .closeai import OutcomeUnknownError, chat
+from .compile_checks import compile_post_run_checks, validate_script_policy
 from .fixed_checks import run_fixed_checks
 from .io_utils import atomic_write_json, atomic_write_text
 
@@ -140,11 +140,12 @@ def _strip_fences(s):
 def _syntax_ok(script_path):
     """True if the script parses as bash (`bash -n`). Returns (ok, error_text)."""
     p = subprocess.run(["bash", "-n", str(script_path)], capture_output=True, text=True)
-    return p.returncode == 0, (p.stderr or "").strip()
+    error = (p.stderr or "").strip()
+    return p.returncode == 0 and not error, error
 
 
 def author_script(prop, snapshot, model, fix=None):
-    """Ask the model to WRITE a bash check script. Returns (script_text, cost_usd).
+    """Ask the model to WRITE a bash check script. Returns (script_text, cost_provider_credits).
     If `fix` = (broken_script, bash_error) is given, ask the model to CORRECT it
     instead (a temp-0 re-author would otherwise reproduce the same broken script)."""
     user = (
@@ -165,9 +166,9 @@ def author_script(prop, snapshot, model, fix=None):
                  f"Return a CORRECTED script that parses cleanly. Output ONLY the script.")
     resp = chat([{"role": "system", "content": SCRIPT_SYS},
                  {"role": "user", "content": user}],
-                model=model, temperature=0.0, reasoning=True, max_tokens=1400,
+                model=model, temperature=0.0, reasoning=False, max_tokens=1400,
                 tag="check.author", skill=snapshot.get("skill"))
-    return _strip_fences(resp["content"]), resp["cost_usd"]
+    return _strip_fences(resp["content"]), resp["cost_provider_credits"]
 
 
 def check_container_command(name: str, image: str) -> list[str]:
@@ -183,8 +184,9 @@ def check_container_command(name: str, image: str) -> list[str]:
         "--cap-drop=ALL",
         "--security-opt=no-new-privileges",
         "--pids-limit=256",
+        "--entrypoint",
+        "/bin/sleep",
         image,
-        "sleep",
         "300",
     ]
 
@@ -202,6 +204,19 @@ def snapshot_container_for_checks(container: str) -> str:
         detail = (process.stderr or process.stdout or "unknown Docker error").strip()
         raise RuntimeError(f"final-state snapshot failed: {detail[-300:]}")
     return image
+
+
+def image_identity(image: str) -> str:
+    process = subprocess.run(
+        ["docker", "image", "inspect", "--format", "{{.Id}}", image],
+        capture_output=True,
+        text=True,
+    )
+    identity = process.stdout.strip()
+    if process.returncode != 0 or not identity:
+        detail = (process.stderr or process.stdout or "unknown error").strip()
+        raise RuntimeError(f"checker snapshot identity failed: {detail[-160:]}")
+    return identity
 
 
 def run_script_isolated(script_path, snapshot_image, *, timeout_seconds):
@@ -225,16 +240,38 @@ def run_script_isolated(script_path, snapshot_image, *, timeout_seconds):
         )
         if prepare.returncode != 0:
             return None, f"check staging failed: {prepare.stderr.strip()[:160]}"
-        cp = subprocess.run(
-            ["docker", "cp", str(script_path), f"{name}:{dst}"],
-            capture_output=True,
-            text=True,
-        )
-        if cp.returncode != 0:
-            return None, f"docker cp failed: {cp.stderr.strip()[:160]}"
+        # ``docker cp`` preserves the host numeric owner and mode. Our crash-safe
+        # atomic writer intentionally creates mode-0600 files owned by the host user;
+        # after ``--cap-drop=ALL``, container root cannot bypass that foreign UID's
+        # permissions. Stream the reviewed bytes through the container instead so
+        # the staged copy is owned by the checker process while the original hash and
+        # immutable manifest remain authoritative.
         try:
+            script_bytes = pathlib.Path(script_path).read_bytes()
+        except OSError as error:
+            return None, f"check script read failed: {str(error)[:160]}"
+        stage = subprocess.run(
+            [
+                "docker",
+                "exec",
+                "-i",
+                name,
+                "sh",
+                "-c",
+                'umask 077 && cat > "$1"',
+                "sh",
+                dst,
+            ],
+            input=script_bytes,
+            capture_output=True,
+        )
+        if stage.returncode != 0:
+            detail = stage.stderr.decode("utf-8", errors="replace").strip()
+            return None, f"check staging failed: {detail[:160]}"
+        try:
+            interpreter = "python3" if script_path.suffix == ".py" else "bash"
             process = subprocess.run(
-                ["docker", "exec", name, "bash", dst],
+                ["docker", "exec", name, interpreter, dst],
                 capture_output=True,
                 text=True,
                 timeout=timeout_seconds,
@@ -243,10 +280,11 @@ def run_script_isolated(script_path, snapshot_image, *, timeout_seconds):
             return None, f"check timeout after {timeout_seconds:g}s (inconclusive)"
         output = (process.stdout + process.stderr).strip().splitlines()
         tail = output[-1] if output else ""
-        return (
-            process.returncode == 0,
-            f"exit={process.returncode}; {tail[:160]!r}",
-        )
+        if script_path.suffix == ".py":
+            holds = {0: True, 1: False, 2: None}.get(process.returncode)
+        else:
+            holds = process.returncode == 0
+        return holds, f"exit={process.returncode}; {tail[:160]!r}"
     finally:
         subprocess.run(["docker", "rm", "-f", name], capture_output=True)
 
@@ -284,7 +322,11 @@ def main():
                                      "(default: <case>/checks from run.json)")
     ap.add_argument("--author-post-hoc", action="store_true",
                     help="LEGACY: author scripts from a post-run snapshot (weaker oracle)")
-    ap.add_argument("--model", default="qwen3.6-flash")
+    ap.add_argument("--model", default="glm-4.5-flash")
+    ap.add_argument(
+        "--post-run-input",
+        help="JSON input for blinded post-run Python checker generation",
+    )
     ap.add_argument(
         "--verdict-provenance",
         choices=("compiled-pre-run", "hidden-independent"),
@@ -304,14 +346,19 @@ def main():
     run_dir = pathlib.Path(args.run)
     manifest = json.loads((run_dir / "run.json").read_text())
     container = manifest.get("container")
+    post_run_input = None
+    if args.post_run_input:
+        post_run_input = json.loads(pathlib.Path(args.post_run_input).read_text())
+        if post_run_input.get("schema") != "post-run-check-input/1":
+            raise SystemExit("malformed post-run checker input")
 
     # resolve the precompiled checks dir: explicit flag, else alongside the case
     precompiled = pathlib.Path(args.checks) if args.checks else None
-    if precompiled is None and manifest.get("case"):
+    if precompiled is None and post_run_input is None and manifest.get("case"):
         cand = pathlib.Path(manifest["case"]) / "checks"
         if cand.is_dir():
             precompiled = cand
-    if precompiled is None and not args.author_post_hoc:
+    if precompiled is None and not args.author_post_hoc and post_run_input is None:
         raise SystemExit("no precompiled checks found for this run's case — run "
                          "`python -m skillrace.compile_checks --case <case> --props <props>` "
                          "first, or pass --author-post-hoc (legacy).")
@@ -338,13 +385,15 @@ def main():
     ):
         raise SystemExit("--check-timeout must be in (0, 3600] seconds")
 
-    # Stage the trace + diff INSIDE the container at /check so scripts can read them
-    # alongside /workspace (one unified mechanism for state- and trace-based checks).
+    # The active post-run Python contract exposes trace evidence but not the diff.
+    # Legacy precompiled/RQ3 checks keep their historical trace+diff interface.
     if container:
         subprocess.run(["docker", "exec", container, "mkdir", "-p", "/check"],
                        capture_output=True)
-        for host_rel, dst in [("raw/session.jsonl", "/check/trace.jsonl"),
-                              ("logs/workspace.diff", "/check/workspace.diff")]:
+        evidence = [("raw/session.jsonl", "/check/trace.jsonl")]
+        if post_run_input is None:
+            evidence.append(("logs/workspace.diff", "/check/workspace.diff"))
+        for host_rel, dst in evidence:
             hp = run_dir / host_rel
             if hp.exists():
                 subprocess.run(["docker", "cp", str(hp), f"{container}:{dst}"],
@@ -352,6 +401,8 @@ def main():
 
     snapshot_image = None
     snapshot_error = None
+    final_tree = _file_tree(container) if post_run_input is not None else []
+    available_tools = _available_tools(container) if post_run_input is not None else []
     if container:
         try:
             snapshot_image = snapshot_container_for_checks(container)
@@ -364,8 +415,11 @@ def main():
         atexit.register(cleanup_snapshot)
 
     # 1) FIXED core — pure code on the host, zero model, always runs.
+    fixed_manifest = compiled_manifest
+    if post_run_input is not None and post_run_input.get("applicability") is not None:
+        fixed_manifest = {"applicability": post_run_input["applicability"]}
     verdicts = run_fixed_checks(
-        run_dir, applicable_ids=_fixed_allowlist(compiled_manifest)
+        run_dir, applicable_ids=_fixed_allowlist(fixed_manifest)
     )
     cost = 0.0
 
@@ -394,6 +448,86 @@ def main():
                              "detail": detail,
                              "isolation": "fresh-final-snapshot",
                              "timeout_seconds": check_timeout})
+    elif post_run_input is not None:
+        if snapshot_error or not snapshot_image:
+            detail = snapshot_error or "no final-state snapshot"
+            for prop in post_run_input["properties"]:
+                verdicts.append(
+                    {
+                        "property_id": prop["id"],
+                        "holds": None,
+                        "violated": False,
+                        "not_considered": True,
+                        "detail": detail,
+                        "script": None,
+                        "provenance": "post-run-path-only",
+                    }
+                )
+        else:
+            try:
+                compiled_manifest, cost = compile_post_run_checks(
+                    run_dir=run_dir,
+                    properties=post_run_input["properties"],
+                    candidate=post_run_input["candidate"],
+                    tools=available_tools,
+                    final_tree=final_tree,
+                    snapshot_identity=image_identity(snapshot_image),
+                    model=args.model,
+                    applicability=post_run_input.get("applicability"),
+                )
+            except OutcomeUnknownError as error:
+                atomic_write_json(
+                    run_dir / "checker-outcome-unknown.json",
+                    {"schema": "checker-outcome-unknown/1", "error": str(error)[:500]},
+                )
+                if snapshot_image:
+                    subprocess.run(
+                        ["docker", "rmi", "-f", snapshot_image], capture_output=True
+                    )
+                    atexit.unregister(cleanup_snapshot)
+                if container and not args.keep_container:
+                    subprocess.run(["docker", "rm", "-f", container], capture_output=True)
+                    if manifest.get("env_image"):
+                        subprocess.run(
+                            ["docker", "rmi", "-f", manifest["env_image"]],
+                            capture_output=True,
+                        )
+                raise SystemExit(75) from error
+            checks_dir = run_dir / "checks"
+            for excluded in compiled_manifest["excluded_properties"]:
+                verdicts.append(
+                    {
+                        "property_id": excluded["property_id"],
+                        "holds": None,
+                        "violated": False,
+                        "not_considered": True,
+                        "detail": (
+                            f"checker excluded: {excluded['reason']}; "
+                            f"{excluded.get('error', '')}"
+                        )[:300],
+                        "script": None,
+                        "provenance": "post-run-path-only",
+                    }
+                )
+            for entry in compiled_manifest["checks"]:
+                holds, detail = run_script_isolated(
+                    checks_dir / entry["script"],
+                    snapshot_image,
+                    timeout_seconds=check_timeout,
+                )
+                verdicts.append(
+                    {
+                        "property_id": entry["property_id"],
+                        "holds": holds,
+                        "violated": holds is False,
+                        "not_considered": holds is None,
+                        "detail": detail,
+                        "script": str(checks_dir / entry["script"]),
+                        "provenance": "post-run-path-only",
+                        "isolation": "fresh-final-snapshot",
+                        "timeout_seconds": check_timeout,
+                    }
+                )
     else:
         # 3) LEGACY post-hoc authoring — the model sees the finished run.
         if not args.props:
@@ -429,7 +563,10 @@ def main():
             # won't parse, record INCONCLUSIVE rather than a false violation.
             syntax_ok, syntax_error = _syntax_ok(sp)
             policy_ok, policy_error = validate_script_policy(
-                script, snapshot.get("tools", []), reads=prop.get("reads")
+                script,
+                snapshot.get("tools", []),
+                reads=prop.get("reads"),
+                property_nl=prop.get("nl"),
             )
             if not syntax_ok or not policy_ok:
                 validation_error = " | ".join(
@@ -448,7 +585,10 @@ def main():
                     atomic_write_text(sp, script)
                     syntax_ok, syntax_error = _syntax_ok(sp)
                     policy_ok, policy_error = validate_script_policy(
-                        script, snapshot.get("tools", []), reads=prop.get("reads")
+                        script,
+                        snapshot.get("tools", []),
+                        reads=prop.get("reads"),
+                        property_nl=prop.get("nl"),
                     )
                 except Exception as e:  # noqa: BLE001
                     policy_error = (
@@ -496,7 +636,7 @@ def main():
         if manifest.get("env_image"):
             subprocess.run(["docker", "rmi", "-f", manifest["env_image"]], capture_output=True)
 
-    print(f"properties checked (author cost ${cost:.4f}):\n")
+    print(f"properties checked (author cost ⚡{cost:.4f}):\n")
     for v in verdicts:
         mark = "✓ holds" if v["holds"] else ("✗ VIOLATED" if v["violated"] else "? inconclusive")
         print(f"  [{mark}] {v['property_id']}  ({v['script']})")

@@ -84,7 +84,7 @@
         <ul class="hero-facts" aria-label="At a glance">
           <li><span class="hf-k">Idea</span><span class="hf-v">Episodes as basic blocks; reasoning as branch guards</span></li>
           <li><span class="hf-k">Oracle</span><span class="hf-v">Properties fixed in advance — no model grades its own run</span></li>
-          <li><span class="hf-k">Suite</span><span class="hf-v">22 skills mined from public repos, 30 agent runs each</span></li>
+          <li><span class="hf-k">Suite</span><span class="hf-v">30 public skills, 30 agent runs per method and skill</span></li>
         </ul>
       </div>
     </section>
@@ -563,16 +563,16 @@
         </div>
 
         <div class="setup-strip">
-          <div class="setup-item"><span class="si-num">22</span><span class="si-lbl">skills mined from public repos, pre-registered selection</span></div>
+          <div class="setup-item"><span class="si-num">30</span><span class="si-lbl">public skills under a pre-result selection boundary</span></div>
           <div class="setup-item"><span class="si-num">30</span><span class="si-lbl">counted agent runs per skill × method</span></div>
           <div class="setup-item"><span class="si-num">10</span><span class="si-lbl">generation scenarios, 10 held-out tests each</span></div>
-          <div class="setup-item"><span class="si-num mono">qwen3.6-flash</span><span class="si-lbl">one frozen model for every role, every method</span></div>
+          <div class="setup-item"><span class="si-num mono">2× full</span><span class="si-lbl">separate GLM and DeepSeek model-frozen replications</span></div>
         </div>
 
         <p class="eval-note">
           Headline numbers appear with the camera-ready. Every stochastic seed and model receipt is
-          persisted; replay is deterministic. An anonymized artifact package — implementation, the 22-skill
-          suite, the ten hidden-test scenarios, and analysis scripts — accompanies review.
+          persisted; replay is deterministic. The reproducibility package will include the implementation,
+          30-skill suite, ten hidden-test scenarios, frozen schedules, receipts, and analysis scripts.
         </p>
       </div>
     </section>
@@ -611,7 +611,7 @@
         <a href="#top">Back to top ↑</a>
       </nav>
     </div>
-    <p class="foot-legal">Anonymized for review. Third-party skills retain their upstream licenses.</p>
+    <p class="foot-legal">Results are forthcoming. Third-party skills retain their upstream licenses.</p>
   </footer>
 </body>
 </html>

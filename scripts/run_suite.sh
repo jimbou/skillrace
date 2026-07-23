@@ -9,7 +9,7 @@
 # Env knobs: PROTOCOL, WALLCLOCK, OUT. Confirmation is a separate post-campaign phase.
 set -eu
 
-PROTOCOL=${PROTOCOL:-experiments/protocols/issta-main.draft.json}
+PROTOCOL=${PROTOCOL:-experiments/protocols/issta-main.glm-4.5-flash.draft.json}
 # The default intentionally fails closed until Task 8 freezes the headline protocol.
 WALLCLOCK=${WALLCLOCK:-1800}
 OUT=${OUT:-out/campaign}

@@ -62,7 +62,7 @@
 % =====================================================================
 % PLACEHOLDERS — fill these once experiments land.
 % =====================================================================
-\newcommand{\NumSkills}{22}                  % redistributable public headline skills
+\newcommand{\NumSkills}{30}                  % redistributable public headline skills
 % D2 (skill-generation) suite — concrete
 \newcommand{\NumScenarios}{10}
 \newcommand{\NumTestsPer}{10}
@@ -70,7 +70,8 @@
 \newcommand{\NumChecksTot}{192}
 \newcommand{\Budget}{30}                     % counted agent executions / skill / method
 \newcommand{\SeedCount}{10}                  % bootstrap executions for adaptive methods
-\newcommand{\Model}{\texttt{qwen3.6-flash}}
+\newcommand{\Models}{\texttt{glm-4.5-flash} and \texttt{deepseek-v4-flash}}
+\newcommand{\NumModelTracks}{2}
 % headline bug-finding deltas (percentage points / factors) — TBA
 \newcommand{\BugsSkillrace}{\ph{TBA}}
 \newcommand{\BugsGreybox}{\ph{TBA}}
@@ -119,8 +120,9 @@ process invariants checked mechanically, and per-skill specifications compiled i
 executable checks \emph{before} the run they judge, so that no model ever grades the
 run it also produced. We evaluate \tool against independent random generation and a
 VeriGrey-inspired rung that ports the feedback mechanism of a recent agent fuzzer to this
-setting, on a suite of \NumSkills\ skills mined from public repositories. Holding the
-runner, environments, budget, and oracle identical across methods, \tool exposes
+setting, on a suite of \NumSkills\ skills mined from public repositories. We repeat the
+complete comparison in two model-frozen tracks and report them separately. Holding the
+runner, environments, budget, and oracle identical across methods within each track, \tool exposes
 \DeltaOverGreybox\ more distinct defects per agent-run budget than the VeriGrey-inspired
 rung and \DeltaOverRandom\ more than Random, and reaches its first violation in fewer runs.
 Feeding \tool's findings back to revise an LLM-generated skill raises its pass rate on
@@ -512,9 +514,12 @@ planted defects the property suite detects (\cref{sec:eval}).
 \tool is implemented in Python. The agent under test runs on the Pi agent
 harness~\cite{pi2025} inside Docker; \tool interacts with it only through its recorded
 session trace and final filesystem state, so it is agnostic to the agent's internals.
-For fairness and cost control, the same model---\Model---is used for the agent under
+We execute the complete protocol as \NumModelTracks\ independent model-frozen tracks,
+one for each of \Models. Within a track, the same model is used for the agent under
 test and every model-driven pipeline role (segmentation, merge judgments, guard
-extraction, selection, synthesis, check compilation, and skill revision). Model-driven
+extraction, selection, synthesis, check compilation, patching, and skill revision).
+Primary outcomes and provider-credit costs are reported separately by track; no defects,
+runs, or costs are pooled across models. Model-driven
 judgments run at temperature~0 and are content-hash cached. Every stochastic seed and
 model receipt is persisted; replay is deterministic from those recorded outputs even
 though independent campaign replications use different derived seeds.
@@ -559,7 +564,11 @@ We ask:
 repositories and skill marketplaces under a \emph{pre-registered} selection protocol
 (committed before any campaign) that fixes the sources and the inclusion/exclusion
 criteria, logs every admit/reject decision with its reason, and commits to per-skill
-reporting---so skill choice cannot be influenced by results. A skill is admitted only if
+reporting---so skill choice cannot be influenced by results. We preserve the balanced
+22-skill historical boundary recorded before headline execution without claiming it was
+a literal prefix of the later marketplace order; a pre-result continuation freezes the
+628-row pool, dispositions every row through its stop point, and stops at the eighth
+additional strict admit. A skill is admitted only if
 it (i) produces a \emph{code} artifact whose behavior is mechanically checkable (a suite
 that passes, a CLI that computes a value, a query that returns the right answer, a build
 that succeeds), (ii) builds in a credential-free container, (iii) is procedural
@@ -568,7 +577,7 @@ prepared public candidates failed only this license gate and are retained by sou
 hash, not shipped. Crucially, \emph{environment-contingency}---whether the skill's
 behavior depends on the starting state, which is where reasoning-guided exploration can
 separate from reasoning-blind feedback---is \emph{recorded but not used for inclusion};
-the final licensed suite contains 18 high- and four medium-contingency skills, and
+the final licensed suite contains 26 high- and four medium-contingency skills, and
 excluding the medium-contingency cases would bias the comparison in our favor. Document-%
 generation skills (creating a \texttt{.docx}, a slide deck) are excluded: their success
 is presentational, so no trustworthy mechanical oracle exists. Each admitted skill ships
@@ -618,16 +627,26 @@ injection-specific mutation and oracle replaced by the shared components. Becaus
 tool arguments are near-unique in a coding agent (which would make every run ``novel''
 and collapse the feedback to blind mutation), we use one globally fixed L1 event schema
 chosen before headline outcomes---never the best level per skill. \emph{\tool} is the full
-loop of \cref{sec:approach}. The comparison is a full-system one: all three methods use the
-same frozen model, budget, realization/build pipeline, validation, runner, and property checker.
+loop of \cref{sec:approach}. The comparison is a full-system one: within each
+independently reported model track, all three methods use the same frozen model, budget,
+realization/build pipeline, validation, runner, and property checker.
 Observed differences are attributed to each method's generation logic, not to mismatched
 detection infrastructure.
 
-\paragraph{Metrics.} The headline is confirmed distinct-defect yield per \Budget counted
+\paragraph{Metrics.} The headline is repair-validated distinct-defect yield per \Budget counted
 agent executions, reported per skill and pooled. We also report runs, model tokens/cost,
-and wall-clock to first confirmed defect. Candidate violations are deduplicated by
-property and failure signature; one representative is rerun once outside the search
-budget, with its cost reported separately. Timeouts, infrastructure errors, and missing
+and wall-clock to first repair-validated defect. Candidate violations are deduplicated by
+property and failure signature; one representative per group is rerun once outside the
+search budget for reproduction. Every raw failed public execution receives
+one independent patch of the original skill followed by one replay of the exact same
+case. \tool's patcher receives its bounded reasoning/tree/guard evidence, while each
+baseline patcher receives only its equally byte-bounded task and failure evidence. These
+post-search executions and their costs are reported separately. A group enters headline
+yield only if its representative both reproduces unchanged and becomes a pass after its
+independent patch; this conservatively excludes stable but semantically wrong generated
+oracles. The metric is therefore an end-to-end method comparison, not a detector-only
+claim. Timeouts,
+infrastructure errors, and missing
 evidence are never converted to passes or zero cost. Secondary same-run diagnostics are
 branch outcome and property provenance (fixed vs. compiled).
 
@@ -691,7 +710,8 @@ reach (\AlternateReach), and serendipitous confirmed defects (\SerendipitousBugs
 \label{sec:rq3}
 
 Most circulating skills are LLM-generated. We test whether \tool's findings make one
-better on a dedicated benchmark of \NumScenarios\ skill-generation \emph{scenarios}
+better on a dedicated benchmark of \NumScenarios\ skill-generation \emph{scenarios},
+executed independently in each of our two model-frozen tracks
 (text/CSV/JSON processing, SQLite querying, validators, CLIs, config parsing, bug fixing,
 algorithm implementation, log parsing). Each scenario ships \NumTestsPer\ \emph{held-out}
 tests---each a prompt, an environment, and runnable pass-criteria---for \NumTestsTot\ tests
@@ -701,18 +721,27 @@ reviser); this is the leakage control. A test passes iff all its checks pass; ch
 facet-driven (each test carries as many as it has real correctness facets). Every check was
 verified against a reference solution in a fresh container, preventing an earlier check
 from creating state that helps a later one; the same isolation policy is used during the
-hidden evaluation. For each scenario we compare four versions of the \emph{one}
-zero-shot LLM-generated base skill on the held-out tests: unrevised, and revised from the
-Random, VeriGrey-inspired, and \tool campaign reports respectively. Each feedback
+hidden evaluation. For each scenario \emph{and model track}, the track model makes one
+fresh, zero-shot base-skill generation call in a private copy of the same frozen
+benchmark template (20 calls total). The two tracks therefore share the exam, not the
+generated answer: their normalized benchmark-template hashes must match, while each
+generated base has its own model-bound request, usage, cost, and journal receipt. We then
+compare four versions of that track's \emph{one} generated base skill on the held-out
+tests: unrevised, and revised from the Random, VeriGrey-inspired, and \tool campaign
+reports respectively. Each feedback
 producer receives the same \Budget-execution budget used in RQ1. The reviser prompt is
 \emph{identical} across conditions; only the feedback payload differs. A difference in
 held-out pass rate is therefore associated with method-specific feedback quality under this
-fixed protocol (same model, same base skill, same prompt, same budget).
+fixed within-track protocol (same model, same base skill, same prompt, same budget).
+Hidden-test templates are model-neutral; immediately before execution, the trusted
+runner deterministically substitutes only the selected track's frozen runtime-image
+reference and records both source and projected hashes. Results and costs are reported
+separately for the two tracks, never pooled.
 
 \begin{table}[t]
 \centering\small
 \caption{Held-out pass rate of an LLM-generated skill, zero-shot vs.\ revised from each
-method's findings. \todo{fill.}}
+method's findings, reported separately for each model track. \todo{fill.}}
 \label{tab:rq3}
 \begin{tabular}{@{}l c@{}}
 \toprule
@@ -738,21 +767,25 @@ executable oracle against positive and negative fixtures and by confirming candi
 defects independently rather than asserting coverage.
 
 \paragraph{Model-driven components.} Segmentation, merging, guard extraction, and check
-compilation are model judgments and can err, and using one model everywhere creates a
-shared failure mode. We contain this with temperature-0 content-hash caching, strict
+compilation are model judgments and can err, and a model frozen throughout one track
+creates a shared failure mode. We contain this with temperature-0 content-hash caching, strict
 schemas, deterministic replay from persisted receipts, explicit unfolded/inconclusive
 outcomes, and architecture: a wrong merge can misdirect search but cannot itself create a
 property violation, and no model grades the run it produced. RQ2 exposes steering misses
 rather than silently treating every mutation as successful concolic guidance.
 
 \paragraph{Cost and parallelism.} The agent under test dominates cost; the validator
-exists precisely to not waste it. Random and VeriGrey-inspired work can be parallelized
-more freely; \tool uses bounded epochs whose targets are frozen from one tree version and
-folded deterministically before the next epoch. We therefore report per-run yield, model
-tokens/cost, and wall-clock rather than one number that hides the trade-off.
+exists precisely to not waste it. Frozen campaigns are sequential within a cell: this
+preserves the five-attempt pre-agent retry coordinate and lets each adaptive method fold
+one counted result before selecting the next case. Throughput comes from independent
+cells---up to six RQ1 cells share global API/Docker/agent caps, while up to three RQ3
+scenarios proceed independently. Thus scheduling cannot make one method reason from
+future results or silently lose a failed candidate coordinate. We report per-run yield,
+model tokens/cost, resource peaks, and wall-clock rather than one number that hides the
+trade-off.
 
 \paragraph{Generality.} Our suite is coding skills with mechanically checkable artifacts;
-skills whose success is aesthetic or subjective are out of scope. We report all 18
+skills whose success is aesthetic or subjective are out of scope. We report all 26
 high- and four medium-contingency skills individually and by family rather than hiding
 heterogeneity in one pooled total. The approach assumes the agent emits reasoning;
 agents that do not would degrade
@@ -821,7 +854,7 @@ rather than by a model's opinion of the run. \todo{close with the measured headl
 experiments land, and the RQ3 result on improving generated skills.}
 
 \section*{Data Availability}
-An anonymized artifact package containing the implementation, the 22-skill public
+An anonymized artifact package containing the implementation, the 30-skill public
 headline suite, the ten hidden-test scenario packages, protocol/source/image hashes,
 raw result schemas, and analysis scripts will accompany review. The package includes a
 30-minute smoke path and a reduced multi-family reproduction; accepted-paper materials

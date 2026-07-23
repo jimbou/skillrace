@@ -19,6 +19,10 @@ def test_all_ten_scenarios_stage_real_public_campaign_inputs_without_hidden_test
         config = load_public_campaign_config(source)
         assert config["scenario_id"] == scenario_id
         assert config["base_image"] == f"skillrace/rq3-{scenario_id}:base"
+        assert config["containerfile_text"].startswith(
+            "ARG SKILLGEN_BASE_IMAGE=skillrace/skillgen-base:0.73.1-construction\n"
+            "FROM ${SKILLGEN_BASE_IMAGE}\n"
+        )
         assert len(config["properties"]) >= 2
         staged = stage_public_scenario(source, tmp_path / scenario_id)
         assert (staged / "campaign" / "config.json").is_file()

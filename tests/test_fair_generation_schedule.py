@@ -64,7 +64,7 @@ class FakeRandom:
             raise AssertionError("random campaign constructed a bootstrap generator")
         self.source = source
         self.proposals = 0
-        self.cost_usd = 0.0
+        self.cost_provider_credits = 0.0
         self.fold_calls = []
         FakeRandom.instances.append(self)
 
@@ -101,7 +101,7 @@ class FakeAdaptive:
         self.proposals = 0
         self.fold_calls = []
         self.last_target_parent = None
-        self.cost_usd = 0.0
+        self.cost_provider_credits = 0.0
         FakeAdaptive.instances.append(self)
 
     def propose(self, cases_dir=None):
@@ -161,7 +161,6 @@ def install_shared_execution_fakes(monkeypatch):
             "checks": [],
         },
     )
-    monkeypatch.setattr(campaign_loop, "compile_case", lambda *a, **k: ({}, 0.0))
     monkeypatch.setattr(
         campaign_loop, "verify_runtime_integrity", lambda *a, **k: {"runtime": "ok"}
     )
@@ -228,11 +227,11 @@ def test_differing_agent_model_is_rejected_before_any_campaign_work(tmp_path):
         campaign_loop.run_campaign(
             "random", "demo", tmp_path / "missing", "demo:base", "properties.json",
             budget=30, seed_count=10, out_dir=tmp_path / "out",
-            model="qwen3.6-flash", agent_model="other-model", development_only=True,
+            model="glm-4.5-flash", agent_model="other-model", development_only=True,
         )
 
 
-def test_sanity_rejection_is_saved_and_precedes_compile_and_pi_for_every_method(
+def test_sanity_rejection_is_saved_and_precedes_agent_and_checker_for_every_method(
     tmp_path, monkeypatch
 ):
     for method in ("random", "greybox", "skillrace"):
@@ -254,8 +253,8 @@ def test_sanity_rejection_is_saved_and_precedes_compile_and_pi_for_every_method(
         )
         monkeypatch.setattr(
             campaign_loop,
-            "compile_case",
-            lambda *a, **k: (_ for _ in ()).throw(AssertionError("compile called")),
+            "check_run",
+            lambda *a, **k: (_ for _ in ()).throw(AssertionError("checker called")),
         )
         monkeypatch.setattr(
             campaign_loop,
@@ -284,12 +283,15 @@ def test_cli_and_suite_defaults_are_lean_and_have_no_model_or_level_sweep():
             "--base", "demo:base", "--props", "properties.json", "--out", "out",
         ]
     )
-    assert pathlib.Path(args.protocol).name == "issta-main.draft.json"
+    assert pathlib.Path(args.protocol).name == "issta-main.glm-4.5-flash.draft.json"
     for field in ["budget", "seed_count", "model", "greybox_level", "agent_model"]:
         assert not hasattr(args, field)
 
     suite = pathlib.Path("scripts/run_suite.sh").read_text()
-    assert "PROTOCOL=${PROTOCOL:-experiments/protocols/issta-main.draft.json}" in suite
+    assert (
+        "PROTOCOL=${PROTOCOL:-experiments/protocols/issta-main.glm-4.5-flash.draft.json}"
+        in suite
+    )
     assert suite.count("run random") == 1
     assert suite.count("run greybox") == 1
     assert suite.count("run skillrace") == 1
@@ -341,9 +343,9 @@ def test_runtime_mismatch_and_measurement_failure_are_separately_accounted(
         "verify_runtime_integrity",
         lambda *a, **k: (_ for _ in ()).throw(error),
     )
-    compile_calls = []
+    checker_calls = []
     monkeypatch.setattr(
-        campaign_loop, "compile_case", lambda *a, **k: compile_calls.append(a)
+        campaign_loop, "check_run", lambda *a, **k: checker_calls.append(a)
     )
     campaign = campaign_loop.run_campaign(
         "random", "demo", skill_dir, "demo:base", skill_dir / "properties.json",
@@ -354,7 +356,7 @@ def test_runtime_mismatch_and_measurement_failure_are_separately_accounted(
     assert attempt["generation_status"] == generation_status
     assert attempt["infrastructure_status"] == infrastructure_status
     assert attempt["consume_budget"] is False
-    assert compile_calls == []
+    assert checker_calls == []
 
 
 def test_host_runtime_fingerprint_precedes_any_candidate_command(

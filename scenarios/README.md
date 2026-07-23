@@ -24,7 +24,7 @@ scenarios/<name>/
   base_skill/.skillrace/ complete model-call provenance (required before a headline run)
   campaign/              public properties, applicability, and base-image configuration
   tests/<tk>/
-    candidate.json       {"skill": "<name>", "prompt": "...", "base_image": "skillrace/skillgen-base:latest"}
+    candidate.json       {"skill": "<name>", "prompt": "...", "base_image": "skillrace/skillgen-base:0.73.1-construction"}
     Dockerfile           FROM the base; build this test's starting /workspace
     checks/*.sh          pass-criteria; bash, run in the FINAL container, exit 0 = pass
 ```
@@ -56,11 +56,12 @@ revises blindly; then opens `tests/` only for the four-condition hidden evaluati
 
 ## Base image
 
-All tests use `base_image = skillrace/skillgen-base:latest`, which must provide `python3`,
-`git`, and the `pi` agent harness, and mount the skill under evaluation at
-`/skills/<name>` (the harness overlays it, per `skillrace.skill_eval`). Tests keep their
-starting environments to the base toolchain (Python stdlib + `pytest`) so they build
-fast and check without extra dependencies.
+All frozen test templates use
+`base_image = skillrace/skillgen-base:0.73.1-construction`, which provides the locked
+Python/pytest environment and Pi 0.73.1. At execution time, `skillrace.skill_eval`
+deterministically projects only that base reference to the selected model-track image
+(`...:0.73.1-glm-4.5-flash` or `...:0.73.1-deepseek-v4-flash`) and records both source
+and projected hashes. The skill under evaluation remains a trusted read-only host mount.
 
 ## Validation status (2026-07-12)
 
@@ -85,11 +86,11 @@ exact scenario/test counts, IDs, candidate/Docker/check hashes, JSON and Bash sy
 safe paths, content identities, public/hidden boundary, oracle layout, and the strict
 static execution patterns for all 192 checks.
 
-Runtime oracle evidence was regenerated and persisted on 2026-07-12 after rebuilding
-the locked shared base. Every criterion was executed in a fresh container, matching the
-production checker's non-contamination boundary. All 100 reference implementations pass,
-all 100 starting states are rejected, and all 215 assigned negative-criterion pairs are
-killed. Each
+Runtime oracle evidence was explicitly reset before the Pi 0.73.1 template migration,
+then regenerated and persisted on 2026-07-12 against the replacement locked construction
+base. Every criterion was executed in a fresh container, matching the production
+checker's non-contamination boundary. All 100 reference implementations pass, all 100
+starting states are rejected, and all 215 assigned negative-criterion pairs are killed. Each
 `oracle/evidence/validation.json` records the contract identity, built image digest,
 Docker version, commands, return codes, script hashes, isolation mode, timings, and
 negative results.
@@ -108,11 +109,10 @@ The final command must return zero before an RQ3 result is admitted. Changing th
 shared base, a candidate, Dockerfile, check, reference, negative overlay, or contract
 invalidates the bound evidence and requires this refresh.
 
-**Base image.** `skillrace/skillgen-base:latest` is built from the locked
-`skillrace/pi-base:0.62.0` parent with exact Debian Python and pytest packages and a
-deterministically initialized empty repository. The authoritative source and parent
-lock are in `images/skillgen-base/`; `scenarios/build_base.sh` delegates to that
-fail-closed build.
+**Base image.** `skillrace/skillgen-base:0.73.1-construction` combines the locked
+source-built Python 3.11.2/pytest 7.2.1 bootstrap with Pi 0.73.1. Two tiny final overlays
+bake one exact Yunwu model catalog each. The authoritative sources and immutable IDs are
+in `images/skillgen-base/` and `experiments/image-locks/`.
 
 | Scenario | Task family | Contingency | Tests / checks |
 |----------|-------------|:-----------:|:--------------:|

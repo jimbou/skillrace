@@ -140,8 +140,8 @@ Carries everything about the run that is *not* per-step. Frozen contract.
 | `skill`          | `object` | `{ "name": str, "path": str, "sha256": str }` — the skill under test and a hash of its `SKILL.md` (+ scripts) so a report is pinned to an exact skill revision. |
 | `input`          | `object` | The `(x, E_0)` the run was launched on: `{ "prompt": str, "containerfile": str, "base_image": str, "candidate_id": str|null }`. `containerfile` is the **full Containerfile text** that defines E₀ ([environments.md](./environments.md)); `base_image` is the pinned per-skill base its `FROM` references. `candidate_id` links back to the synthesizer's candidate (`null` for seeds). |
 | `model`          | `object` | The **agent-under-test** model: `{ "provider": str, "id": str, "thinking_level": str, "temperature": number|null }`. `temperature` is `null` if not settable (see [pi-integration OQ-1](./pi-integration.md#oq-1-temperature)). |
-| `runner`         | `object` | `{ "pi_version": str, "built_image": str, "network": str, "wall_clock_cap_s": int, "token_cap_usd": number|null }`. `built_image` = per-test image (base cache + cheap tail); `network` = container network mode (`"host"`); `wall_clock_cap_s` is the **timeout** (no step cap — [D-RUN-1](./environments.md#termination--budget)); `token_cap_usd` is the optional budget-extension hard cap. |
-| `termination`    | `object` | `{ "reason": "completed"|"timeout"|"token_budget"|"error", "steps": int, "detail": str|null }`. |
+| `runner`         | `object` | `{ "pi_version": str, "built_image": str, "network": str, "wall_clock_cap_s": int }`. `built_image` = per-test image (base cache + cheap tail); `network` = container network mode (`"host"`); `wall_clock_cap_s` is the shared timeout (no step/token/currency cap — [D-RUN-1](./environments.md#termination--budget)). |
+| `termination`    | `object` | `{ "reason": "completed"|"timeout"|"error", "steps": int, "detail": str|null }`. |
 | `container`      | `object` | The **live container left for the Property Checker** — `{ "name": str, "alive": bool, "cleanup_grace_s": int }`. The checker stages trace/diff evidence, snapshots its final filesystem once, runs each check in a fresh isolated child, then destroys it; the Runner's timebomb reclaims it after `cleanup_grace_s` if checking never starts (§6). |
 | `seed`           | `int`    | Selection/mutation seed in effect when this input was produced (campaign reproducibility). |
 | `created_at`     | `string` | ISO8601. |
@@ -159,8 +159,8 @@ Carries everything about the run that is *not* per-step. Frozen contract.
     "base_image": "skillrace/fix-failing-test:base@sha256:9f2c…",
     "candidate_id": null
   },
-  "model": { "provider": "closeai", "id": "qwen3.6-flash", "thinking_level": "medium", "temperature": null },
-  "runner": { "pi_version": "0.x.y", "built_image": "skillrace/run-01JZ8Q2example:built", "network": "host", "wall_clock_cap_s": 900, "token_cap_usd": 2.0 },
+  "model": { "provider": "yunwu", "id": "glm-4.5-flash", "thinking_level": "medium", "temperature": null },
+  "runner": { "pi_version": "0.73.1", "built_image": "skillrace/run-01JZ8Q2example:built", "network": "host", "wall_clock_cap_s": 900 },
   "termination": { "reason": "completed", "steps": 6, "detail": null },
   "container": { "name": "run-01JZ8Q2example", "alive": true, "cleanup_grace_s": 300 },
   "seed": 1337,

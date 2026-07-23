@@ -1,0 +1,7 @@
+[
+  {"id":"cli-contract-correct","reads":"state","nl":"The generated CLI implements every requested command, positional argument, option, default, choice, and output behavior on concrete invocations, rather than only creating a parser skeleton."},
+  {"id":"invalid-input-rejected","reads":"state","nl":"Missing commands, invalid values, mutually exclusive options, and nonexistent paths required by the case fail with the specified nonzero exit status and useful argparse error without an uncaught traceback."},
+  {"id":"help-and-entrypoints-work","reads":"state","nl":"Package, module, and installed-script entry points required by the task run successfully, and root plus subcommand help lists the correct commands and options."},
+  {"id":"cli-suite-passes","reads":"state","nl":"The complete generated CLI imports cleanly and its executable behavioral tests pass without deleting, skipping, or weakening supplied checks."}
+]
+

@@ -8,6 +8,7 @@ import pytest
 
 from skillrace.campaign_engine import CampaignEngine
 from skillrace.campaign_protocol import CampaignProtocol
+from skillrace.closeai import OutcomeUnknownError
 from skillrace.loop import (
     RealCampaignExecutor,
     campaign_output_identity,
@@ -21,7 +22,7 @@ def protocol(*, budget=4, bootstrap=2, attempts=3):
             "schema": "campaign-protocol/1",
             "protocol_id": "engine-test-v1",
             "status": "runtime",
-            "model": "same-model",
+            "model": "glm-4.5-flash",
             "budget": budget,
             "bootstrap_count": bootstrap,
             "max_generation_attempts_per_execution": attempts,
@@ -32,6 +33,18 @@ def protocol(*, budget=4, bootstrap=2, attempts=3):
             },
             "greybox_level": "L1",
             "random_seed": 7,
+            "repair": {
+                "enabled": True,
+                "timeout_seconds": 120,
+                "max_output_tokens": 4000,
+                "temperature": 0.0,
+                "reasoning": True,
+                "backend_by_method": {
+                    "random": "direct",
+                    "greybox": "direct",
+                    "skillrace": "pi",
+                },
+            },
         }
     )
 
@@ -215,6 +228,32 @@ def test_attempt_cap_is_finite_and_records_stop_reason(tmp_path):
     assert state["complete"] is False
     assert state["stop_reason"] == "generation-attempt-cap"
     assert len(executor.calls) == 2
+
+
+def test_unknown_generation_call_stops_campaign_without_retry(tmp_path):
+    class UnknownGenerator(FakeGenerator):
+        def propose(self):
+            self.proposed += 1
+            raise OutcomeUnknownError("operation outcome is unknown")
+
+    generator = UnknownGenerator("random")
+    executor = FakeExecutor()
+    state = engine(
+        tmp_path,
+        generator=generator,
+        executor=executor,
+        campaign_protocol=protocol(budget=1, bootstrap=0, attempts=3),
+    ).run()
+
+    assert generator.proposed == 1
+    assert executor.calls == []
+    assert len(state["attempts"]) == 1
+    assert state["counted_executions"] == 0
+    assert state["status"] == "aborted_external_outcome_unknown"
+    assert state["stop_reason"] == "external-outcome-unknown"
+    result = state["attempts"][0]["result"]
+    assert result["status"] == "external-outcome-indeterminate"
+    assert result["cost_accounting"] == "unknown-nonzero-possible"
 
 
 def test_invalid_candidate_identity_is_a_pre_agent_generation_failure(tmp_path):
@@ -586,44 +625,53 @@ def test_real_executor_uses_one_ordered_trusted_pipeline(tmp_path, monkeypatch):
             "schema": "candidate-sanity/1", "valid": True, "checks": []
         },
     )
-    monkeypatch.setattr(
-        loop_module,
-        "compile_case",
-        lambda *args, **kwargs: events.append("compile") or ({"checks": []}, 0.1),
-    )
+    assert not hasattr(loop_module, "compile_case")
 
     def run_agent(case_dir, run_dir, *args):
         events.append("agent")
         run_dir.mkdir(parents=True)
         (run_dir / "cost.json").write_text(
-            json.dumps({"turns": 2, "in": 10, "out": 5, "price_usd": 0.02})
+            json.dumps({"turns": 2, "in": 10, "out": 5, "price_provider_credits": 0.02})
         )
-        manifest = {"agent_started": True, "termination": {"reason": "completed"}}
+        manifest = {
+            "run_id": "agent-real-001",
+            "agent_started": True,
+            "termination": {"reason": "completed"},
+        }
         (run_dir / "run.json").write_text(json.dumps(manifest))
         return 0, "ok", manifest
 
     monkeypatch.setattr(loop_module, "run_agent", run_agent)
-    monkeypatch.setattr(
-        loop_module,
-        "check_run",
-        lambda *args: events.append("checker") or (
-            [{"property_id": "p1", "holds": None, "violated": False}], [], 0
-        ),
-    )
+    checker_inputs = []
+
+    def check_run(*args, **kwargs):
+        events.append("checker")
+        checker_inputs.append(kwargs)
+        return ([{"property_id": "p1", "holds": None, "violated": False}], [], 0)
+
+    monkeypatch.setattr(loop_module, "check_run", check_run)
     executor = RealCampaignExecutor(
         skill="demo", skill_dir=skill_dir, cases_dir=tmp_path / "cases",
         runs_dir=tmp_path / "runs", properties=[{"id": "p1"}],
-        applicability={"property_ids": ["p1"]}, model="same-model",
+        applicability={"property_ids": ["p1"]}, model="glm-4.5-flash",
         wall_clock=5,
     )
 
     result = executor.execute(candidate, "e0000", "e0000-a00")
 
-    assert events == ["runtime", "sanity", "compile", "agent", "checker"]
+    assert events == ["runtime", "sanity", "agent", "checker"]
+    assert checker_inputs == [
+        {
+            "properties": [{"id": "p1"}],
+            "candidate": candidate,
+            "applicability": {"property_ids": ["p1"]},
+        }
+    ]
     assert result["agent_started"] is True
+    assert result["run_id"] == "agent-real-001"
     assert result["oracle_status"] == "inconclusive"
     assert result["inconclusive"] == ["p1"]
-    assert result["run_cost_receipt"]["cost"]["price_usd"] == 0.02
+    assert result["run_cost_receipt"]["cost"]["price_provider_credits"] == 0.02
     assert len(result["run_cost_receipt"]["cost_hash"]) == 64
     assert pathlib.Path(result["case_dir"]).is_dir()
     assert pathlib.Path(result["run_dir"]).name.startswith("e0000-a00-")
@@ -646,8 +694,8 @@ def test_real_executor_rejection_never_calls_later_consumers(tmp_path, monkeypat
     )
     monkeypatch.setattr(
         loop_module,
-        "compile_case",
-        lambda *a, **k: (_ for _ in ()).throw(AssertionError("compile called")),
+        "check_run",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("checker called")),
     )
     monkeypatch.setattr(
         loop_module,
@@ -657,7 +705,7 @@ def test_real_executor_rejection_never_calls_later_consumers(tmp_path, monkeypat
     executor = RealCampaignExecutor(
         skill="demo", skill_dir=tmp_path, cases_dir=tmp_path / "cases",
         runs_dir=tmp_path / "runs", properties=[], applicability={},
-        model="same-model", wall_clock=5,
+        model="glm-4.5-flash", wall_clock=5,
     )
 
     result = executor.execute(candidate, "e0000", "e0000-a00")
@@ -713,7 +761,7 @@ def test_engine_recovers_proven_skillrace_forward_fold_without_reexecuting_agent
     from skillrace.loop import SkillRACEGenerator
 
     class Seed:
-        cost_usd = 0.0
+        cost_provider_credits = 0.0
 
         def snapshot(self):
             return {"schema": "seed/1"}

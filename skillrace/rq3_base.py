@@ -29,6 +29,11 @@ from .io_utils import (
     file_hash,
 )
 from .revise_skill import package_hash, validate_skill_package
+from .model_policy import (
+    DEFAULT_DEVELOPMENT_MODEL,
+    EXPERIMENT_MODELS,
+    require_experiment_model,
+)
 
 
 BASE_GENERATION_SYSTEM = (
@@ -37,13 +42,19 @@ BASE_GENERATION_SYSTEM = (
     "memorizing evaluation cases. Output only the complete SKILL.md."
 )
 BASE_GENERATION_PROMPT_VERSION = "skillrace-rq3-base-generation/1"
-FROZEN_BASE_GENERATION_CONFIG = {
-    "model": "qwen3.6-flash",
+_BASE_GENERATION_CONFIG = {
     "temperature": 0.0,
     "reasoning": True,
     "max_tokens": 4000,
     "prompt_version": BASE_GENERATION_PROMPT_VERSION,
 }
+
+
+def base_generation_config(model: str) -> dict[str, Any]:
+    return {"model": require_experiment_model(model), **_BASE_GENERATION_CONFIG}
+
+
+FROZEN_BASE_GENERATION_CONFIG = base_generation_config(DEFAULT_DEVELOPMENT_MODEL)
 
 
 def _read(path: pathlib.Path, label: str) -> dict[str, Any]:
@@ -79,7 +90,9 @@ def _prompt(scenario_id: str, purpose: str) -> str:
     )
 
 
-def validate_base_generation(base_skill_dir: str | pathlib.Path) -> dict[str, Any]:
+def validate_base_generation(
+    base_skill_dir: str | pathlib.Path, *, expected_model: str | None = None
+) -> dict[str, Any]:
     root = validate_skill_package(base_skill_dir)
     provenance = root / ".skillrace"
     record_path = provenance / "base-generation.json"
@@ -95,8 +108,14 @@ def validate_base_generation(base_skill_dir: str | pathlib.Path) -> dict[str, An
     call_terminal = _read(call_terminal_path, "model-call operation terminal receipt")
     if record.get("schema") != "skillrace-base-generation/2":
         raise ValueError("unsupported base-generation record")
-    if record.get("model_config") != FROZEN_BASE_GENERATION_CONFIG:
+    model_config = record.get("model_config")
+    if not isinstance(model_config, dict):
+        raise ValueError("base-generation model configuration is missing")
+    model = model_config.get("model")
+    if model_config != base_generation_config(model):
         raise ValueError("base-generation model configuration mismatch")
+    if expected_model is not None and model != require_experiment_model(expected_model):
+        raise ValueError("base-generation track model mismatch")
     if (
         record.get("prompt_version") != BASE_GENERATION_PROMPT_VERSION
         or record.get("system_prompt") != BASE_GENERATION_SYSTEM
@@ -118,7 +137,7 @@ def validate_base_generation(base_skill_dir: str | pathlib.Path) -> dict[str, An
         or operation_id != f"rq3.base.{canonical_json_hash(start_identity)}"
     ):
         raise ValueError("base-generation operation identity mismatch")
-    if record.get("provider_model") != FROZEN_BASE_GENERATION_CONFIG["model"]:
+    if record.get("provider_model") != model:
         raise ValueError("base-generation provider model mismatch")
     if record.get("journal_terminal_receipt") != (
         ".skillrace/model-call-terminal.json"
@@ -156,7 +175,7 @@ def validate_base_generation(base_skill_dir: str | pathlib.Path) -> dict[str, An
     for field in ("input_tokens", "output_tokens"):
         if not isinstance(record.get(field), int) or record[field] < 0:
             raise ValueError(f"base-generation {field} is invalid")
-    cost = record.get("cost_usd")
+    cost = record.get("cost_provider_credits")
     if (
         not isinstance(cost, (int, float))
         or isinstance(cost, bool)
@@ -174,24 +193,24 @@ def validate_base_generation(base_skill_dir: str | pathlib.Path) -> dict[str, An
             {"role": "system", "content": BASE_GENERATION_SYSTEM},
             {"role": "user", "content": prompt_path.read_text(encoding="utf-8")},
         ],
-        model=FROZEN_BASE_GENERATION_CONFIG["model"],
-        temperature=FROZEN_BASE_GENERATION_CONFIG["temperature"],
-        max_tokens=FROZEN_BASE_GENERATION_CONFIG["max_tokens"],
-        reasoning=FROZEN_BASE_GENERATION_CONFIG["reasoning"],
+        model=model,
+        temperature=model_config["temperature"],
+        max_tokens=model_config["max_tokens"],
+        reasoning=model_config["reasoning"],
     )
     validated_terminal = validate_terminal_receipt(
         terminal,
-        expected_model=FROZEN_BASE_GENERATION_CONFIG["model"],
+        expected_model=model,
         expected_operation_id=operation_id,
         expected_usage=usage,
-        expected_cost_usd=cost,
+        expected_cost_provider_credits=cost,
         expected_request_identity=expected_request_identity,
         expected_tag="rq3.base-generate",
         expected_skill=record.get("scenario_id"),
     )
     validated_call_terminal = validate_call_terminal_receipt(
         call_terminal,
-        expected_model=FROZEN_BASE_GENERATION_CONFIG["model"],
+        expected_model=model,
         expected_operation_id=operation_id,
         expected_last_retry_ordinal=terminal["retry_ordinal"],
         expected_request_identity=expected_request_identity,
@@ -218,6 +237,7 @@ def generate_base_skill(
     scenario_id: str,
     purpose_path: str | pathlib.Path,
     output_dir: str | pathlib.Path,
+    model: str = DEFAULT_DEVELOPMENT_MODEL,
     chat_fn: Callable[..., Mapping[str, Any]] = chat,
 ) -> dict[str, Any]:
     """Generate once; a start without terminal output is an honest manual-recovery stop."""
@@ -235,6 +255,7 @@ def generate_base_skill(
     output = pathlib.Path(output_dir)
     start_path = output.with_name(f"{output.name}.start.json")
     user_prompt = _prompt(scenario_id, purpose)
+    config = base_generation_config(model)
     start = {
         "schema": "skillrace-base-generation-start/2",
         "scenario_id": scenario_id,
@@ -243,13 +264,13 @@ def generate_base_skill(
             BASE_GENERATION_SYSTEM.encode("utf-8")
         ).hexdigest(),
         "user_prompt_hash": hashlib.sha256(user_prompt.encode("utf-8")).hexdigest(),
-        "model_config": dict(FROZEN_BASE_GENERATION_CONFIG),
+        "model_config": dict(config),
     }
     start["operation_id"] = f"rq3.base.{canonical_json_hash(start)}"
     if output.exists():
         if not start_path.is_file() or _read(start_path, "base-generation start") != start:
             raise ValueError("base-generation start identity mismatch")
-        return validate_base_generation(output)
+        return validate_base_generation(output, expected_model=model)
     if start_path.exists():
         if _read(start_path, "base-generation start") != start:
             raise ValueError("base-generation start identity mismatch")
@@ -260,7 +281,6 @@ def generate_base_skill(
         )
     output.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_json(start_path, start)
-    config = FROZEN_BASE_GENERATION_CONFIG
     messages = [
         {"role": "system", "content": BASE_GENERATION_SYSTEM},
         {"role": "user", "content": user_prompt},
@@ -357,7 +377,7 @@ def generate_base_skill(
             ),
             "input_tokens": usage["prompt_tokens"],
             "output_tokens": usage["completion_tokens"],
-            "cost_usd": response["cost_usd"],
+            "cost_provider_credits": response["cost_provider_credits"],
             "created_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         }
         atomic_write_json(provenance / "base-generation.json", record)
@@ -374,7 +394,7 @@ def generate_base_skill(
         )
         package.rename(output)
         temporary.rmdir()
-        return validate_base_generation(output)
+        return validate_base_generation(output, expected_model=model)
     except BaseException:
         shutil.rmtree(temporary, ignore_errors=True)
         raise
@@ -389,8 +409,10 @@ def build_parser() -> argparse.ArgumentParser:
     generate.add_argument("--scenario-id", required=True)
     generate.add_argument("--purpose", required=True)
     generate.add_argument("--out", required=True)
+    generate.add_argument("--model", choices=EXPERIMENT_MODELS, default=DEFAULT_DEVELOPMENT_MODEL)
     verify = commands.add_parser("verify")
     verify.add_argument("--base-skill", required=True)
+    verify.add_argument("--model", choices=EXPERIMENT_MODELS)
     return parser
 
 
@@ -401,9 +423,10 @@ def main() -> None:
             scenario_id=args.scenario_id,
             purpose_path=args.purpose,
             output_dir=args.out,
+            model=args.model,
         )
     else:
-        record = validate_base_generation(args.base_skill)
+        record = validate_base_generation(args.base_skill, expected_model=args.model)
     print(f"verified base generation {record['generation_id']}")
 
 

@@ -10,10 +10,11 @@ from __future__ import annotations
 import copy
 import json
 import pathlib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from .io_utils import canonical_json_hash
+from .model_policy import AGENT_MODELS, EXPERIMENT_MODELS, REASONING_TRACE_MODELS
 
 
 HEADLINE_METHODS = ("random", "greybox", "skillrace")
@@ -44,14 +45,67 @@ _FIELDS = {
     "seed_generator",
     "greybox_level",
     "random_seed",
+    "repair",
 } | _ROLE_MODEL_FIELDS
 _SEED_FIELDS = {"batch_size", "temperature", "build_retries"}
+_REPAIR_FIELDS = {
+    "enabled", "timeout_seconds", "max_output_tokens", "temperature",
+    "reasoning", "backend_by_method",
+}
+_PATCH_BACKENDS = {"direct", "pi"}
 
 
 def _plain_int(value: Any, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"{field} must be an integer")
     return value
+
+
+@dataclass(frozen=True)
+class RepairPolicy:
+    enabled: bool
+    timeout_seconds: int
+    max_output_tokens: int
+    temperature: float
+    reasoning: bool
+    backend_by_method: dict[str, str]
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "RepairPolicy":
+        if not isinstance(value, dict) or set(value) != _REPAIR_FIELDS:
+            raise ValueError("repair must contain exactly the frozen repair fields")
+        if not isinstance(value["enabled"], bool):
+            raise ValueError("repair.enabled must be boolean")
+        timeout = _plain_int(value["timeout_seconds"], "repair.timeout_seconds")
+        output = _plain_int(value["max_output_tokens"], "repair.max_output_tokens")
+        temperature = value["temperature"]
+        if (
+            not 1 <= timeout <= 600
+            or not 1 <= output <= 65536
+            or isinstance(temperature, bool)
+            or not isinstance(temperature, (int, float))
+            or not 0 <= float(temperature) <= 2
+            or not isinstance(value["reasoning"], bool)
+        ):
+            raise ValueError("repair limits or reasoning configuration are invalid")
+        backends = value["backend_by_method"]
+        if not isinstance(backends, dict) or set(backends) != set(HEADLINE_METHODS):
+            raise ValueError("repair backend_by_method must cover every headline method")
+        if any(backend not in _PATCH_BACKENDS for backend in backends.values()):
+            raise ValueError("repair backend must be direct or pi")
+        return cls(
+            enabled=value["enabled"],
+            timeout_seconds=timeout,
+            max_output_tokens=output,
+            temperature=float(temperature),
+            reasoning=value["reasoning"],
+            backend_by_method=copy.deepcopy(backends),
+        )
+
+    def backend_for(self, method: str) -> str:
+        if method not in HEADLINE_METHODS:
+            raise ValueError(f"unknown repair method: {method}")
+        return self.backend_by_method[method]
 
 
 @dataclass(frozen=True)
@@ -66,6 +120,7 @@ class CampaignProtocol:
     seed_generator: dict[str, Any]
     greybox_level: str
     random_seed: int
+    repair: RepairPolicy
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "CampaignProtocol":
@@ -86,6 +141,18 @@ class CampaignProtocol:
             raise ValueError("status must be draft, frozen, or runtime")
         if not isinstance(model, str) or not model.strip():
             raise ValueError("model must be a nonempty string")
+        if status == "runtime" and model not in AGENT_MODELS:
+            raise ValueError(
+                f"model is not agent-capable through the configured Yunwu API: {model}"
+            )
+        if status == "runtime" and model not in REASONING_TRACE_MODELS:
+            raise ValueError(
+                f"model does not expose the reasoning trace required by SkillRACE: {model}"
+            )
+        if status != "runtime" and model not in EXPERIMENT_MODELS:
+            raise ValueError(
+                f"model is not a selected experiment model for this protocol status: {model}"
+            )
         if any(field in data for field in _ROLE_MODEL_FIELDS):
             raise ValueError(
                 "role-specific model overrides are forbidden; every role must use the same model"
@@ -123,6 +190,7 @@ class CampaignProtocol:
             raise ValueError("seed_generator.temperature must be numeric")
         if batch_size <= 0 or build_retries < 0 or not 0 <= float(temperature) <= 2:
             raise ValueError("invalid seed generator configuration")
+        repair = RepairPolicy.from_dict(data.get("repair"))
 
         return cls(
             raw=copy.deepcopy(data),
@@ -135,11 +203,52 @@ class CampaignProtocol:
             seed_generator=copy.deepcopy(seed_generator),
             greybox_level="L1",
             random_seed=random_seed,
+            repair=repair,
         )
 
     @classmethod
     def load(cls, path: str | pathlib.Path) -> "CampaignProtocol":
         return cls.from_dict(json.loads(pathlib.Path(path).read_text()))
+
+    @classmethod
+    def load_legacy_development_resume(
+        cls, path: str | pathlib.Path
+    ) -> "CampaignProtocol":
+        """Load one pre-repair-policy development protocol without changing its hash.
+
+        This compatibility path exists only to finish already-started, non-headline
+        campaigns. Normal parsing remains strict, and the synthetic disabled repair
+        policy is runtime metadata rather than part of the immutable raw protocol.
+        """
+
+        data = json.loads(pathlib.Path(path).read_text())
+        if (
+            not isinstance(data, dict)
+            or data.get("schema") != "campaign-protocol/1"
+            or data.get("status") != "runtime"
+            or not isinstance(data.get("protocol_id"), str)
+            or not data["protocol_id"].startswith("development-only-")
+            or "repair" in data
+        ):
+            raise ValueError(
+                "legacy development resume requires a repair-less, runtime, "
+                "development-only protocol"
+            )
+        augmented = copy.deepcopy(data)
+        augmented["repair"] = {
+            "enabled": False,
+            "timeout_seconds": 300,
+            "max_output_tokens": 4000,
+            "temperature": 0.0,
+            "reasoning": True,
+            "backend_by_method": {
+                "random": "direct",
+                "greybox": "direct",
+                "skillrace": "pi",
+            },
+        }
+        parsed = cls.from_dict(augmented)
+        return replace(parsed, raw=copy.deepcopy(data))
 
     @property
     def hash(self) -> str:

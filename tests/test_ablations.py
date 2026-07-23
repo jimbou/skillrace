@@ -80,7 +80,7 @@ def test_outcomes_only_guard_prompt_never_receives_opening_reasoning(monkeypatch
                     "disagreements": [],
                 }
             ),
-            "cost_usd": 0.0,
+            "cost_provider_credits": 0.0,
         }
 
     monkeypatch.setattr(guards_module, "chat", fake_chat)
@@ -108,7 +108,7 @@ def test_skillrace_snapshot_records_strategy_and_passes_signal_mode(tmp_path, mo
     observed = []
 
     class Seed:
-        cost_usd = 0.0
+        cost_provider_credits = 0.0
 
         def propose(self):
             return {

@@ -29,6 +29,11 @@ from .io_utils import (
     canonical_json_hash,
     file_hash,
 )
+from .model_policy import (
+    DEFAULT_DEVELOPMENT_MODEL,
+    EXPERIMENT_MODELS,
+    require_experiment_model,
+)
 
 
 REVISE_SYS = (
@@ -41,13 +46,19 @@ REVISE_SYS = (
     "SKILL.md content."
 )
 REVISION_PROMPT_VERSION = "skillrace-rq3-revision/1"
-FROZEN_REVISION_CONFIG = {
-    "model": "qwen3.6-flash",
+_REVISION_CONFIG = {
     "temperature": 0.0,
     "reasoning": True,
     "max_tokens": 4000,
     "prompt_version": REVISION_PROMPT_VERSION,
 }
+
+
+def revision_config(model: str) -> dict[str, Any]:
+    return {"model": require_experiment_model(model), **_REVISION_CONFIG}
+
+
+FROZEN_REVISION_CONFIG = revision_config(DEFAULT_DEVELOPMENT_MODEL)
 REVISION_USER_TEMPLATE = (
     "CURRENT SKILL.md:\n---\n{base_skill}\n---\n\n"
     "METHOD-NEUTRAL TESTING FEEDBACK (canonical JSON):\n"
@@ -138,6 +149,7 @@ def validate_revision_artifact(
     *,
     expected_base_skill_hash: str,
     expected_envelope_hash: str,
+    expected_model: str | None = None,
 ) -> dict[str, Any]:
     """Strictly validate a revision and its copied durable model-call receipt."""
 
@@ -148,8 +160,14 @@ def validate_revision_artifact(
     record = _read_json_object(provenance / "revision.json", "revision record")
     if record.get("schema") != "skillrace-revision/2":
         raise RevisionError("revision record schema mismatch")
-    if record.get("model_config") != FROZEN_REVISION_CONFIG:
+    model_config = record.get("model_config")
+    if not isinstance(model_config, dict):
+        raise RevisionError("revision model configuration is missing")
+    model = model_config.get("model")
+    if model_config != revision_config(model):
         raise RevisionError("revision model configuration mismatch")
+    if expected_model is not None and model != require_experiment_model(expected_model):
+        raise RevisionError("revision track model mismatch")
     if (
         record.get("prompt_version") != REVISION_PROMPT_VERSION
         or record.get("system_prompt") != REVISE_SYS
@@ -191,7 +209,7 @@ def validate_revision_artifact(
     operation_id = f"rq3.revision.{canonical_json_hash(operation_start_identity)}"
     if record.get("operation_id") != operation_id:
         raise RevisionError("revision operation identity mismatch")
-    if record.get("provider_model") != FROZEN_REVISION_CONFIG["model"]:
+    if record.get("provider_model") != model:
         raise RevisionError("revision provider model mismatch")
     if record.get("billing_status") != "known":
         raise RevisionError("revision billing status must be known")
@@ -205,14 +223,14 @@ def validate_revision_artifact(
             raise RevisionError(f"revision {source_field} is invalid")
         usage[target_field] = amount
     usage["total_tokens"] = usage["prompt_tokens"] + usage["completion_tokens"]
-    cost = record.get("cost_usd")
+    cost = record.get("cost_provider_credits")
     if (
         isinstance(cost, bool)
         or not isinstance(cost, (int, float))
         or not math.isfinite(float(cost))
         or cost < 0
     ):
-        raise RevisionError("revision cost_usd is invalid")
+        raise RevisionError("revision cost_provider_credits is invalid")
     package = validate_skill_package(artifact / "skill")
     raw_response = provenance / "raw-response.txt"
     if raw_response.is_symlink() or not raw_response.is_file():
@@ -240,10 +258,10 @@ def validate_revision_artifact(
             {"role": "system", "content": REVISE_SYS},
             {"role": "user", "content": user_prompt},
         ],
-        model=FROZEN_REVISION_CONFIG["model"],
-        temperature=FROZEN_REVISION_CONFIG["temperature"],
-        max_tokens=FROZEN_REVISION_CONFIG["max_tokens"],
-        reasoning=FROZEN_REVISION_CONFIG["reasoning"],
+        model=model,
+        temperature=model_config["temperature"],
+        max_tokens=model_config["max_tokens"],
+        reasoning=model_config["reasoning"],
     )
     journal_skill = record.get("journal_skill")
     if not isinstance(journal_skill, str) or not journal_skill:
@@ -253,10 +271,10 @@ def validate_revision_artifact(
     try:
         validated_terminal = validate_terminal_receipt(
             terminal,
-            expected_model=FROZEN_REVISION_CONFIG["model"],
+            expected_model=model,
             expected_operation_id=operation_id,
             expected_usage=usage,
-            expected_cost_usd=cost,
+            expected_cost_provider_credits=cost,
             expected_request_identity=expected_request_identity,
             expected_tag="rq3.revise",
             expected_skill=journal_skill,
@@ -266,7 +284,7 @@ def validate_revision_artifact(
     try:
         validated_call_terminal = validate_call_terminal_receipt(
             call_terminal,
-            expected_model=FROZEN_REVISION_CONFIG["model"],
+            expected_model=model,
             expected_operation_id=operation_id,
             expected_last_retry_ordinal=terminal["retry_ordinal"],
             expected_request_identity=expected_request_identity,
@@ -290,7 +308,12 @@ def validate_revision_artifact(
     return record
 
 
-def revision_request(base_skill: str, envelope: Mapping[str, Any]) -> dict[str, Any]:
+def revision_request(
+    base_skill: str,
+    envelope: Mapping[str, Any],
+    *,
+    model: str = DEFAULT_DEVELOPMENT_MODEL,
+) -> dict[str, Any]:
     """Build the one frozen request used for every feedback condition."""
 
     validate_feedback_envelope(envelope)
@@ -304,7 +327,7 @@ def revision_request(base_skill: str, envelope: Mapping[str, Any]) -> dict[str, 
         "user": REVISION_USER_TEMPLATE.format(
             base_skill=base_skill, envelope_json=envelope_json
         ),
-        "model_config": dict(FROZEN_REVISION_CONFIG),
+        "model_config": revision_config(model),
     }
 
 
@@ -340,11 +363,41 @@ def _copy_base_package(source: pathlib.Path, destination: pathlib.Path) -> None:
         shutil.copy2(path, target)
 
 
+def copy_base_skill_package(
+    source: str | pathlib.Path, destination: str | pathlib.Path
+) -> pathlib.Path:
+    """Copy the revision-safe portion of a validated skill package."""
+
+    validated = validate_skill_package(source)
+    target = pathlib.Path(destination)
+    if target.exists() or target.is_symlink():
+        raise FileExistsError(target)
+    _copy_base_package(validated, target)
+    return validate_skill_package(target)
+
+
+def normalize_revised_skill(raw: str) -> str:
+    """Normalize one model-produced complete SKILL.md response."""
+
+    text = _strip_markdown_fence(raw)
+    if text.startswith("<current-skill>\n"):
+        text = text[len("<current-skill>\n") :]
+    if text.endswith("</current-skill>\n"):
+        text = text[: -len("</current-skill>\n")]
+    if text.startswith("---\n---\n") and text.endswith("---\n"):
+        # Some models treat prompt separator rules as an outer document wrapper.
+        # Remove exactly that unambiguous empty-frontmatter/trailing-rule pair while
+        # retaining the skill's real YAML frontmatter.
+        text = text[len("---\n") : -len("---\n")]
+    return text
+
+
 def revise_skill_package(
     skill_dir: str | pathlib.Path,
     envelope: Mapping[str, Any],
     output_dir: str | pathlib.Path,
     *,
+    model: str = DEFAULT_DEVELOPMENT_MODEL,
     chat_fn: Callable[..., Mapping[str, Any]] = chat,
 ) -> dict[str, Any]:
     """Make exactly one frozen-model revision and write complete provenance."""
@@ -360,7 +413,7 @@ def revise_skill_package(
         )
     output.parent.mkdir(parents=True, exist_ok=True)
     current = (source / "SKILL.md").read_text(encoding="utf-8")
-    request = revision_request(current, envelope)
+    request = revision_request(current, envelope, model=model)
     config = request["model_config"]
     durable_start_identity = {
         "schema": "skillrace-revision-start/1",
@@ -482,7 +535,7 @@ def revise_skill_package(
             "revised_package_hash": package_hash(package),
             "input_tokens": usage["prompt_tokens"],
             "output_tokens": usage["completion_tokens"],
-            "cost_usd": response["cost_usd"],
+            "cost_provider_credits": response["cost_provider_credits"],
             "created_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         }
         atomic_write_json(provenance / "revision.json", record)
@@ -509,12 +562,13 @@ def main() -> None:
     parser.add_argument("--skill-dir", required=True)
     parser.add_argument("--envelope", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--model", choices=EXPERIMENT_MODELS, default=DEFAULT_DEVELOPMENT_MODEL)
     args = parser.parse_args()
     envelope = json.loads(pathlib.Path(args.envelope).read_text(encoding="utf-8"))
-    record = revise_skill_package(args.skill_dir, envelope, args.out)
+    record = revise_skill_package(args.skill_dir, envelope, args.out, model=args.model)
     print(
         f"revised SKILL.md -> {pathlib.Path(args.out) / record['skill_package'] / 'SKILL.md'} "
-        f"(${record['cost_usd']:.4f})"
+        f"(⚡{record['cost_provider_credits']:.4f})"
     )
 
 

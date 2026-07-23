@@ -10,7 +10,7 @@ import skillrace.check_properties as checker
 import skillrace.compile_checks as compiler
 
 
-BASE_IMAGE = "skillrace/skillgen-base:latest"
+BASE_IMAGE = "skillrace/skillgen-base:0.73.1-construction"
 
 
 def _docker_available() -> bool:
@@ -27,14 +27,25 @@ def test_check_container_command_is_networkless_and_resource_bounded():
     assert "--cap-drop=ALL" in command
     assert "--security-opt=no-new-privileges" in command
     assert "--pids-limit=256" in command
-    assert command[-2:] == ["sleep", "300"]
+    assert command[command.index("--entrypoint") + 1] == "/bin/sleep"
+    assert command[-1] == "300"
 
 
 @pytest.mark.skipif(not _docker_available(), reason="Docker D1 base image unavailable")
 def test_each_check_gets_a_fresh_snapshot_and_cannot_contaminate_the_next(tmp_path):
     origin = f"skillrace-check-origin-{uuid.uuid4().hex[:10]}"
     subprocess.run(
-        ["docker", "run", "-d", "--name", origin, BASE_IMAGE, "sleep", "300"],
+        [
+            "docker",
+            "run",
+            "-d",
+            "--name",
+            origin,
+            "--entrypoint",
+            "/bin/sleep",
+            BASE_IMAGE,
+            "300",
+        ],
         check=True,
         capture_output=True,
     )
@@ -45,10 +56,15 @@ def test_each_check_gets_a_fresh_snapshot_and_cannot_contaminate_the_next(tmp_pa
         mutator.write_text(
             "#!/usr/bin/env bash\ntouch /workspace/check-contamination\nexit 0\n"
         )
+        # Crash-safe atomic writes intentionally produce owner-only files. Docker
+        # preserves the host UID on copy; a capability-dropped container root then
+        # cannot read a UID-1000 mode-0600 script.
+        mutator.chmod(0o600)
         observer = tmp_path / "observer.sh"
         observer.write_text(
             "#!/usr/bin/env bash\ntest ! -e /workspace/check-contamination\n"
         )
+        observer.chmod(0o600)
 
         assert checker.run_script_isolated(mutator, snapshot, timeout_seconds=5)[0]
         assert checker.run_script_isolated(observer, snapshot, timeout_seconds=5)[0]
@@ -101,6 +117,34 @@ def test_hung_check_is_inconclusive_and_child_is_removed(tmp_path):
             subprocess.run(["docker", "rmi", "-f", snapshot], capture_output=True)
 
 
+@pytest.mark.skipif(not _docker_available(), reason="Docker D1 base image unavailable")
+def test_python_checker_exit_codes_map_to_three_state_verdicts(tmp_path):
+    origin = f"skillrace-check-origin-{uuid.uuid4().hex[:10]}"
+    subprocess.run(
+        ["docker", "run", "-d", "--name", origin, BASE_IMAGE, "sleep", "300"],
+        check=True,
+        capture_output=True,
+    )
+    snapshot = None
+    try:
+        snapshot = checker.snapshot_container_for_checks(origin)
+        expected = {0: True, 1: False, 2: None}
+        for exit_code, holds_expected in expected.items():
+            script = tmp_path / f"exit-{exit_code}.py"
+            script.write_text(
+                f"import sys\nprint('exit {exit_code}')\nsys.exit({exit_code})\n"
+            )
+            holds, detail = checker.run_script_isolated(
+                script, snapshot, timeout_seconds=5
+            )
+            assert holds is holds_expected
+            assert f"exit={exit_code}" in detail
+    finally:
+        subprocess.run(["docker", "rm", "-f", origin], capture_output=True)
+        if snapshot:
+            subprocess.run(["docker", "rmi", "-f", snapshot], capture_output=True)
+
+
 @pytest.mark.parametrize(
     ("script", "message"),
     [
@@ -134,7 +178,7 @@ PY
     )
 
 
-def test_compile_case_repairs_policy_failure_and_writes_script_atomically(
+def test_compile_case_retries_policy_failure_once_then_rejects_no_oracle(
     tmp_path, monkeypatch
 ):
     case = tmp_path / "case"
@@ -152,27 +196,37 @@ def test_compile_case_repairs_policy_failure_and_writes_script_atomically(
     monkeypatch.setattr(
         compiler, "probe_initial_env", lambda _image: (["bash", "python3"], [])
     )
-    responses = iter(
-        [
-            ("#!/usr/bin/env bash\ngrep edit /check/trace.jsonl\n", 0.1),
-            (
-                "#!/usr/bin/env bash\npython3 - <<'PY'\n"
-                "import json\n"
-                "for line in open('/check/trace.jsonl'):\n"
-                "    blocks = json.loads(line).get('message', {}).get('content', [])\n"
-                "    calls = [b for b in blocks if b.get('type') == 'toolCall']\n"
-                "PY\n",
-                0.2,
-            ),
-        ]
-    )
-    repairs = []
+    author_calls = []
 
-    def fake_author(*_args, fix=None, **_kwargs):
-        repairs.append(fix)
-        return next(responses)
+    def fake_author(*_args, **_kwargs):
+        author_calls.append(True)
+        return "#!/usr/bin/env bash\ngrep edit /check/trace.jsonl\n", 0.1
 
     monkeypatch.setattr(compiler, "author_check", fake_author)
+    monkeypatch.setattr(
+        compiler,
+        "audit_checks",
+        lambda **_kwargs: (
+            [
+                {
+                    "property_id": "p1",
+                    "decision": "accept",
+                    "reason": "supported",
+                }
+            ],
+            0.0,
+            {
+                "operation_id": "offline-audit",
+                "model": "model",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_tokens": 0,
+                "cost_provider_credits": 0.0,
+                "terminal_receipt_sha256": "a" * 64,
+                "call_terminal_receipt_sha256": "b" * 64,
+            },
+        ),
+    )
     writes = []
     real_atomic = compiler.atomic_write_text
 
@@ -181,16 +235,54 @@ def test_compile_case_repairs_policy_failure_and_writes_script_atomically(
         real_atomic(path, text)
 
     monkeypatch.setattr(compiler, "atomic_write_text", recording_atomic)
-    manifest, cost = compiler.compile_case(
-        case,
-        [{"id": "p1", "reads": "trace", "nl": "inspect real tool calls"}],
-        "model",
-        image="candidate:built",
+    with pytest.raises(RuntimeError, match="no usable property checkers"):
+        compiler.compile_case(
+            case,
+            [{"id": "p1", "reads": "trace", "nl": "inspect real tool calls"}],
+            "model",
+            image="candidate:built",
+        )
+
+    assert author_calls == [True, True]
+    assert writes == [case / "checks" / "p1.sh", case / "checks" / "p1.sh"]
+def test_legacy_bash_heredoc_warning_is_not_valid_syntax(tmp_path):
+    script = tmp_path / "broken.sh"
+    script.write_text(
+        "#!/usr/bin/env bash\npython3 <<'EOF'\nprint('ok')\nEOF extra\n"
     )
 
-    assert repairs[0] is None
-    assert "structurally parse" in repairs[1][1]
-    assert cost == pytest.approx(0.3)
-    assert writes == [case / "checks" / "p1.sh", case / "checks" / "p1.sh"]
-    assert manifest["checks"][0]["policy_ok"] is True
-    assert manifest["execution_policy"] == compiler.CHECK_EXECUTION_POLICY
+    valid, error = checker._syntax_ok(script)
+
+    assert valid is False
+    assert "here-document" in error
+
+
+def test_change_scoped_property_requires_workspace_diff_evidence():
+    script = "#!/usr/bin/env bash\ngrep -q waitFor /workspace/api.test.js\n"
+    property_text = (
+        "Every synchronization wait introduced or changed for the task observes "
+        "the actual fresh condition."
+    )
+
+    assert compiler.validate_script_policy(
+        script, tools=["bash", "grep"], reads="state", property_nl=property_text
+    ) == (False, "change-scoped property must inspect /check/workspace.diff")
+
+    with_diff = script + "grep -q waitFor /check/workspace.diff\n"
+    assert compiler.validate_script_policy(
+        with_diff,
+        tools=["bash", "grep"],
+        reads="state",
+        property_nl=property_text,
+    ) == (True, "")
+
+
+def test_final_state_property_word_changed_does_not_require_diff():
+    script = "#!/usr/bin/env bash\ntest -f /workspace/output.csv\n"
+    property_text = (
+        "Columns and row ordering are preserved or changed only as requested."
+    )
+
+    assert compiler.validate_script_policy(
+        script, tools=["bash", "test"], reads="state", property_nl=property_text
+    ) == (True, "")

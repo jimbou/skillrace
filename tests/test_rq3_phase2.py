@@ -55,13 +55,13 @@ def _write_campaign(path, method, protocol_hash, base_hash):
             "bootstrap": 0 if method == "random" else 10,
             "exploration": 30 if method == "random" else 20,
         },
-        "model": "qwen3.6-flash",
-        "agent_model": "qwen3.6-flash",
+        "model": "glm-4.5-flash",
+        "agent_model": "glm-4.5-flash",
         "complete": True,
         "attempts": attempts,
         "iterations": attempts,
         "totals": {"runs": 30, "attempts": 30},
-        "costs": {"total_usd": 1.25},
+        "costs": {"total_provider_credits": 1.25},
         "generator_state": {},
     }
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -85,7 +85,7 @@ def test_phase2_projects_and_resumes_three_blind_revisions(tmp_path):
         )
         assert link["artifact_hash"] == canonical_json_hash(campaign)
         assert link["counted_executions"] == 30
-        assert link["cost_usd"] == 1.25
+        assert link["cost_provider_credits"] == 1.25
 
     feedback_paths, envelope_records, campaign_records = project_feedback_set(
         campaign_paths=campaign_paths,
@@ -110,8 +110,8 @@ def test_phase2_projects_and_resumes_three_blind_revisions(tmp_path):
             "content": f"# Revised skill {len(calls)}\n",
             "id": f"fixture-revision-{len(calls)}",
             "usage": {"prompt_tokens": 20, "completion_tokens": 4},
-            "cost_usd": 0.02,
-            "model": "qwen3.6-flash",
+            "cost_provider_credits": 0.02,
+            "model": "glm-4.5-flash",
         }
 
     revision_records, skill_paths = revise_feedback_set(
@@ -131,7 +131,7 @@ def test_phase2_projects_and_resumes_three_blind_revisions(tmp_path):
     ]
     assert common_settings[0] == common_settings[1] == common_settings[2]
     assert len({settings["operation_id"] for _, settings in calls}) == 3
-    assert all(record["model_config"]["model"] == "qwen3.6-flash" for record in revision_records.values())
+    assert all(record["model_config"]["model"] == "glm-4.5-flash" for record in revision_records.values())
 
     calls.clear()
     resumed_records, resumed_skills = revise_feedback_set(

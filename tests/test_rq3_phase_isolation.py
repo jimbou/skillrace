@@ -20,9 +20,12 @@ from skillrace.rq3_pipeline import (
     _campaign_launch,
     _default_confirmation_executor,
     _default_campaign_runner,
+    _default_repair_job_runner,
     _run_revision_phase,
     run_rq3_scenario,
 )
+from skillrace.repair_validation import FailureRepairRequest
+from skillrace.revise_skill import package_hash
 from skillrace.rq3_confirmation import ConfirmationRequest
 from skillrace.rq3 import ManifestMismatchError
 from skillrace.closeai import chat
@@ -119,6 +122,54 @@ def test_revision_subprocess_cannot_read_absolute_hidden_test_path(tmp_path):
     assert process.returncode == 0, process.stdout + process.stderr
     assert launch.record["role"] == "revision"
     assert hidden.read_text(encoding="utf-8") == "hidden revision sentinel"
+
+
+def test_repair_role_mounts_only_original_skill_case_evidence_and_output(tmp_path):
+    public = tmp_path / "artifact" / "public"
+    skill = public / "original-skill"
+    case = public / "saved-case"
+    evidence = public / "failure-evidence"
+    output = tmp_path / "artifact" / "repairs" / "repair-1"
+    hidden = tmp_path / "scenarios" / "demo" / "tests"
+    for path in (skill, case, evidence, output, hidden):
+        path.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("# Original\n", encoding="utf-8")
+    (case / "candidate.json").write_text("{}\n", encoding="utf-8")
+    (evidence / "evidence.json").write_text("{}\n", encoding="utf-8")
+
+    launch = build_phase1_confinement(
+        inner_argv=[sys.executable, "-c", "raise SystemExit(0)"],
+        cwd=skill,
+        public_roots=(skill, case, evidence),
+        output_root=output,
+        ledger_path=output / "provider-ledger" / "cost.jsonl",
+        environ={},
+        require_docker=False,
+        role="repair",
+    )
+
+    mounts = launch.record["filesystem"]["mounts"]
+    public_sources = {
+        row["source"] for row in mounts if row["purpose"] == "public-input"
+    }
+    assert launch.record["role"] == "repair"
+    assert public_sources == {
+        str(skill.resolve()),
+        str(case.resolve()),
+        str(evidence.resolve()),
+    }
+    assert str(hidden.resolve()) not in json.dumps(launch.record)
+    assert [
+        row for row in mounts if row["mode"] == "rw" and row["kind"] == "directory"
+    ] == [
+        {
+            "source": str(output.resolve()),
+            "target": str(output.resolve()),
+            "mode": "rw",
+            "purpose": "repair-output-and-ledger",
+            "kind": "directory",
+        }
+    ]
 
 
 def test_revision_ignores_docker_config_that_would_mount_hidden_directory(tmp_path):
@@ -269,7 +320,7 @@ ledger_probe.write_text("durable", encoding="utf-8")
             str(ledger_probe),
         ],
         environ={
-            "CLOSE_API_KEY": "do-not-record-me",
+            "yunwu_key": "do-not-record-me",
             "HTTP_PROXY": "http://127.0.0.1:9",
             "HOSTILE_UNRELATED_SECRET": "must-not-cross",
         },
@@ -292,10 +343,11 @@ ledger_probe.write_text("durable", encoding="utf-8")
     assert result["ledger"] == str(
         output / "provider-ledger" / "cost.jsonl"
     )
-    assert "CLOSE_API_KEY" in result["environment_names"]
+    assert "yunwu_key" in result["environment_names"]
     assert "HTTP_PROXY" in result["environment_names"]
     assert "HOSTILE_UNRELATED_SECRET" not in result["environment_names"]
     assert "do-not-record-me" not in json.dumps(launch.record)
+    assert launch.record["environment"]["secret_names"] == ["yunwu_key"]
 
 
 def test_phase1_confinement_record_is_self_authenticating_and_tamper_evident(tmp_path):
@@ -374,9 +426,9 @@ def test_production_campaign_launch_records_and_executes_exact_confinement(
     protocol_hash = canonical_json_hash(
         {
             "schema": "campaign-protocol/1",
-            "protocol_id": "skillrace-issta-main-v1",
+            "protocol_id": "skillrace-issta-main-glm-4.5-flash-v1",
             "status": "frozen",
-            "model": "qwen3.6-flash",
+            "model": "glm-4.5-flash",
             "budget": 30,
             "bootstrap_count": 10,
             "max_generation_attempts_per_execution": 5,
@@ -413,6 +465,7 @@ def test_production_campaign_launch_records_and_executes_exact_confinement(
             base_hash=base_hash,
             base_package_hash="b" * 64,
             public_stage_hash="c" * 64,
+            protocol_hash=request.protocol_hash,
         )
         return subprocess.CompletedProcess(launch.command, 0, "", "")
 
@@ -485,6 +538,7 @@ def test_production_revision_route_is_a_confined_child_not_an_in_process_call(
             feedback_paths=feedback_paths,
             output_dir=revisions,
             revision_chat=chat,
+            model="glm-4.5-flash",
         )
 
     assert len(observed) == 1
@@ -540,7 +594,7 @@ def test_production_confirmation_route_is_a_confined_child(tmp_path, monkeypatch
             request,
             campaign_root=campaign,
             skill_dir=skill,
-            model="qwen3.6-flash",
+            model="glm-4.5-flash",
             wall_clock=120,
         )
 
@@ -550,3 +604,63 @@ def test_production_confirmation_route_is_a_confined_child(tmp_path, monkeypatch
         (run_dir / "rq3-confirmation-launch.json").read_text(encoding="utf-8")
     )
     assert saved["confinement"] == observed[0].record
+
+
+def test_production_repair_route_is_one_confined_child_per_failed_execution(
+    tmp_path, monkeypatch
+):
+    skill = tmp_path / "artifact" / "public-stage" / "base-skill"
+    case = tmp_path / "artifact" / "campaigns" / "skillrace" / "cases" / "case-1"
+    run = tmp_path / "artifact" / "campaigns" / "skillrace" / "runs" / "run-1"
+    output = tmp_path / "artifact" / "repairs" / "skillrace" / ("a" * 24)
+    hidden = tmp_path / "scenarios" / "demo" / "tests" / "secret.txt"
+    for path in (skill, case, run, output, hidden.parent):
+        path.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("# Original\n", encoding="utf-8")
+    hidden.write_text("never visible", encoding="utf-8")
+    request = FailureRepairRequest(
+        method="skillrace",
+        skill_name="demo",
+        execution_id="e0001",
+        attempt_id="e0001-a00",
+        candidate_id="case-1",
+        case_dir=case,
+        original_skill_dir=skill,
+        original_skill_hash=package_hash(skill),
+        failed_property_ids=("behavior",),
+        failure_signatures=("b" * 64,),
+        run_dir=run,
+        output_dir=output,
+        repair_id="a" * 24,
+    )
+    evidence = {
+        "repair_id": request.repair_id,
+        "evidence_hash": "c" * 64,
+    }
+    (output / "evidence.json").write_text(json.dumps(evidence), encoding="utf-8")
+    observed = []
+
+    def fake_execute(launch):
+        observed.append(launch)
+        return subprocess.CompletedProcess(launch.command, 75, "", "repair stopped")
+
+    monkeypatch.setattr("skillrace.rq3_pipeline._execute_phase1_confinement", fake_execute)
+    with pytest.raises(RuntimeError, match="repair stopped"):
+        _default_repair_job_runner(
+            request,
+            evidence,
+            model="glm-4.5-flash",
+            wall_clock=120,
+        )
+
+    assert len(observed) == 1
+    assert observed[0].record["role"] == "repair"
+    public_sources = {
+        row["source"]
+        for row in observed[0].record["filesystem"]["mounts"]
+        if row["purpose"] == "public-input"
+    }
+    assert public_sources == {str(skill.resolve()), str(case.resolve())}
+    assert str(hidden.resolve()) not in json.dumps(observed[0].record)
+    launch = json.loads((output / "rq3-repair-launch.json").read_text())
+    assert launch["confinement"] == observed[0].record

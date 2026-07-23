@@ -1,0 +1,35 @@
+#0 building with "default" instance using docker driver
+
+#1 [1/4] FROM docker.io/skillrace/skillgen-base:0.73.1-construction
+#1 CACHED
+
+#2 [internal] load build definition from Containerfile.base
+#2 transferring dockerfile: 294B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/skillrace/skillgen-base:0.73.1-construction
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 120B done
+#5 DONE 0.0s
+
+#6 [2/4] COPY repo/ /workspace/
+#6 DONE 0.0s
+
+#7 [3/4] COPY SKILL.md log_parser.py /skills/log-parser/
+#7 DONE 0.0s
+
+#8 [4/4] RUN cd /workspace && git add -A && git commit -q -m "base: log-parser" || true
+#8 DONE 0.1s
+
+#9 exporting to image
+#9 exporting layers 0.0s done
+#9 writing image sha256:f5de5953fb8383ea8cdfb0ad9b55d3fbf665d45afaf937e508ea6936a36ffffe done
+#9 naming to docker.io/skillrace/log-parser:base-construction-0.73.1 done
+#9 naming to docker.io/skillrace/log-parser:base done
+#9 DONE 0.0s

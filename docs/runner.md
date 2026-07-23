@@ -19,14 +19,14 @@ Implementation: `skillrace/run_case.py`. (Design rationale for the Runner role:
 ```bash
 python -m skillrace.run_case --case out/<skill>-gen/cases/case2 \
     --skill-dir skills/<skill> \
-    --model qwen3.6-flash --out runs/<skill>-case2
+    --model glm-4.5-flash --out runs/<skill>-case2
 ```
 
 | Input | Meaning |
 |-------|---------|
 | `--case` | a case dir from the generator (`Dockerfile` + `candidate.json`) |
 | `--skill-dir` | trusted host skill directory, mounted read-only at `/trusted-skill` |
-| `--model` | the **agent-under-test** model (default `qwen3.6-flash`) |
+| `--model` | the **agent-under-test** model (default `glm-4.5-flash`) |
 | `--out` | the run directory to write |
 | `--wall-clock` | timeout (seconds) before the container is killed |
 
@@ -60,7 +60,7 @@ exact container (most faithful), then destroys it. There is **no `docker commit`
 
    ```text
    cd /workspace && git add -A && git commit -q -m "skillrace: pre-agent baseline" || true;
-   pi --provider closeai --model «MODEL» --print \
+   pi --provider yunwu --model «MODEL» --print \
       --session /logs/session.jsonl --skill /skills/«SKILL» "$PI_PROMPT" </dev/null;
    cd /workspace && git add -A && git diff --cached HEAD > /logs/workspace.diff
    ```
@@ -87,7 +87,7 @@ exact container (most faithful), then destroys it. There is **no `docker commit`
 
 The agent-under-test run logs to the permanent ledger
 (`~/.skillrace/cost_ledger.jsonl`) with tag `run.agent`
-(`{ts, tag, skill, model, in, out, price_usd}`); the same totals are in `cost.json`.
+(`{ts, tag, skill, model, in, out, price_provider_credits}`); the same totals are in `cost.json`.
 
 ---
 
